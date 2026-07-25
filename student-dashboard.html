@@ -20,6 +20,40 @@
   .quiz-result-banner .score { font-size: 40px; font-weight: 800; color: var(--current-accent); }
   .att-summary { display:flex; gap:14px; margin-bottom:18px; flex-wrap:wrap; }
   .att-pill { padding:8px 16px; border-radius:20px; font-weight:700; font-size:12.5px; }
+
+  /* Milestones */
+  .points-hero { display:flex; align-items:center; justify-content:space-between; gap:16px; background: linear-gradient(135deg, var(--current-accent), var(--sky-accent)); border-radius: var(--radius-lg); padding:24px 28px; color:#fff; margin-bottom:22px; flex-wrap:wrap; }
+  .points-hero .big { font-size:36px; font-weight:800; line-height:1; }
+  .points-hero .label { font-size:12px; opacity:.9; font-weight:700; text-transform:uppercase; letter-spacing:.03em; margin-top:4px; }
+  .points-hero .badge-chip { display:flex; align-items:center; gap:8px; background:rgba(255,255,255,.18); padding:8px 16px; border-radius:20px; font-weight:800; font-size:13px; }
+  .ms-card { border:1px solid var(--panel-border); border-radius: var(--radius); padding:16px 18px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; gap:14px; flex-wrap:wrap; }
+  .ms-card .pts-badge { background: var(--current-accent); color:#fff; font-weight:800; font-size:12px; padding:6px 14px; border-radius:20px; white-space:nowrap; }
+  .ms-done-btn { background: var(--success); color:#fff; border:none; padding:9px 18px; border-radius:10px; font-weight:700; font-size:12.5px; cursor:pointer; display:flex; align-items:center; gap:6px; }
+  .ms-done-btn:hover { transform: translateY(-1px); }
+  .ms-complete-tag { display:flex; align-items:center; gap:6px; color: var(--success); font-weight:800; font-size:12.5px; }
+  .leader-row { display:flex; align-items:center; gap:14px; padding:12px 16px; border:1px solid var(--panel-border); border-radius: var(--radius-sm); margin-bottom:8px; }
+  .leader-row.me { border-color: var(--current-accent); background: var(--student-bg); }
+  .leader-rank { width:28px; height:28px; border-radius:50%; background:var(--bg-main); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:12.5px; flex-shrink:0; }
+  .leader-rank.top1 { background:#fef3e2; color:#f0a93a; }
+  .leader-rank.top2 { background:#f1f5f9; color:#64748b; }
+  .leader-rank.top3 { background:#fdf0e6; color:#b45309; }
+  .leader-badge { display:flex; align-items:center; gap:6px; font-size:11px; font-weight:800; padding:4px 10px; border-radius:20px; }
+
+  /* Q&A */
+  .qna-form textarea { width:100%; min-height:80px; padding:12px 14px; border:1.5px solid var(--panel-border); border-radius:10px; background:var(--bg-main); font-size:13.5px; margin-bottom:10px; }
+  .qna-card { border:1px solid var(--panel-border); border-radius: var(--radius); padding:16px 18px; margin-bottom:12px; }
+  .qna-answer-box { background: var(--bg-main); border-radius: var(--radius-sm); padding: 12px 14px; font-size:13px; margin-top:10px; }
+
+  /* ID card */
+  .idcard-hero { max-width:420px; margin: 0 auto; border-radius: var(--radius-lg); padding: 28px; background: linear-gradient(135deg, var(--current-accent), var(--sky-accent)); color:#fff; box-shadow: var(--shadow-lg); position:relative; overflow:hidden; }
+  .idcard-hero::after { content:""; position:absolute; width:220px; height:220px; border-radius:50%; background:rgba(255,255,255,.12); top:-80px; right:-80px; }
+  .idcard-hero .idc-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:22px; }
+  .idcard-hero .idc-avatar { width:64px; height:64px; border-radius:16px; background:rgba(255,255,255,.2); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:24px; }
+  .idcard-hero .idc-no { font-family: monospace; font-weight:800; letter-spacing:.03em; background:rgba(255,255,255,.18); padding:6px 12px; border-radius:8px; font-size:12.5px; }
+  .idcard-hero h3 { font-size:20px; font-weight:800; }
+  .idcard-hero p { font-size:12.5px; opacity:.9; margin-top:2px; }
+  .idc-row { display:flex; justify-content:space-between; padding:8px 0; border-top:1px solid rgba(255,255,255,.25); font-size:12.5px; }
+  .login-row { display:flex; justify-content:space-between; gap:10px; padding:9px 14px; border-bottom:1px solid var(--panel-border); font-size:12.5px; }
 </style>
 </head>
 <body class="divedu">
@@ -50,6 +84,8 @@
   <button class="d-tab" onclick="switchTab('results', this)"><i class="fa-solid fa-chart-simple"></i> My Results</button>
   <button class="d-tab" onclick="switchTab('attendance', this)"><i class="fa-solid fa-user-check"></i> Attendance</button>
   <button class="d-tab" onclick="switchTab('materials', this)"><i class="fa-solid fa-book"></i> Materials</button>
+  <button class="d-tab" onclick="switchTab('qna', this)"><i class="fa-solid fa-user-secret"></i> Ask a Question</button>
+  <button class="d-tab" onclick="switchTab('idcard', this)"><i class="fa-solid fa-id-card"></i> My ID Card</button>
 </nav>
 
 <div class="d-container">
@@ -68,6 +104,7 @@
       <div class="stat-tile"><div class="icon"><i class="fa-solid fa-trophy"></i></div><div><div class="num" id="ovAvgScore">—</div><div class="label">Average quiz score</div></div></div>
       <div class="stat-tile"><div class="icon"><i class="fa-solid fa-calendar-check"></i></div><div><div class="num" id="ovAttendance">—</div><div class="label">Attendance rate</div></div></div>
       <div class="stat-tile"><div class="icon"><i class="fa-solid fa-book"></i></div><div><div class="num" id="ovMaterials">—</div><div class="label">Materials published</div></div></div>
+      <div class="stat-tile"><div class="icon"><i class="fa-solid fa-flag-checkered"></i></div><div><div class="num" id="ovPoints">—</div><div class="label">Milestone points earned</div></div></div>
     </div>
 
     <div style="margin-top:24px;">
@@ -77,9 +114,27 @@
     </div>
   </section>
 
-  <!-- MILESTONES (kris.html embedded) -->
-  <section id="tab-milestones" class="d-card hidden" style="padding:0; overflow:hidden;">
-    <iframe class="embed-frame" src="kris.html" title="Milestones"></iframe>
+  <!-- MILESTONES & POINTS -->
+  <section id="tab-milestones" class="d-card hidden">
+    <div class="points-hero">
+      <div>
+        <div class="big" id="myTotalPoints">0</div>
+        <div class="label">Total points earned</div>
+      </div>
+      <div class="badge-chip"><i class="fa-solid fa-award" id="myBadgeIcon"></i> <span id="myBadgeLabel">Newcomer</span></div>
+    </div>
+
+    <div class="d-section-head">
+      <div><h2>Today's Milestones</h2><p>Bite-sized tasks your teachers add — complete one to bank the points instantly.</p></div>
+    </div>
+    <div id="msFeed"></div>
+    <div class="empty-state hidden" id="msFeedEmpty">No milestones posted yet — check back soon!</div>
+
+    <div style="margin-top:30px; padding-top:22px; border-top:1.5px dashed var(--panel-border);">
+      <h3 style="font-size:15px; margin-bottom:14px;"><i class="fa-solid fa-ranking-star"></i> Class Leaderboard</h3>
+      <div id="msLeaderboard"></div>
+      <div class="empty-state hidden" id="msLeaderboardEmpty">Be the first to complete a milestone!</div>
+    </div>
   </section>
 
   <!-- AI STUDY DESK (h.html embedded) -->
@@ -150,6 +205,50 @@
     <div class="empty-state hidden" id="hwEmpty">No homework assigned yet.</div>
   </section>
 
+  <!-- ANONYMOUS Q&A -->
+  <section id="tab-qna" class="d-card hidden">
+    <div class="d-section-head">
+      <div><h2>Ask a Question, Anonymously</h2><p>Your name is never shown to your teacher — ask anything without hesitation.</p></div>
+      <span class="badge-pill"><i class="fa-solid fa-shield-halved"></i> Identity hidden from teacher</span>
+    </div>
+    <form id="qnaForm" class="qna-form">
+      <div class="d-grid-2" style="margin-bottom:10px;">
+        <div class="d-field" style="margin-bottom:0;"><label>Subject</label>
+          <select id="qnaSubject"><option>Science</option><option>Maths</option><option>Opt Maths</option><option>Computer</option><option>General</option></select>
+        </div>
+      </div>
+      <textarea id="qnaText" placeholder="Type your question here — no one will know it's you..." required></textarea>
+      <button class="btn-primary" type="submit"><i class="fa-solid fa-paper-plane"></i> Submit Anonymously</button>
+    </form>
+    <div style="margin-top:26px; padding-top:20px; border-top:1.5px dashed var(--panel-border);">
+      <h3 style="font-size:15px; margin-bottom:14px;">My questions</h3>
+      <div id="myQuestionsList"></div>
+      <div class="empty-state hidden" id="myQuestionsEmpty">You haven't asked anything yet.</div>
+    </div>
+  </section>
+
+  <!-- MY ID CARD -->
+  <section id="tab-idcard" class="d-card hidden">
+    <div class="d-section-head"><div><h2>My ID Card</h2><p>Your permanent record on DIVEDU.</p></div></div>
+    <div class="idcard-hero">
+      <div class="idc-top">
+        <div class="idc-avatar" id="idcAvatar">S</div>
+        <span class="idc-no" data-user-idcard>—</span>
+      </div>
+      <h3 data-user-name>Student</h3>
+      <p id="idcEmail">—</p>
+      <div class="idc-row"><span>Role</span><span data-user-role>STUDENT</span></div>
+      <div class="idc-row"><span>Member since</span><span id="idcJoined">—</span></div>
+      <div class="idc-row"><span>Total points</span><span id="idcPoints">0</span></div>
+    </div>
+
+    <div style="margin-top:28px; padding-top:20px; border-top:1.5px dashed var(--panel-border);">
+      <h3 style="font-size:15px; margin-bottom:14px;">My sign-in history</h3>
+      <div id="myLoginHistory" style="border:1px solid var(--panel-border); border-radius: var(--radius); overflow:hidden;"></div>
+      <div class="empty-state hidden" id="myLoginHistoryEmpty">No sign-ins recorded yet.</div>
+    </div>
+  </section>
+
 </div>
 
 <div class="d-toast" id="toast"></div>
@@ -179,6 +278,9 @@ function switchTab(id, el) {
   if (id === 'results') loadResults();
   if (id === 'attendance') loadAttendance();
   if (id === 'materials') loadMaterialsHomework();
+  if (id === 'milestones') loadMilestonesTab();
+  if (id === 'qna') loadQnaTab();
+  if (id === 'idcard') loadIdCardTab();
 }
 
 /* ---------------- Quizzes ---------------- */
@@ -289,8 +391,8 @@ async function loadMaterialsHomework() {
 
 /* ---------------- Overview ---------------- */
 async function loadOverview() {
-  const [quizzes, attempts, attendance, materials, hw] = await Promise.all([
-    AppData.listQuizzes(), AppData.myAttempts(), AppData.myAttendance(), AppData.listMaterials(), AppData.listHomework()
+  const [quizzes, attempts, attendance, materials, hw, myCompletions] = await Promise.all([
+    AppData.listQuizzes(), AppData.myAttempts(), AppData.myAttendance(), AppData.listMaterials(), AppData.listHomework(), AppData.myMilestoneCompletions()
   ]);
   document.getElementById('ovQuizzes').textContent = quizzes.length;
   const avg = attempts.length ? Math.round(attempts.reduce((s, a) => s + a.percent, 0) / attempts.length) : 0;
@@ -298,6 +400,7 @@ async function loadOverview() {
   const present = attendance.filter(a => a.status === 'present').length;
   document.getElementById('ovAttendance').textContent = attendance.length ? Math.round((present / attendance.length) * 100) + '%' : '—';
   document.getElementById('ovMaterials').textContent = materials.length;
+  document.getElementById('ovPoints').textContent = myCompletions.reduce((s, c) => s + (c.points || 0), 0);
 
   document.getElementById('ovHomeworkEmpty').classList.toggle('hidden', hw.length > 0);
   document.getElementById('ovHomework').innerHTML = hw.slice(0, 4).map(h => `
@@ -309,6 +412,115 @@ auth.onAuthStateChanged(user => {
   document.getElementById('avatarInitial').textContent = (user.displayName || user.email || 'S').charAt(0).toUpperCase();
   loadOverview();
 });
+
+/* ---------------- Milestones & Points ---------------- */
+async function loadMilestonesTab() {
+  const [milestones, myCompletions, leaderboard] = await Promise.all([
+    AppData.listAllMilestones(), AppData.myMilestoneCompletions(), AppData.leaderboard()
+  ]);
+  const doneIds = new Set(myCompletions.map(c => c.milestoneId));
+  const myTotal = myCompletions.reduce((s, c) => s + (c.points || 0), 0);
+  const badge = AppData.badgeForPoints(myTotal);
+
+  document.getElementById('myTotalPoints').textContent = myTotal;
+  document.getElementById('myBadgeLabel').textContent = badge.label;
+  document.getElementById('myBadgeIcon').className = 'fa-solid ' + badge.icon;
+
+  const wrap = document.getElementById('msFeed');
+  document.getElementById('msFeedEmpty').classList.toggle('hidden', milestones.length > 0);
+  wrap.innerHTML = milestones.map(m => {
+    const done = doneIds.has(m.id);
+    return `
+    <div class="ms-card">
+      <div>
+        <strong style="font-size:14.5px;">${AppData.escapeHtml(m.title)}</strong>
+        <div style="font-size:11.5px; color:var(--text-muted); margin-top:4px;">${AppData.escapeHtml(m.subject)} · from ${AppData.escapeHtml(m.createdByName)} · ${AppData.fmtDate(m.createdAt)}</div>
+        ${m.description ? `<div style="font-size:12.5px; margin-top:6px;">${AppData.escapeHtml(m.description)}</div>` : ''}
+      </div>
+      <div style="display:flex; align-items:center; gap:12px;">
+        <span class="pts-badge">+${m.points} pts</span>
+        ${done
+          ? `<span class="ms-complete-tag"><i class="fa-solid fa-circle-check"></i> Done</span>`
+          : `<button class="ms-done-btn" onclick="completeMs('${m.id}', this)"><i class="fa-solid fa-check"></i> Mark complete</button>`}
+      </div>
+    </div>`;
+  }).join('');
+
+  const lwrap = document.getElementById('msLeaderboard');
+  const ranked = leaderboard.filter(r => r.completed > 0);
+  document.getElementById('msLeaderboardEmpty').classList.toggle('hidden', ranked.length > 0);
+  const me = auth.currentUser.uid;
+  lwrap.innerHTML = leaderboard.slice(0, 20).map((r, i) => `
+    <div class="leader-row ${r.uid === me ? 'me' : ''}">
+      <div class="leader-rank ${i===0?'top1':i===1?'top2':i===2?'top3':''}">${i + 1}</div>
+      <div style="flex:1;">
+        <strong style="font-size:13.5px;">${AppData.escapeHtml(r.name)}${r.uid === me ? ' (you)' : ''}</strong>
+        <div style="font-size:11.5px; color:var(--text-muted);">${r.completed} milestone${r.completed === 1 ? '' : 's'} completed</div>
+      </div>
+      <span class="leader-badge" style="background:${r.badge.color}22; color:${r.badge.color};"><i class="fa-solid ${r.badge.icon}"></i> ${r.badge.label}</span>
+      <strong style="font-size:15px; min-width:70px; text-align:right;">${r.points} pts</strong>
+    </div>`).join('');
+}
+async function completeMs(id, btn) {
+  const milestones = await AppData.listAllMilestones();
+  const m = milestones.find(x => x.id === id);
+  if (!m) return;
+  btn.disabled = true;
+  try {
+    await AppData.completeMilestone(m);
+    toast(`+${m.points} points banked!`, 'success');
+    loadMilestonesTab();
+    loadOverview();
+  } catch (err) { toast(err.message, 'error'); btn.disabled = false; }
+}
+
+/* ---------------- Anonymous Q&A ---------------- */
+document.getElementById('qnaForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const text = document.getElementById('qnaText').value.trim();
+  if (!text) return;
+  try {
+    await AppData.askQuestion({ subject: document.getElementById('qnaSubject').value, text });
+    toast('Question submitted anonymously.', 'success');
+    document.getElementById('qnaForm').reset();
+    loadMyQuestions();
+  } catch (err) { toast(err.message, 'error'); }
+});
+async function loadQnaTab() { loadMyQuestions(); }
+async function loadMyQuestions() {
+  const wrap = document.getElementById('myQuestionsList');
+  const questions = await AppData.myQuestions();
+  document.getElementById('myQuestionsEmpty').classList.toggle('hidden', questions.length > 0);
+  wrap.innerHTML = questions.map(q => `
+    <div class="qna-card">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
+        <span class="badge-pill">${AppData.escapeHtml(q.subject || 'General')}</span>
+        <span class="status-badge ${q.status === 'answered' ? 'pass' : 'pending'}">${q.status === 'answered' ? 'ANSWERED' : 'PENDING'}</span>
+      </div>
+      <div style="font-weight:600; font-size:13.5px; margin-top:10px;">${AppData.escapeHtml(q.text)}</div>
+      ${q.status === 'answered' ? `<div class="qna-answer-box"><strong>Teacher's answer:</strong> ${AppData.escapeHtml(q.answer)}</div>` : ''}
+    </div>`).join('');
+}
+
+/* ---------------- ID Card ---------------- */
+async function loadIdCardTab() {
+  const profile = window.currentUserProfile || {};
+  document.getElementById('idcAvatar').textContent = (profile.name || profile.email || 'S').charAt(0).toUpperCase();
+  document.getElementById('idcEmail').textContent = profile.email || '';
+  document.getElementById('idcJoined').textContent = AppData.fmtDate(profile.createdAt);
+
+  const [completions, logs] = await Promise.all([AppData.myMilestoneCompletions(), AppData.loginHistoryFor(auth.currentUser.uid)]);
+  const total = completions.reduce((s, c) => s + (c.points || 0), 0);
+  document.getElementById('idcPoints').textContent = total;
+
+  const lwrap = document.getElementById('myLoginHistory');
+  document.getElementById('myLoginHistoryEmpty').classList.toggle('hidden', logs.length > 0);
+  lwrap.innerHTML = logs.map(l => `
+    <div class="login-row">
+      <span>${AppData.fmtDateTime(l.at)}</span>
+      <span style="color:var(--text-muted);">${l.remembered ? 'Kept signed in' : 'Session only'}</span>
+    </div>`).join('');
+}
 </script>
 </body>
 </html>

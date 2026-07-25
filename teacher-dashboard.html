@@ -22,6 +22,31 @@
   .quiz-list-item { border: 1px solid var(--panel-border); border-radius: var(--radius); padding: 16px 18px; margin-bottom: 12px; }
   .quiz-list-item h4 { font-size: 14.5px; }
   .quiz-list-item .meta { font-size: 11.5px; color: var(--text-muted); margin-top: 4px; }
+
+  /* Anonymous Q&A */
+  .qna-card { border: 1px solid var(--panel-border); border-radius: var(--radius); padding: 18px 20px; margin-bottom: 14px; }
+  .qna-top { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:10px; }
+  .qna-anon { display:flex; align-items:center; gap:8px; font-weight:800; font-size:12px; color: var(--current-accent); background: var(--student-bg); padding:5px 12px; border-radius:20px; }
+  .qna-text { font-size:14px; font-weight:600; margin-bottom:12px; line-height:1.5; }
+  .qna-answer-box { background: var(--bg-main); border-radius: var(--radius-sm); padding: 12px 14px; font-size:13px; }
+  .qna-form textarea { width:100%; min-height:70px; padding:10px 12px; border:1.5px solid var(--panel-border); border-radius:10px; background:var(--surface-white); font-size:13px; margin-bottom:8px; }
+
+  /* Milestones */
+  .ms-cap-banner { display:flex; justify-content:space-between; align-items:center; gap:12px; background: var(--teacher-bg); border-radius: var(--radius); padding:14px 18px; margin-bottom:18px; font-size:13px; font-weight:700; color: var(--current-accent); }
+  .ms-card { border:1px solid var(--panel-border); border-radius: var(--radius); padding:16px 18px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; gap:14px; flex-wrap:wrap; }
+  .ms-card .pts-badge { background: var(--current-accent); color:#fff; font-weight:800; font-size:12px; padding:6px 14px; border-radius:20px; white-space:nowrap; }
+  .leader-row { display:flex; align-items:center; gap:14px; padding:12px 16px; border:1px solid var(--panel-border); border-radius: var(--radius-sm); margin-bottom:8px; }
+  .leader-rank { width:28px; height:28px; border-radius:50%; background:var(--bg-main); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:12.5px; flex-shrink:0; }
+  .leader-rank.top1 { background:#fef3e2; color:#f0a93a; }
+  .leader-rank.top2 { background:#f1f5f9; color:#64748b; }
+  .leader-rank.top3 { background:#fdf0e6; color:#b45309; }
+  .leader-badge { display:flex; align-items:center; gap:6px; font-size:11px; font-weight:800; padding:4px 10px; border-radius:20px; }
+
+  /* ID Cards */
+  .idcard { border:1.5px solid var(--panel-border); border-radius: var(--radius); padding:18px 20px; background: linear-gradient(135deg, var(--surface-white), var(--bg-main)); display:flex; align-items:center; gap:16px; margin-bottom:12px; }
+  .idcard .idc-avatar { width:52px; height:52px; border-radius:14px; background: var(--current-accent); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:18px; flex-shrink:0; }
+  .idcard .idc-no { font-family: monospace; font-weight:800; color: var(--current-accent); font-size:12.5px; }
+  .login-row { display:flex; justify-content:space-between; gap:10px; padding:8px 12px; border-bottom:1px solid var(--panel-border); font-size:12.5px; }
 </style>
 </head>
 <body class="divedu">
@@ -51,6 +76,10 @@
   <button class="d-tab" data-tab="results" onclick="switchTab('results', this)"><i class="fa-solid fa-chart-simple"></i> Results</button>
   <button class="d-tab" data-tab="materials" onclick="switchTab('materials', this)"><i class="fa-solid fa-book"></i> Materials</button>
   <button class="d-tab" data-tab="homework" onclick="switchTab('homework', this)"><i class="fa-solid fa-pen-ruler"></i> Homework</button>
+  <button class="d-tab" data-tab="qna" onclick="switchTab('qna', this)"><i class="fa-solid fa-user-secret"></i> Anonymous Q&amp;A</button>
+  <button class="d-tab" data-tab="milestones" onclick="switchTab('milestones', this)"><i class="fa-solid fa-flag-checkered"></i> Milestones</button>
+  <button class="d-tab" data-tab="idcards" onclick="switchTab('idcards', this)"><i class="fa-solid fa-id-card"></i> ID Cards</button>
+  <button class="d-tab" data-tab="ai" onclick="switchTab('ai', this)"><i class="fa-solid fa-robot"></i> AI Assistant</button>
 </nav>
 
 <div class="d-container">
@@ -178,6 +207,74 @@
     <div class="empty-state hidden" id="hwEmpty">No homework assigned yet.</div>
   </section>
 
+  <!-- ANONYMOUS Q&A -->
+  <section id="tab-qna" class="d-card hidden">
+    <div class="d-section-head">
+      <div><h2>Anonymous Q&amp;A Inbox</h2><p>Students ask freely without stage fright — their name is never shown to you, only the question.</p></div>
+      <span class="badge-pill"><i class="fa-solid fa-shield-halved"></i> Identity hidden</span>
+    </div>
+    <div id="qnaList"></div>
+    <div class="empty-state hidden" id="qnaEmpty">No questions yet.</div>
+  </section>
+
+  <!-- MILESTONES -->
+  <section id="tab-milestones" class="d-card hidden">
+    <div class="d-section-head">
+      <div><h2>Milestone &amp; Points System</h2><p>Drop in bite-sized tasks — every student sees them instantly and earns points for completing them.</p></div>
+    </div>
+    <div class="ms-cap-banner">
+      <span><i class="fa-solid fa-circle-info"></i> You can add up to <strong>3 milestones per day</strong>.</span>
+      <span id="msCapCount">0 / 3 used today</span>
+    </div>
+    <form id="milestoneForm">
+      <div class="d-grid-2">
+        <div class="d-field"><label>Milestone title</label><input type="text" id="msTitle" placeholder="e.g. Finish 5 practice problems" required></div>
+        <div class="d-field"><label>Subject</label>
+          <select id="msSubject"><option>Science</option><option>Maths</option><option>Opt Maths</option><option>Computer</option><option>General</option></select>
+        </div>
+        <div class="d-field"><label>Points</label><input type="number" id="msPoints" value="20" min="1" max="200" required></div>
+        <div class="d-field d-full"><label>Description (optional)</label><textarea id="msDesc" rows="2" placeholder="Any extra instructions for students"></textarea></div>
+      </div>
+      <button class="btn-primary" type="submit"><i class="fa-solid fa-flag-checkered"></i> Add Milestone</button>
+    </form>
+
+    <div style="margin-top:30px; padding-top:22px; border-top:1.5px dashed var(--panel-border);">
+      <h3 style="font-size:15px; margin-bottom:14px;">Shared milestone feed (all teachers)</h3>
+      <div id="msList"></div>
+      <div class="empty-state hidden" id="msEmpty">No milestones added yet.</div>
+    </div>
+
+    <div style="margin-top:30px; padding-top:22px; border-top:1.5px dashed var(--panel-border);">
+      <h3 style="font-size:15px; margin-bottom:14px;"><i class="fa-solid fa-ranking-star"></i> Class Leaderboard</h3>
+      <div id="leaderboardList"></div>
+      <div class="empty-state hidden" id="leaderboardEmpty">No points earned yet — once students start completing milestones, they'll show up here.</div>
+    </div>
+  </section>
+
+  <!-- ID CARDS -->
+  <section id="tab-idcards" class="d-card hidden">
+    <div class="d-section-head">
+      <div><h2>Student &amp; Teacher ID Cards</h2><p>Every account that has ever signed up, with its own permanent ID number, plus a full sign-in history.</p></div>
+    </div>
+    <div class="d-grid-2" style="align-items:start;">
+      <div>
+        <h3 style="font-size:14px; margin-bottom:12px;">Registered accounts</h3>
+        <div id="idcardList"></div>
+        <div class="empty-state hidden" id="idcardEmpty">No accounts yet.</div>
+      </div>
+      <div>
+        <h3 style="font-size:14px; margin-bottom:12px;">Recent sign-ins (every login, every user)</h3>
+        <div id="loginHistoryList" style="border:1px solid var(--panel-border); border-radius: var(--radius); overflow:hidden;"></div>
+        <div class="empty-state hidden" id="loginHistoryEmpty">No sign-ins recorded yet.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- AI ASSISTANT -->
+  <section id="tab-ai" class="d-card hidden" style="padding:0; overflow:hidden;">
+    <iframe class="embed-frame" src="teacher-ai.html" title="AI Teaching Assistant" style="min-height:88vh;"></iframe>
+  </section>
+
 </div>
 
 <div class="d-toast" id="toast"></div>
@@ -208,6 +305,9 @@ function switchTab(id, el) {
   if (id === 'materials') loadMaterials();
   if (id === 'homework') loadHomework();
   if (id === 'quiz') loadMyQuizzes();
+  if (id === 'qna') loadQna();
+  if (id === 'milestones') loadMilestonesTab();
+  if (id === 'idcards') loadIdCardsTab();
 }
 
 let qCount = 0;
@@ -415,6 +515,125 @@ auth.onAuthStateChanged(user => {
   document.getElementById('avatarInitial').textContent = (user.displayName || user.email || 'T').charAt(0).toUpperCase();
   loadOverview();
 });
+
+/* ---------------- Anonymous Q&A ---------------- */
+async function loadQna() {
+  const wrap = document.getElementById('qnaList');
+  const questions = await AppData.listAllQuestions();
+  document.getElementById('qnaEmpty').classList.toggle('hidden', questions.length > 0);
+  // IMPORTANT: never render q.studentName here — that's the whole point
+  // of the anonymous inbox. Only subject, question text, and answer.
+  wrap.innerHTML = questions.map(q => `
+    <div class="qna-card">
+      <div class="qna-top">
+        <span class="qna-anon"><i class="fa-solid fa-user-secret"></i> Anonymous student · ${AppData.escapeHtml(q.subject || 'General')}</span>
+        <span class="status-badge ${q.status === 'answered' ? 'pass' : 'pending'}">${q.status === 'answered' ? 'ANSWERED' : 'PENDING'}</span>
+      </div>
+      <div class="qna-text">${AppData.escapeHtml(q.text)}</div>
+      ${q.status === 'answered'
+        ? `<div class="qna-answer-box"><strong>Your answer:</strong> ${AppData.escapeHtml(q.answer)}</div>`
+        : `<div class="qna-form">
+             <textarea id="ans-${q.id}" placeholder="Type your answer — the student will see it, but you'll never see who asked."></textarea>
+             <button class="btn-primary" onclick="submitAnswer('${q.id}')"><i class="fa-solid fa-reply"></i> Send Answer</button>
+           </div>`}
+    </div>`).join('');
+}
+async function submitAnswer(id) {
+  const ta = document.getElementById('ans-' + id);
+  const text = ta.value.trim();
+  if (!text) { toast('Write an answer first.', 'error'); return; }
+  try {
+    await AppData.answerQuestion(id, text);
+    toast('Answer sent.', 'success');
+    loadQna();
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+/* ---------------- Milestones ---------------- */
+async function loadMilestonesTab() {
+  const used = await AppData.myMilestoneCountToday();
+  document.getElementById('msCapCount').textContent = `${used} / ${AppData.MILESTONES_PER_TEACHER_PER_DAY} used today`;
+  const submitBtn = document.querySelector('#milestoneForm button[type=submit]');
+  submitBtn.disabled = used >= AppData.MILESTONES_PER_TEACHER_PER_DAY;
+  submitBtn.style.opacity = submitBtn.disabled ? 0.5 : 1;
+
+  const [milestones, leaderboard] = await Promise.all([AppData.listAllMilestones(), AppData.leaderboard()]);
+
+  const wrap = document.getElementById('msList');
+  document.getElementById('msEmpty').classList.toggle('hidden', milestones.length > 0);
+  wrap.innerHTML = milestones.map(m => `
+    <div class="ms-card">
+      <div>
+        <strong style="font-size:14px;">${AppData.escapeHtml(m.title)}</strong>
+        <div style="font-size:11.5px; color:var(--text-muted); margin-top:4px;">${AppData.escapeHtml(m.subject)} · by ${AppData.escapeHtml(m.createdByName)} · ${AppData.fmtDate(m.createdAt)}</div>
+        ${m.description ? `<div style="font-size:12.5px; margin-top:6px;">${AppData.escapeHtml(m.description)}</div>` : ''}
+      </div>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span class="pts-badge">+${m.points} pts</span>
+        ${m.createdBy === auth.currentUser.uid ? `<button class="btn-danger" onclick="removeMilestone('${m.id}')">Delete</button>` : ''}
+      </div>
+    </div>`).join('');
+
+  const lwrap = document.getElementById('leaderboardList');
+  const ranked = leaderboard.filter(r => r.completed > 0);
+  document.getElementById('leaderboardEmpty').classList.toggle('hidden', ranked.length > 0);
+  lwrap.innerHTML = leaderboard.slice(0, 20).map((r, i) => `
+    <div class="leader-row">
+      <div class="leader-rank ${i===0?'top1':i===1?'top2':i===2?'top3':''}">${i + 1}</div>
+      <div style="flex:1;">
+        <strong style="font-size:13.5px;">${AppData.escapeHtml(r.name)}</strong>
+        <div style="font-size:11.5px; color:var(--text-muted);">${r.completed} milestone${r.completed === 1 ? '' : 's'} completed</div>
+      </div>
+      <span class="leader-badge" style="background:${r.badge.color}22; color:${r.badge.color};"><i class="fa-solid ${r.badge.icon}"></i> ${r.badge.label}</span>
+      <strong style="font-size:15px; min-width:70px; text-align:right;">${r.points} pts</strong>
+    </div>`).join('');
+}
+document.getElementById('milestoneForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  try {
+    await AppData.createMilestone({
+      title: document.getElementById('msTitle').value.trim(),
+      description: document.getElementById('msDesc').value.trim(),
+      subject: document.getElementById('msSubject').value,
+      points: parseFloat(document.getElementById('msPoints').value)
+    });
+    toast('Milestone published — every student sees it now.', 'success');
+    document.getElementById('milestoneForm').reset();
+    document.getElementById('msPoints').value = 20;
+    loadMilestonesTab();
+  } catch (err) { toast(err.message, 'error'); }
+});
+async function removeMilestone(id) {
+  if (!confirm('Delete this milestone? Students who already completed it keep their points.')) return;
+  await AppData.deleteMilestone(id);
+  toast('Milestone removed.', 'success');
+  loadMilestonesTab();
+}
+
+/* ---------------- ID Cards ---------------- */
+async function loadIdCardsTab() {
+  const [users, logs] = await Promise.all([AppData.listAllUsers(), AppData.loginHistory(60)]);
+  const wrap = document.getElementById('idcardList');
+  document.getElementById('idcardEmpty').classList.toggle('hidden', users.length > 0);
+  wrap.innerHTML = users.map(u => `
+    <div class="idcard">
+      <div class="idc-avatar">${(u.name || u.email || '?').charAt(0).toUpperCase()}</div>
+      <div style="flex:1;">
+        <div style="font-weight:700; font-size:14px;">${AppData.escapeHtml(u.name || u.email)}</div>
+        <div style="font-size:11.5px; color:var(--text-muted);">${AppData.escapeHtml(u.email)}</div>
+        <div class="idc-no" style="margin-top:4px;">${AppData.escapeHtml(u.idCardNo || '—')}</div>
+      </div>
+      <span class="status-badge ${u.role === 'teacher' ? 'pass' : 'pending'}">${(u.role || '').toUpperCase()}</span>
+    </div>`).join('');
+
+  const lwrap = document.getElementById('loginHistoryList');
+  document.getElementById('loginHistoryEmpty').classList.toggle('hidden', logs.length > 0);
+  lwrap.innerHTML = logs.map(l => `
+    <div class="login-row">
+      <span><strong>${AppData.escapeHtml(l.name)}</strong> <span style="color:var(--text-muted);">(${AppData.escapeHtml(l.role)})</span></span>
+      <span style="color:var(--text-muted);">${AppData.fmtDateTime(l.at)}${l.remembered ? ' · kept signed in' : ''}</span>
+    </div>`).join('');
+}
 </script>
 </body>
 </html>
