@@ -7,7 +7,50 @@ and the teacher and student sides are genuinely connected through
 Firestore: a milestone or quiz a teacher publishes shows up instantly
 on every student's dashboard, and vice versa.
 
-## What's new in this version
+## What's new in this round of changes
+
+- **Fixed the sign-in email field.** The email input was using
+  `type="email"`, but `index.css` only styled `input[type="text"]`
+  and `input[type="password"]` — so the email box never got the
+  padding that makes room for the icon, and the icon sat on top of
+  whatever you typed. Fixed by including `input[type="email"]` (and
+  `number`/`date`, used elsewhere) in that CSS rule.
+- **Smarter AI engine (`ai-engine.js`), shared by both AI tools.**
+  Replaced the old word-frequency scoring with **TextRank** — a
+  graph-based ranking algorithm (the same family as PageRank, applied
+  to sentences) that ranks a sentence as important when it's closely
+  related to many *other* important sentences, not just because it
+  repeats common words. It also detects headings/structure in pasted
+  text, pulls out real definitions ("X is/refers to/means Y"), and
+  picks quiz blanks by rarity (more distinguishing) rather than
+  frequency. It's still 100% client-side with no API key — genuinely
+  better extractive/structural NLP, but still not an LLM that writes
+  new sentences; wiring either AI tool to a real LLM (e.g. the Claude
+  API) needs a small backend to hold the key, same as before.
+- **PDF support everywhere the AI tools are used.** Both the AI Study
+  Desk and AI Teaching Assistant can now take a PDF upload directly
+  (via pdf.js, loaded on demand) and extract its text automatically —
+  no more copy-pasting out of a PDF reader.
+- **PDF reading materials.** Teachers can attach a PDF when publishing
+  a resource (stored in Firebase Storage). Students see an "Open PDF"
+  link and a **Summarize with AI** button that sends the file straight
+  to the AI Study Desk, which downloads it, extracts the text, and
+  runs a summary automatically.
+- **Homework, AI-divided across days.** Teachers can give an estimated
+  number of hours a homework will take; the app automatically splits
+  that into a fair day-by-day plan between today and the due date
+  (same idea as the old milestone planner, generalized to any
+  homework). Students get a checklist with a progress bar and can
+  check off each day as they complete it — progress is saved per
+  student in Firestore.
+- **Ranking system, expanded.** The class leaderboard now has an
+  **All-time / This month** toggle for students. There's also a new
+  **Teacher Activity Ranking** (visible to teachers) that scores
+  teachers by their contribution to the class — quizzes, materials,
+  homework, milestones created, and results graded — both all-time
+  and for the current calendar month.
+
+## What was new before that
 
 - **Stronger login system.** "Keep session active" now truly means
   it — using Firebase's `LOCAL` persistence, a signed-in user stays
@@ -109,6 +152,13 @@ to hold your API key — happy to help build that next if you want it.
 | `questions`             | student (own docs); teacher (answer) | owning student + all teachers |
 | `milestones`            | teacher (max 3/day, enforced client-side) | everyone signed in |
 | `milestoneCompletions`  | student (own docs, one per milestone) | everyone signed in |
+| `homeworkProgress`      | student (own docs, one per homework)  | owning student + all teachers |
+
+`materials` docs may also carry `fileURL`, `fileName`, `filePath` when
+a teacher attaches a PDF (stored in **Firebase Storage**, not
+Firestore). `homework` docs may carry `hours` and an AI-generated
+`taskPlan` array (day label, date, hours) when a teacher gives an
+estimated duration.
 
 Re-publish the updated `firestore.rules` in the Firebase Console
 after pulling these changes, or the new tabs will get permission
@@ -137,6 +187,17 @@ dashboard instead.
 3. Go to the **Rules** tab, delete the default rules, and paste in
    the contents of `firestore.rules` from this project. Click
    **Publish**.
+
+## 3b. Turn on Storage (only needed for PDF materials)
+
+1. Left sidebar: **Build → Storage → Get started**. Accept the
+   default production-mode rules, pick the same region as Firestore.
+2. Go to the **Rules** tab, delete the default rules, and paste in
+   the contents of `storage.rules` from this project. Click
+   **Publish**.
+3. If you skip this step, everything else still works — teachers just
+   won't be able to attach a PDF to a reading material (the app shows
+   a clear error instead of silently failing).
 
 ## 4. Get your web app config
 

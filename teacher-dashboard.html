@@ -47,6 +47,17 @@
   .idcard .idc-avatar { width:52px; height:52px; border-radius:14px; background: var(--current-accent); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:18px; flex-shrink:0; }
   .idcard .idc-no { font-family: monospace; font-weight:800; color: var(--current-accent); font-size:12.5px; }
   .login-row { display:flex; justify-content:space-between; gap:10px; padding:8px 12px; border-bottom:1px solid var(--panel-border); font-size:12.5px; }
+
+  /* Leaderboard range toggle + teacher ranking rows */
+  .mode-tabs { display:flex; gap:8px; }
+  .mode-tab { border:1.5px solid var(--panel-border); background:var(--surface-white); color:var(--text-muted); padding:7px 14px; border-radius:20px; font-weight:700; font-size:12px; cursor:pointer; }
+  .mode-tab.active { background: var(--current-accent); color:#fff; border-color: var(--current-accent); }
+  .teacher-leader-row { display:flex; align-items:center; gap:14px; padding:12px 16px; border:1px solid var(--panel-border); border-radius: var(--radius-sm); margin-bottom:8px; }
+  .teacher-leader-row .breakdown { font-size:11px; color:var(--text-muted); }
+
+  /* Homework day plan */
+  .hw-plan { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+  .hw-plan-chip { background:var(--bg-main); border:1px solid var(--panel-border); border-radius:10px; padding:6px 10px; font-size:11px; font-weight:700; color:var(--text-muted); }
 </style>
 </head>
 <body class="divedu">
@@ -186,6 +197,7 @@
         <div class="d-field"><label>Subject</label><select id="mSubject"><option>Science</option><option>Maths</option><option>Opt Maths</option><option>Computer</option></select></div>
         <div class="d-field"><label>Subtopic</label><input type="text" id="mSubtopic" placeholder="e.g. Wave Optics & Refraction" required></div>
         <div class="d-field d-full"><label>Description / Link</label><textarea id="mDesc" rows="3" required></textarea></div>
+        <div class="d-field d-full"><label>Attach a PDF (optional)</label><input type="file" id="mFile" accept="application/pdf"></div>
       </div>
       <button class="btn-primary" type="submit"><i class="fa-solid fa-upload"></i> Publish Resource</button>
     </form>
@@ -199,8 +211,10 @@
       <div class="d-grid-2">
         <div class="d-field"><label>Subject</label><select id="hwSubject"><option>Science</option><option>Maths</option><option>Opt Maths</option><option>Computer</option></select></div>
         <div class="d-field"><label>Due Date</label><input type="date" id="hwDue" required></div>
+        <div class="d-field"><label>Estimated time needed (hours)</label><input type="number" id="hwHours" min="0" step="0.5" placeholder="e.g. 4 — leave blank to skip"></div>
         <div class="d-field d-full"><label>Instructions</label><textarea id="hwInstr" rows="3" required></textarea></div>
       </div>
+      <p style="font-size:11.5px; color:var(--text-muted); margin:-6px 0 14px;"><i class="fa-solid fa-wand-magic-sparkles"></i> If you give an estimated time, the AI automatically splits it into a fair day-by-day plan between today and the due date, so students get a realistic daily schedule instead of one big deadline.</p>
       <button class="btn-primary" type="submit"><i class="fa-solid fa-paper-plane"></i> Assign Homework</button>
     </form>
     <div id="hwList" style="margin-top:20px;"></div>
@@ -245,9 +259,22 @@
     </div>
 
     <div style="margin-top:30px; padding-top:22px; border-top:1.5px dashed var(--panel-border);">
-      <h3 style="font-size:15px; margin-bottom:14px;"><i class="fa-solid fa-ranking-star"></i> Class Leaderboard</h3>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
+        <h3 style="font-size:15px;"><i class="fa-solid fa-ranking-star"></i> Class Leaderboard</h3>
+        <div class="mode-tabs" style="margin:0;">
+          <button type="button" class="mode-tab active" id="lbBtnTotal" onclick="setLeaderboardRange('total')">All-time</button>
+          <button type="button" class="mode-tab" id="lbBtnMonth" onclick="setLeaderboardRange('month')">This month</button>
+        </div>
+      </div>
       <div id="leaderboardList"></div>
       <div class="empty-state hidden" id="leaderboardEmpty">No points earned yet — once students start completing milestones, they'll show up here.</div>
+    </div>
+
+    <div style="margin-top:30px; padding-top:22px; border-top:1.5px dashed var(--panel-border);">
+      <h3 style="font-size:15px; margin-bottom:6px;"><i class="fa-solid fa-chalkboard-user"></i> Teacher Activity Ranking</h3>
+      <p style="font-size:12px; color:var(--text-muted); margin-bottom:14px;">Ranked by contribution to the class: quizzes, materials, homework, milestones and graded results.</p>
+      <div id="teacherLeaderList"></div>
+      <div class="empty-state hidden" id="teacherLeaderEmpty">No teacher activity recorded yet.</div>
     </div>
   </section>
 
@@ -282,6 +309,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-storage-compat.js"></script>
 <script src="firebase-config.js"></script>
 <script src="app-auth.js"></script>
 <script src="app-data.js"></script>
@@ -462,16 +490,22 @@ async function loadMaterials() {
       <span class="badge-pill">${AppData.escapeHtml(m.subject)}</span>
       <strong style="font-size:14px;">${AppData.escapeHtml(m.subtopic)}</strong>
       <span style="font-size:12.5px; color:var(--text-muted);">${AppData.escapeHtml(m.description)}</span>
+      ${m.fileURL ? `<a href="${m.fileURL}" target="_blank" rel="noopener" style="font-size:12px; font-weight:700; color:var(--current-accent);"><i class="fa-solid fa-file-pdf"></i> ${AppData.escapeHtml(m.fileName || 'View PDF')}</a>` : ''}
     </div>`).join('');
 }
 document.getElementById('materialForm').addEventListener('submit', async (e) => {
   e.preventDefault();
+  const submitBtn = document.querySelector('#materialForm button[type=submit]');
+  const file = document.getElementById('mFile').files[0] || null;
+  submitBtn.disabled = true;
   try {
-    await AppData.publishMaterial({ subject: document.getElementById('mSubject').value, subtopic: document.getElementById('mSubtopic').value, description: document.getElementById('mDesc').value });
+    if (file) toast('Publishing resource — uploading PDF…', 'success');
+    await AppData.publishMaterial({ subject: document.getElementById('mSubject').value, subtopic: document.getElementById('mSubtopic').value, description: document.getElementById('mDesc').value, file });
     toast('Resource published.', 'success');
     document.getElementById('materialForm').reset();
     loadMaterials();
   } catch (err) { toast(err.message, 'error'); }
+  submitBtn.disabled = false;
 });
 
 async function loadHomework() {
@@ -479,14 +513,20 @@ async function loadHomework() {
   const list = await AppData.listHomework();
   document.getElementById('hwEmpty').classList.toggle('hidden', list.length > 0);
   wrap.innerHTML = list.map(h => `
-    <div class="roster-card" style="align-items:flex-start;">
-      <div><div class="roster-name">${AppData.escapeHtml(h.subject)} — due ${h.dueDate}</div><div class="roster-email">${AppData.escapeHtml(h.instructions)}</div></div>
+    <div class="roster-card" style="align-items:flex-start; flex-direction:column;">
+      <div><div class="roster-name">${AppData.escapeHtml(h.subject)} — due ${h.dueDate}${h.hours ? ` · ${h.hours}h estimated` : ''}</div><div class="roster-email">${AppData.escapeHtml(h.instructions)}</div></div>
+      ${h.taskPlan && h.taskPlan.length ? `<div class="hw-plan">${h.taskPlan.map(t => `<span class="hw-plan-chip">${t.label} (${t.dateLabel}): ${t.hours}h</span>`).join('')}</div>` : ''}
     </div>`).join('');
 }
 document.getElementById('hwForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   try {
-    await AppData.publishHomework({ subject: document.getElementById('hwSubject').value, dueDate: document.getElementById('hwDue').value, instructions: document.getElementById('hwInstr').value });
+    await AppData.publishHomework({
+      subject: document.getElementById('hwSubject').value,
+      dueDate: document.getElementById('hwDue').value,
+      instructions: document.getElementById('hwInstr').value,
+      hours: document.getElementById('hwHours').value
+    });
     toast('Homework assigned.', 'success');
     document.getElementById('hwForm').reset();
     loadHomework();
@@ -550,6 +590,35 @@ async function submitAnswer(id) {
 }
 
 /* ---------------- Milestones ---------------- */
+let lastLeaderboard = [];
+let leaderboardRange = 'total';
+
+function setLeaderboardRange(range) {
+  leaderboardRange = range;
+  document.getElementById('lbBtnTotal').classList.toggle('active', range === 'total');
+  document.getElementById('lbBtnMonth').classList.toggle('active', range === 'month');
+  renderLeaderboard();
+}
+
+function renderLeaderboard() {
+  const lwrap = document.getElementById('leaderboardList');
+  const pointsField = leaderboardRange === 'month' ? 'monthPoints' : 'points';
+  const completedField = leaderboardRange === 'month' ? 'monthCompleted' : 'completed';
+  const sorted = [...lastLeaderboard].sort((a, b) => b[pointsField] - a[pointsField]);
+  const ranked = sorted.filter(r => r[completedField] > 0);
+  document.getElementById('leaderboardEmpty').classList.toggle('hidden', ranked.length > 0);
+  lwrap.innerHTML = ranked.slice(0, 20).map((r, i) => `
+    <div class="leader-row">
+      <div class="leader-rank ${i===0?'top1':i===1?'top2':i===2?'top3':''}">${i + 1}</div>
+      <div style="flex:1;">
+        <strong style="font-size:13.5px;">${AppData.escapeHtml(r.name)}</strong>
+        <div style="font-size:11.5px; color:var(--text-muted);">${r[completedField]} milestone${r[completedField] === 1 ? '' : 's'} completed${leaderboardRange==='month' ? ' this month' : ''}</div>
+      </div>
+      <span class="leader-badge" style="background:${r.badge.color}22; color:${r.badge.color};"><i class="fa-solid ${r.badge.icon}"></i> ${r.badge.label}</span>
+      <strong style="font-size:15px; min-width:70px; text-align:right;">${r[pointsField]} pts</strong>
+    </div>`).join('');
+}
+
 async function loadMilestonesTab() {
   const used = await AppData.myMilestoneCountToday();
   document.getElementById('msCapCount').textContent = `${used} / ${AppData.MILESTONES_PER_TEACHER_PER_DAY} used today`;
@@ -557,7 +626,22 @@ async function loadMilestonesTab() {
   submitBtn.disabled = used >= AppData.MILESTONES_PER_TEACHER_PER_DAY;
   submitBtn.style.opacity = submitBtn.disabled ? 0.5 : 1;
 
-  const [milestones, leaderboard] = await Promise.all([AppData.listAllMilestones(), AppData.leaderboard()]);
+  // Pick up a milestone idea passed over from the AI Assistant tab, if any.
+  try {
+    const prefill = sessionStorage.getItem('divedu_ms_prefill');
+    if (prefill) {
+      const { title, points } = JSON.parse(prefill);
+      document.getElementById('msTitle').value = title;
+      document.getElementById('msPoints').value = points;
+      sessionStorage.removeItem('divedu_ms_prefill');
+      toast('Milestone idea loaded from AI Assistant — review and publish.', 'success');
+    }
+  } catch (e) { /* ignore */ }
+
+  const [milestones, leaderboard, teacherLeaderboard] = await Promise.all([
+    AppData.listAllMilestones(), AppData.leaderboard(), AppData.teacherLeaderboard()
+  ]);
+  lastLeaderboard = leaderboard;
 
   const wrap = document.getElementById('msList');
   document.getElementById('msEmpty').classList.toggle('hidden', milestones.length > 0);
@@ -574,18 +658,21 @@ async function loadMilestonesTab() {
       </div>
     </div>`).join('');
 
-  const lwrap = document.getElementById('leaderboardList');
-  const ranked = leaderboard.filter(r => r.completed > 0);
-  document.getElementById('leaderboardEmpty').classList.toggle('hidden', ranked.length > 0);
-  lwrap.innerHTML = leaderboard.slice(0, 20).map((r, i) => `
-    <div class="leader-row">
+  renderLeaderboard();
+
+  const twrap = document.getElementById('teacherLeaderList');
+  document.getElementById('teacherLeaderEmpty').classList.toggle('hidden', teacherLeaderboard.some(t => t.score > 0));
+  twrap.innerHTML = teacherLeaderboard.map((t, i) => `
+    <div class="teacher-leader-row">
       <div class="leader-rank ${i===0?'top1':i===1?'top2':i===2?'top3':''}">${i + 1}</div>
       <div style="flex:1;">
-        <strong style="font-size:13.5px;">${AppData.escapeHtml(r.name)}</strong>
-        <div style="font-size:11.5px; color:var(--text-muted);">${r.completed} milestone${r.completed === 1 ? '' : 's'} completed</div>
+        <strong style="font-size:13.5px;">${AppData.escapeHtml(t.name)}${t.uid === auth.currentUser.uid ? ' (you)' : ''}</strong>
+        <div class="breakdown">${t.quizzes} quizzes · ${t.materials} materials · ${t.homework} homework · ${t.milestones} milestones · ${t.results} results graded</div>
       </div>
-      <span class="leader-badge" style="background:${r.badge.color}22; color:${r.badge.color};"><i class="fa-solid ${r.badge.icon}"></i> ${r.badge.label}</span>
-      <strong style="font-size:15px; min-width:70px; text-align:right;">${r.points} pts</strong>
+      <div style="text-align:right;">
+        <strong style="font-size:15px;">${t.score} pts</strong>
+        <div class="breakdown">${t.monthScore} this month</div>
+      </div>
     </div>`).join('');
 }
 document.getElementById('milestoneForm').addEventListener('submit', async (e) => {

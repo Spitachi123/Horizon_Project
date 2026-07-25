@@ -137,10 +137,24 @@ const AppData = {
 
   /* ---------------- Materials ---------------- */
 
-  async publishMaterial({ subject, subtopic, description }) {
+  /** Publishes a reading material, optionally attaching a PDF file
+   *  (stored in Firebase Storage under materials/, with the public
+   *  download URL saved on the Firestore doc). The PDF's text can
+   *  later be pulled out on-demand by AIEngine.extractPdfTextFromUrl
+   *  for the "Summarize with AI" button on the student side. */
+  async publishMaterial({ subject, subtopic, description, file }) {
     const user = auth.currentUser;
+    let fileURL = '', fileName = '', filePath = '';
+    if (file) {
+      if (!window.storage) throw new Error('File storage is not set up for this project yet.');
+      filePath = `materials/${user.uid}_${Date.now()}_${file.name}`;
+      const ref = storage.ref().child(filePath);
+      await ref.put(file, { contentType: file.type || 'application/pdf' });
+      fileURL = await ref.getDownloadURL();
+      fileName = file.name;
+    }
     return db.collection('materials').add({
-      subject, subtopic, description,
+      subject, subtopic, description, fileURL, fileName, filePath,
       createdBy: user.uid,
       createdByName: user.displayName || 'Teacher',
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -154,12 +168,40 @@ const AppData = {
     return rows;
   },
 
-  /* ---------------- Homework ---------------- */
+  /* ---------------- Homework ----------------
+     If a teacher gives an estimated duration (in hours), homework is
+     automatically split into a fair day-by-day task plan between
+     today and the due date — the same "divide the work evenly across
+     the days you actually have" idea as the old kris.js planner,
+     generalized to every homework assignment so students get a
+     realistic daily time-management schedule instead of one big
+     deadline looming at the end. */
 
-  async publishHomework({ subject, dueDate, instructions }) {
+  buildHomeworkPlan(hours, dueDateStr) {
+    const due = new Date(dueDateStr + 'T00:00:00');
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const daysLeft = Math.max(1, Math.round((due - today) / 86400000) + 1); // inclusive of today & due date
+    const perDay = hours / daysLeft;
+    const tasks = [];
+    for (let i = 0; i < daysLeft; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() + i);
+      tasks.push({
+        label: `Day ${i + 1}`,
+        dateLabel: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+        hours: Math.round(perDay * 10) / 10
+      });
+    }
+    return tasks;
+  },
+
+  async publishHomework({ subject, dueDate, instructions, hours }) {
     const user = auth.currentUser;
+    const h = parseFloat(hours) || 0;
+    const taskPlan = h > 0 ? this.buildHomeworkPlan(h, dueDate) : [];
     return db.collection('homework').add({
-      subject, dueDate, instructions,
+      subject, dueDate, instructions, hours: h, taskPlan,
       createdBy: user.uid,
       createdByName: user.displayName || 'Teacher',
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -171,6 +213,41 @@ const AppData = {
     const rows = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     rows.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
     return rows;
+  },
+
+  homeworkProgressId(homeworkId, studentId) {
+    return `${homeworkId}__${studentId}`;
+  },
+
+  /** The current student's checked-off days for one homework's task
+   *  plan. Returns { completed: [dayIndex, ...] }. */
+  async getMyHomeworkProgress(homeworkId) {
+    const user = auth.currentUser;
+    const id = this.homeworkProgressId(homeworkId, user.uid);
+    const snap = await db.collection('homeworkProgress').doc(id).get();
+    return snap.exists ? snap.data() : { completed: [] };
+  },
+
+  async toggleHomeworkTask(homeworkId, taskIndex, done) {
+    const user = auth.currentUser;
+    const id = this.homeworkProgressId(homeworkId, user.uid);
+    const ref = db.collection('homeworkProgress').doc(id);
+    const snap = await ref.get();
+    let completed = snap.exists ? (snap.data().completed || []) : [];
+    if (done) { if (!completed.includes(taskIndex)) completed.push(taskIndex); }
+    else { completed = completed.filter(i => i !== taskIndex); }
+    await ref.set({
+      homeworkId, studentId: user.uid, completed,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+    return completed;
+  },
+
+  /** Every student's progress on every homework — used by the teacher
+   *  dashboard to show class-wide completion rates. */
+  async allHomeworkProgress() {
+    const snap = await db.collection('homeworkProgress').get();
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
   },
 
   /* ---------------- Results ---------------- */
@@ -345,20 +422,73 @@ const AppData = {
     return snap.docs.map(d => ({ id: d.id, ...d.data() }));
   },
 
-  /** { uid: { name, points, badges, completed } } for every student
-   *  who has completed at least one milestone, sorted highest first. */
+  /** "YYYY-MM" key for a date, used to bucket points/activity into
+   *  calendar months for the "this month" progress views. */
+  monthKey(date) {
+    const d = date || new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  },
+  tsToDate(ts) {
+    return ts && ts.seconds ? new Date(ts.seconds * 1000) : null;
+  },
+
+  /** { uid: { name, points, monthPoints, badges, completed } } for
+   *  every student who has completed at least one milestone, ranked
+   *  highest points first. monthPoints is this calendar month only,
+   *  so both dashboards can show "total" and "this month's progress"
+   *  ranking side by side. */
   async leaderboard() {
     const [completions, students] = await Promise.all([this.allMilestoneCompletions(), this.listStudents()]);
+    const thisMonth = this.monthKey();
     const totals = {};
-    students.forEach(s => { totals[s.uid] = { uid: s.uid, name: s.name || s.email, points: 0, completed: 0 }; });
+    students.forEach(s => { totals[s.uid] = { uid: s.uid, name: s.name || s.email, points: 0, completed: 0, monthPoints: 0, monthCompleted: 0 }; });
     completions.forEach(c => {
-      if (!totals[c.studentId]) totals[c.studentId] = { uid: c.studentId, name: c.studentName, points: 0, completed: 0 };
+      if (!totals[c.studentId]) totals[c.studentId] = { uid: c.studentId, name: c.studentName, points: 0, completed: 0, monthPoints: 0, monthCompleted: 0 };
       totals[c.studentId].points += c.points || 0;
       totals[c.studentId].completed += 1;
+      const d = this.tsToDate(c.completedAt);
+      if (d && this.monthKey(d) === thisMonth) {
+        totals[c.studentId].monthPoints += c.points || 0;
+        totals[c.studentId].monthCompleted += 1;
+      }
     });
     const rows = Object.values(totals);
     rows.forEach(r => { r.badge = AppData.badgeForPoints(r.points); });
     rows.sort((a, b) => b.points - a.points);
+    return rows;
+  },
+
+  /** Teacher activity ranking — rewards teachers for how much they've
+   *  actually contributed to the class (weighted: quiz=5, material=3,
+   *  homework=3, milestone=2, graded result=1), all-time and for this
+   *  calendar month, so both dashboards can show a teacher leaderboard
+   *  alongside the student one. */
+  async teacherLeaderboard() {
+    const [teachers, quizzes, materials, homework, milestones, results] = await Promise.all([
+      this.listTeachers(), this.listQuizzes(), this.listMaterials(), this.listHomework(), this.listAllMilestones(), this.allResults()
+    ]);
+    const thisMonth = this.monthKey();
+    const totals = {};
+    teachers.forEach(t => {
+      totals[t.uid] = { uid: t.uid, name: t.name || t.email, score: 0, monthScore: 0, quizzes: 0, materials: 0, homework: 0, milestones: 0, results: 0 };
+    });
+    const bump = (list, field, weight) => {
+      list.forEach(item => {
+        const uid = item.createdBy;
+        if (!uid || !totals[uid]) return;
+        totals[uid].score += weight;
+        totals[uid][field] += 1;
+        const d = this.tsToDate(item.createdAt);
+        if (d && this.monthKey(d) === thisMonth) totals[uid].monthScore += weight;
+      });
+    };
+    bump(quizzes, 'quizzes', 5);
+    bump(materials, 'materials', 3);
+    bump(homework, 'homework', 3);
+    bump(milestones, 'milestones', 2);
+    bump(results, 'results', 1);
+    const rows = Object.values(totals);
+    rows.sort((a, b) => b.score - a.score);
     return rows;
   },
 

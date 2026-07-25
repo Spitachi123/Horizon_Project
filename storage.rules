@@ -1,0 +1,22 @@
+rules_version = '2';
+
+// Paste this into Firebase Console → Storage → Rules, then Publish.
+// Covers PDF uploads for the Reading Materials tab.
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Anyone signed in can view a material PDF (matches the
+    // Firestore rule that materials are readable by every signed-in
+    // user). Only a signed-in user can upload, and only into the
+    // materials/ folder that the app actually writes to; the client
+    // additionally restricts this to teachers, but Storage rules
+    // don't have a cheap way to check a Firestore-stored role, so
+    // treat this as defense-in-depth alongside the app's own
+    // teacher-only UI.
+    match /materials/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+                   && request.resource.size < 25 * 1024 * 1024
+                   && request.resource.contentType.matches('application/pdf');
+    }
+  }
+}

@@ -90,6 +90,19 @@ service cloud.firestore {
       allow create, update, delete: if isTeacher();
     }
 
+    // Per-student checklist against a homework's AI-generated
+    // day-by-day task plan. Doc id is deterministic
+    // (`${homeworkId}__${studentId}`), so a student can only ever
+    // read/write their own progress row; teachers can read every
+    // row to see class-wide completion rates.
+    match /homeworkProgress/{docId} {
+      allow read: if signedIn() && (resource.data.studentId == request.auth.uid || isTeacher());
+      allow create, update: if signedIn()
+                    && request.resource.data.studentId == request.auth.uid
+                    && docId == request.resource.data.homeworkId + '__' + request.auth.uid;
+      allow delete: if false;
+    }
+
     // Manually-entered results: teachers write, the owning student
     // (and any teacher) can read.
     match /results/{docId} {

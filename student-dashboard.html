@@ -54,6 +54,17 @@
   .idcard-hero p { font-size:12.5px; opacity:.9; margin-top:2px; }
   .idc-row { display:flex; justify-content:space-between; padding:8px 0; border-top:1px solid rgba(255,255,255,.25); font-size:12.5px; }
   .login-row { display:flex; justify-content:space-between; gap:10px; padding:9px 14px; border-bottom:1px solid var(--panel-border); font-size:12.5px; }
+
+  .mode-tabs { display:flex; gap:8px; }
+  .mode-tab { border:1.5px solid var(--panel-border); background:var(--surface-white); color:var(--text-muted); padding:7px 14px; border-radius:20px; font-weight:700; font-size:12px; cursor:pointer; }
+  .mode-tab.active { background: var(--current-accent); color:#fff; border-color: var(--current-accent); }
+
+  /* Homework task checklist */
+  .hw-progress-track { height:8px; border-radius:6px; background: var(--bg-main); overflow:hidden; margin:10px 0; }
+  .hw-progress-fill { height:100%; border-radius:6px; background: linear-gradient(90deg, var(--current-accent), var(--sky-accent)); transition: width .5s ease; }
+  .hw-task-row { display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:8px; background:var(--bg-main); margin-bottom:6px; font-size:12.5px; }
+  .hw-task-row input { width:16px; height:16px; accent-color: var(--current-accent); cursor:pointer; }
+  .hw-task-row.done { background: var(--success-bg); color: var(--success); font-weight:700; }
 </style>
 </head>
 <body class="divedu">
@@ -121,6 +132,10 @@
         <div class="big" id="myTotalPoints">0</div>
         <div class="label">Total points earned</div>
       </div>
+      <div>
+        <div class="big" id="myMonthPoints" style="font-size:26px;">0</div>
+        <div class="label">This month's progress</div>
+      </div>
       <div class="badge-chip"><i class="fa-solid fa-award" id="myBadgeIcon"></i> <span id="myBadgeLabel">Newcomer</span></div>
     </div>
 
@@ -131,7 +146,13 @@
     <div class="empty-state hidden" id="msFeedEmpty">No milestones posted yet — check back soon!</div>
 
     <div style="margin-top:30px; padding-top:22px; border-top:1.5px dashed var(--panel-border);">
-      <h3 style="font-size:15px; margin-bottom:14px;"><i class="fa-solid fa-ranking-star"></i> Class Leaderboard</h3>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
+        <h3 style="font-size:15px;"><i class="fa-solid fa-ranking-star"></i> Class Leaderboard</h3>
+        <div class="mode-tabs">
+          <button type="button" class="mode-tab active" id="lbBtnTotal" onclick="setLeaderboardRange('total')">All-time</button>
+          <button type="button" class="mode-tab" id="lbBtnMonth" onclick="setLeaderboardRange('month')">This month</button>
+        </div>
+      </div>
       <div id="msLeaderboard"></div>
       <div class="empty-state hidden" id="msLeaderboardEmpty">Be the first to complete a milestone!</div>
     </div>
@@ -201,6 +222,7 @@
     <div class="empty-state hidden" id="materialEmpty">No materials published yet.</div>
 
     <h3 style="font-size:15px; margin:28px 0 12px; padding-top:20px; border-top:1.5px dashed var(--panel-border);">Homework</h3>
+    <p style="font-size:12px; color:var(--text-muted); margin-top:-6px; margin-bottom:14px;">When a teacher gives an estimated time, the AI splits it into a day-by-day checklist — check off each day as you go.</p>
     <div id="hwGrid"></div>
     <div class="empty-state hidden" id="hwEmpty">No homework assigned yet.</div>
   </section>
@@ -256,6 +278,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-storage-compat.js"></script>
 <script src="firebase-config.js"></script>
 <script src="app-auth.js"></script>
 <script src="app-data.js"></script>
@@ -383,10 +406,61 @@ async function loadMaterialsHomework() {
       <span class="badge-pill">${AppData.escapeHtml(m.subject)}</span>
       <strong style="font-size:14px;">${AppData.escapeHtml(m.subtopic)}</strong>
       <span style="font-size:12.5px; color:var(--text-muted);">${AppData.escapeHtml(m.description)}</span>
+      ${m.fileURL ? `
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:4px;">
+          <a href="${m.fileURL}" target="_blank" rel="noopener" class="btn-secondary" style="padding:6px 12px; font-size:11.5px;"><i class="fa-solid fa-file-pdf"></i> Open PDF</a>
+          <button class="btn-primary" style="padding:6px 12px; font-size:11.5px;" onclick="summarizeMaterial('${m.fileURL}', '${AppData.escapeHtml(m.fileName || m.subtopic).replace(/'/g,"\\'")}')"><i class="fa-solid fa-wand-magic-sparkles"></i> Summarize with AI</button>
+        </div>` : ''}
     </div>`).join('');
+
   document.getElementById('hwEmpty').classList.toggle('hidden', hw.length > 0);
-  document.getElementById('hwGrid').innerHTML = hw.map(h => `
-    <div class="quiz-card"><div><h4>${AppData.escapeHtml(h.subject)}</h4><div class="meta">Due ${h.dueDate}</div><div style="margin-top:8px; font-size:13px;">${AppData.escapeHtml(h.instructions)}</div></div></div>`).join('');
+  const wrap = document.getElementById('hwGrid');
+  wrap.innerHTML = hw.map(h => `<div class="quiz-card" id="hw-${h.id}" style="flex-direction:column; align-items:stretch;">
+      <div><h4>${AppData.escapeHtml(h.subject)}</h4><div class="meta">Due ${h.dueDate}${h.hours ? ` · ${h.hours}h estimated` : ''}</div><div style="margin-top:8px; font-size:13px;">${AppData.escapeHtml(h.instructions)}</div></div>
+      ${h.taskPlan && h.taskPlan.length ? `<div class="hw-task-list" id="hw-tasks-${h.id}"><div class="empty-state" style="padding:10px;">Loading your checklist…</div></div>` : ''}
+    </div>`).join('');
+
+  // Load each homework's per-student checklist progress and render it.
+  for (const h of hw) {
+    if (!h.taskPlan || !h.taskPlan.length) continue;
+    const progress = await AppData.getMyHomeworkProgress(h.id);
+    renderHwChecklist(h, progress.completed || []);
+  }
+}
+
+function renderHwChecklist(h, completed) {
+  const el = document.getElementById('hw-tasks-' + h.id);
+  if (!el) return;
+  const pct = Math.round((completed.length / h.taskPlan.length) * 100);
+  el.innerHTML = `
+    <div class="hw-progress-track"><div class="hw-progress-fill" style="width:${pct}%;"></div></div>
+    <div style="font-size:11px; color:var(--text-muted); margin-bottom:6px;">${completed.length}/${h.taskPlan.length} days completed · ${pct}%</div>
+    ${h.taskPlan.map((t, i) => `
+      <label class="hw-task-row ${completed.includes(i) ? 'done' : ''}">
+        <input type="checkbox" ${completed.includes(i) ? 'checked' : ''} onchange="toggleHwTask('${h.id}', ${i}, this.checked)">
+        <span>${t.label} (${t.dateLabel}) — ${t.hours}h planned</span>
+      </label>`).join('')}`;
+}
+
+async function toggleHwTask(homeworkId, taskIndex, done) {
+  try {
+    const completed = await AppData.toggleHomeworkTask(homeworkId, taskIndex, done);
+    const hw = (await AppData.listHomework()).find(x => x.id === homeworkId);
+    if (hw) renderHwChecklist(hw, completed);
+    toast(done ? 'Day marked complete.' : 'Marked incomplete.', 'success');
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+/** Sends a published PDF material's URL over to the AI Study Desk
+ *  iframe (already loaded on this page) so it can extract the text
+ *  and auto-run a summary — no copy/paste needed. */
+function summarizeMaterial(fileURL, name) {
+  const tabBtn = Array.from(document.querySelectorAll('.d-tab')).find(t => (t.getAttribute('onclick') || '').includes("'aidesk'"));
+  if (tabBtn) switchTab('aidesk', tabBtn);
+  const iframe = document.querySelector('#tab-aidesk iframe');
+  if (iframe && iframe.contentWindow) {
+    iframe.contentWindow.postMessage({ type: 'divedu-ai-desk-load-pdf-url', url: fileURL, name }, '*');
+  }
 }
 
 /* ---------------- Overview ---------------- */
@@ -414,15 +488,51 @@ auth.onAuthStateChanged(user => {
 });
 
 /* ---------------- Milestones & Points ---------------- */
+let lastLeaderboard = [];
+let leaderboardRange = 'total';
+
+function setLeaderboardRange(range) {
+  leaderboardRange = range;
+  document.getElementById('lbBtnTotal').classList.toggle('active', range === 'total');
+  document.getElementById('lbBtnMonth').classList.toggle('active', range === 'month');
+  renderLeaderboard();
+}
+
+function renderLeaderboard() {
+  const lwrap = document.getElementById('msLeaderboard');
+  const pointsField = leaderboardRange === 'month' ? 'monthPoints' : 'points';
+  const completedField = leaderboardRange === 'month' ? 'monthCompleted' : 'completed';
+  const sorted = [...lastLeaderboard].sort((a, b) => b[pointsField] - a[pointsField]);
+  const ranked = sorted.filter(r => r[completedField] > 0);
+  document.getElementById('msLeaderboardEmpty').classList.toggle('hidden', ranked.length > 0);
+  const me = auth.currentUser.uid;
+  lwrap.innerHTML = ranked.slice(0, 20).map((r, i) => `
+    <div class="leader-row ${r.uid === me ? 'me' : ''}">
+      <div class="leader-rank ${i===0?'top1':i===1?'top2':i===2?'top3':''}">${i + 1}</div>
+      <div style="flex:1;">
+        <strong style="font-size:13.5px;">${AppData.escapeHtml(r.name)}${r.uid === me ? ' (you)' : ''}</strong>
+        <div style="font-size:11.5px; color:var(--text-muted);">${r[completedField]} milestone${r[completedField] === 1 ? '' : 's'} completed${leaderboardRange==='month' ? ' this month' : ''}</div>
+      </div>
+      <span class="leader-badge" style="background:${r.badge.color}22; color:${r.badge.color};"><i class="fa-solid ${r.badge.icon}"></i> ${r.badge.label}</span>
+      <strong style="font-size:15px; min-width:70px; text-align:right;">${r[pointsField]} pts</strong>
+    </div>`).join('');
+}
+
 async function loadMilestonesTab() {
   const [milestones, myCompletions, leaderboard] = await Promise.all([
     AppData.listAllMilestones(), AppData.myMilestoneCompletions(), AppData.leaderboard()
   ]);
+  lastLeaderboard = leaderboard;
   const doneIds = new Set(myCompletions.map(c => c.milestoneId));
   const myTotal = myCompletions.reduce((s, c) => s + (c.points || 0), 0);
+  const thisMonth = AppData.monthKey();
+  const myMonthTotal = myCompletions
+    .filter(c => { const d = AppData.tsToDate(c.completedAt); return d && AppData.monthKey(d) === thisMonth; })
+    .reduce((s, c) => s + (c.points || 0), 0);
   const badge = AppData.badgeForPoints(myTotal);
 
   document.getElementById('myTotalPoints').textContent = myTotal;
+  document.getElementById('myMonthPoints').textContent = myMonthTotal;
   document.getElementById('myBadgeLabel').textContent = badge.label;
   document.getElementById('myBadgeIcon').className = 'fa-solid ' + badge.icon;
 
@@ -446,20 +556,7 @@ async function loadMilestonesTab() {
     </div>`;
   }).join('');
 
-  const lwrap = document.getElementById('msLeaderboard');
-  const ranked = leaderboard.filter(r => r.completed > 0);
-  document.getElementById('msLeaderboardEmpty').classList.toggle('hidden', ranked.length > 0);
-  const me = auth.currentUser.uid;
-  lwrap.innerHTML = leaderboard.slice(0, 20).map((r, i) => `
-    <div class="leader-row ${r.uid === me ? 'me' : ''}">
-      <div class="leader-rank ${i===0?'top1':i===1?'top2':i===2?'top3':''}">${i + 1}</div>
-      <div style="flex:1;">
-        <strong style="font-size:13.5px;">${AppData.escapeHtml(r.name)}${r.uid === me ? ' (you)' : ''}</strong>
-        <div style="font-size:11.5px; color:var(--text-muted);">${r.completed} milestone${r.completed === 1 ? '' : 's'} completed</div>
-      </div>
-      <span class="leader-badge" style="background:${r.badge.color}22; color:${r.badge.color};"><i class="fa-solid ${r.badge.icon}"></i> ${r.badge.label}</span>
-      <strong style="font-size:15px; min-width:70px; text-align:right;">${r.points} pts</strong>
-    </div>`).join('');
+  renderLeaderboard();
 }
 async function completeMs(id, btn) {
   const milestones = await AppData.listAllMilestones();

@@ -478,7 +478,7 @@ label { font-size: 0.825rem; font-weight: 700; color: var(--text-main); display:
 .input-icon { position: absolute; left: 1.2rem; color: var(--text-muted); font-size: 0.9rem; }
 .toggle-password { position: absolute; right: 1.2rem; color: var(--text-muted); cursor: pointer; font-size: 0.9rem; }
 
-input[type="text"], input[type="password"] { 
+input[type="text"], input[type="password"], input[type="email"], input[type="number"], input[type="date"] { 
   width: 100%; 
   padding: 0.85rem 2.8rem 0.85rem 2.8rem; 
   background: var(--bg-main); 
