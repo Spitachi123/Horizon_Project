@@ -34,7 +34,11 @@ service cloud.firestore {
                     && request.resource.data.role in ['student', 'teacher'];
       allow update: if signedIn() && request.auth.uid == userId
                     && request.resource.data.role == resource.data.role;
-      allow delete: if false;
+      // A teacher may remove any other account (student or teacher) —
+      // used by the "Delete account" action on the ID Cards tab.
+      // Nobody (not even a teacher) can delete their own profile this
+      // way, so a teacher can never accidentally lock themselves out.
+      allow delete: if isTeacher() && request.auth.uid != userId;
     }
 
     // Tiny counters used only to hand out sequential ID-card numbers
@@ -69,7 +73,10 @@ service cloud.firestore {
     match /quizAttempts/{attemptId} {
       allow create: if signedIn() && request.resource.data.studentId == request.auth.uid;
       allow read: if signedIn() && (resource.data.studentId == request.auth.uid || isTeacher());
-      allow update, delete: if false;
+      allow update: if false;
+      // Only used by the account-deletion cascade, to clean up a
+      // removed student's own attempt history.
+      allow delete: if isTeacher();
     }
 
     // Attendance is written by teachers only. A student may read the
@@ -80,7 +87,18 @@ service cloud.firestore {
       allow delete: if isTeacher();
     }
 
+    // Holidays: any signed-in teacher may mark/unmark a date as a
+    // school holiday. Every signed-in user can read the list, since
+    // the "AI calculates working days" logic runs on both dashboards.
+    match /holidays/{dateId} {
+      allow read: if signedIn();
+      allow create, update, delete: if isTeacher();
+    }
+
     // Reading materials & homework: teachers publish, everyone reads.
+    // Any teacher may delete any material/homework (not just the one
+    // who created it) so unwanted or outdated content can always be
+    // cleaned up by whoever notices it.
     match /materials/{docId} {
       allow read: if signedIn();
       allow create, update, delete: if isTeacher();
@@ -100,7 +118,8 @@ service cloud.firestore {
       allow create, update: if signedIn()
                     && request.resource.data.studentId == request.auth.uid
                     && docId == request.resource.data.homeworkId + '__' + request.auth.uid;
-      allow delete: if false;
+      // Used only by the account-deletion cascade.
+      allow delete: if isTeacher();
     }
 
     // Manually-entered results: teachers write, the owning student
@@ -125,7 +144,9 @@ service cloud.firestore {
       allow update: if isTeacher()
                     && request.resource.data.studentId == resource.data.studentId
                     && request.resource.data.text == resource.data.text;
-      allow delete: if false;
+      // Used only by the account-deletion cascade, to remove a
+      // removed student's own anonymous questions.
+      allow delete: if isTeacher();
     }
 
     // Milestones: any signed-in teacher may create one (the 3-per-day
@@ -133,12 +154,13 @@ service cloud.firestore {
     // creating — Firestore rules can't cheaply count documents, so
     // this is a soft limit rather than a hard security guarantee).
     // Every signed-in user (every student) can read the shared feed.
-    // Only the teacher who created a milestone may delete it.
+    // Any teacher may delete a milestone (moderation / cleanup — not
+    // just the teacher who originally created it).
     match /milestones/{mId} {
       allow read: if signedIn();
       allow create: if isTeacher() && request.resource.data.createdBy == request.auth.uid;
       allow update: if false;
-      allow delete: if isTeacher() && resource.data.createdBy == request.auth.uid;
+      allow delete: if isTeacher();
     }
 
     // Milestone completions award points. A student may only ever
@@ -147,14 +169,37 @@ service cloud.firestore {
     // (`${milestoneId}__${studentId}`), so a student physically
     // cannot create two completions for the same milestone — that's
     // what stops double-claiming points. Everyone signed in can read
-    // the completions feed (needed for the leaderboard); nothing can
-    // ever be edited or removed once earned.
+    // the completions feed (needed for the leaderboard). Deleting is
+    // otherwise blocked — only the account-deletion cascade (teacher)
+    // may remove one, when cleaning up a removed student's history.
     match /milestoneCompletions/{cId} {
       allow read: if signedIn();
       allow create: if signedIn()
                     && request.resource.data.studentId == request.auth.uid
                     && cId == request.resource.data.milestoneId + '__' + request.auth.uid;
-      allow update, delete: if false;
+      allow update: if false;
+      allow delete: if isTeacher();
+    }
+
+    // Unified points ledger: every points-earning action (milestone,
+    // quiz, homework day) writes one entry here. A student may only
+    // ever create an entry tagged with their own uid; each entry's id
+    // is deterministic and source-specific (built by the app, e.g.
+    // "quiz__<attemptId>" or "hw__<homeworkId>__<uid>__day<n>"), so the
+    // same action can never pay out points twice. A student may delete
+    // their own entry only to *undo* an action they can also undo
+    // elsewhere (currently: unchecking a homework day) — never to
+    // remove a milestone or quiz entry, which have no "undo" in the
+    // app. Teachers may also delete entries, needed for the
+    // account-deletion cascade.
+    match /pointsLedger/{pId} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.studentId == request.auth.uid;
+      allow update: if false;
+      allow delete: if signedIn() && (
+                      (resource.data.studentId == request.auth.uid && resource.data.source == 'homework')
+                      || isTeacher()
+                    );
     }
   }
 }

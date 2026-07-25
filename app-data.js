@@ -34,12 +34,23 @@ const AppData = {
   async submitAttempt({ quizId, quizTitle, subject, answers, score, total }) {
     const user = auth.currentUser;
     const percent = total > 0 ? Math.round((score / total) * 100) : 0;
-    return db.collection('quizAttempts').add({
+    const attemptRef = await db.collection('quizAttempts').add({
       quizId, quizTitle, subject, answers, score, total, percent,
       studentId: user.uid,
       studentName: user.displayName || user.email,
       submittedAt: firebase.firestore.FieldValue.serverTimestamp()
     });
+    // Every task a student completes earns points, not just teacher
+    // milestones — a quiz attempt banks 10 points per correct answer.
+    if (score > 0) {
+      await this.awardPoints({
+        id: 'quiz__' + attemptRef.id,
+        source: 'quiz',
+        title: `Quiz: ${quizTitle}`,
+        points: score * 10
+      });
+    }
+    return attemptRef;
   },
 
   async myAttempts() {
@@ -83,6 +94,55 @@ const AppData = {
     const rows = snap.docs.map(d => ({ uid: d.id, ...d.data() }));
     rows.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
     return rows;
+  },
+
+  /** Permanently removes a student or teacher account from the app.
+   *  Deletes their Firestore profile (every page's protectPage() check
+   *  relies on this doc, so once it's gone they're bounced to sign-in)
+   *  plus every other document elsewhere in the database that belongs
+   *  to them, so no orphaned rows are left behind in any list.
+   *
+   *  Honesty note: this cannot delete the person's actual Firebase
+   *  *Authentication* sign-in credentials — only a privileged Admin
+   *  SDK / Cloud Function running on a server can do that, never
+   *  client-side JS. In practice that's fine: once their profile
+   *  document is gone they have no working dashboard, but if you want
+   *  the login itself fully revoked too, that needs a Cloud Function.
+   */
+  async deleteUserAccount(uid, role) {
+    const batchDelete = async (query) => {
+      const snap = await query.get();
+      const chunks = [];
+      for (let i = 0; i < snap.docs.length; i += 400) chunks.push(snap.docs.slice(i, i + 400));
+      for (const chunk of chunks) {
+        const batch = db.batch();
+        chunk.forEach(d => batch.delete(d.ref));
+        await batch.commit();
+      }
+    };
+
+    await Promise.all([
+      batchDelete(db.collection('attendance').where('studentId', '==', uid)),
+      batchDelete(db.collection('quizAttempts').where('studentId', '==', uid)),
+      batchDelete(db.collection('results').where('studentId', '==', uid)),
+      batchDelete(db.collection('questions').where('studentId', '==', uid)),
+      batchDelete(db.collection('milestoneCompletions').where('studentId', '==', uid)),
+      batchDelete(db.collection('homeworkProgress').where('studentId', '==', uid)),
+      batchDelete(db.collection('pointsLedger').where('studentId', '==', uid)),
+      batchDelete(db.collection('loginLogs').where('uid', '==', uid))
+    ]);
+
+    if (role === 'teacher') {
+      await Promise.all([
+        batchDelete(db.collection('quizzes').where('createdBy', '==', uid)),
+        batchDelete(db.collection('materials').where('createdBy', '==', uid)),
+        batchDelete(db.collection('homework').where('createdBy', '==', uid)),
+        batchDelete(db.collection('milestones').where('createdBy', '==', uid)),
+        batchDelete(db.collection('holidays').where('createdBy', '==', uid))
+      ]);
+    }
+
+    return db.collection('users').doc(uid).delete();
   },
 
   /** Full sign-in history — every time anyone has entered the
@@ -135,6 +195,89 @@ const AppData = {
     return snap.docs.map(d => ({ id: d.id, ...d.data() }));
   },
 
+  /* ---------------- Holidays & working-day calculation ----------------
+     A teacher can mark any date as a holiday (exam break, festival,
+     school closure, etc). The attendance system then figures out the
+     real number of "working days" itself — every calendar day between
+     the class's start date and today, minus Saturdays/Sundays (the
+     standard weekend) and minus any day a teacher has marked as a
+     holiday — instead of a teacher having to count it by hand. Any
+     working day nobody explicitly marked is automatically treated as
+     "present" for that student (only an explicit "Absent" mark counts
+     against them), so the register only needs the *exceptions*. */
+
+  async markHoliday(dateStr, note) {
+    const user = auth.currentUser;
+    return db.collection('holidays').doc(dateStr).set({
+      date: dateStr,
+      note: note || '',
+      createdBy: user.uid,
+      createdByName: user.displayName || 'Teacher',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  },
+
+  async unmarkHoliday(dateStr) {
+    return db.collection('holidays').doc(dateStr).delete();
+  },
+
+  async listHolidays() {
+    const snap = await db.collection('holidays').get();
+    const rows = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    rows.sort((a, b) => (a.date < b.date ? 1 : -1));
+    return rows;
+  },
+
+  /** true if `dateStr` (YYYY-MM-DD) is a weekend (Sat/Sun) or a
+   *  teacher-marked holiday. `holidaySet` is a Set of "YYYY-MM-DD"
+   *  strings, e.g. built from listHolidays(). */
+  isNonWorkingDay(dateStr, holidaySet) {
+    const day = new Date(dateStr + 'T00:00:00').getDay(); // 0=Sun, 6=Sat
+    return day === 0 || day === 6 || (holidaySet && holidaySet.has(dateStr));
+  },
+
+  /** Every calendar date string from `startDateStr` to `endDateStr`
+   *  inclusive. */
+  dateRange(startDateStr, endDateStr) {
+    const out = [];
+    const start = new Date(startDateStr + 'T00:00:00');
+    const end = new Date(endDateStr + 'T00:00:00');
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      out.push(d.toISOString().slice(0, 10));
+    }
+    return out;
+  },
+
+  /** The AI-calculated total number of actual working days between
+   *  `startDateStr` and today — weekends and marked holidays excluded
+   *  automatically, so nobody has to count them by hand. */
+  workingDaysBetween(startDateStr, holidaySet, endDateStr) {
+    const end = endDateStr || this.todayStr();
+    if (!startDateStr || startDateStr > end) return 0;
+    return this.dateRange(startDateStr, end).filter(d => !this.isNonWorkingDay(d, holidaySet)).length;
+  },
+
+  /** Builds a student's attendance summary: every real working day
+   *  since `joinDateStr` counts as "present" by default unless a
+   *  teacher explicitly marked that student "absent" that day —
+   *  matching a real classroom register, where the roll call only
+   *  records exceptions instead of confirming every present student
+   *  by hand every single day. */
+  computeAttendanceStats(joinDateStr, attendanceRows, holidaySet, endDateStr) {
+    const end = endDateStr || this.todayStr();
+    const start = joinDateStr && joinDateStr <= end ? joinDateStr : end;
+    const workingDays = this.dateRange(start, end).filter(d => !this.isNonWorkingDay(d, holidaySet));
+    const explicitByDate = {};
+    attendanceRows.forEach(r => { explicitByDate[r.date] = r.status; });
+    let present = 0, absent = 0;
+    workingDays.forEach(d => {
+      if (explicitByDate[d] === 'absent') absent++;
+      else present++; // explicit "present" OR unmarked -> present
+    });
+    const total = workingDays.length;
+    return { totalWorkingDays: total, present, absent, rate: total ? Math.round((present / total) * 100) : 100 };
+  },
+
   /* ---------------- Materials ---------------- */
 
   /** Publishes a reading material, optionally attaching a PDF file
@@ -166,6 +309,20 @@ const AppData = {
     const rows = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     rows.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
     return rows;
+  },
+
+  /** Removes a published material. Also best-effort deletes the
+   *  attached PDF from Firebase Storage, if any (never blocks the
+   *  Firestore delete if that part fails). */
+  async deleteMaterial(materialId) {
+    try {
+      const snap = await db.collection('materials').doc(materialId).get();
+      const data = snap.exists ? snap.data() : null;
+      if (data && data.filePath && window.storage) {
+        await storage.ref().child(data.filePath).delete().catch(() => {});
+      }
+    } catch (err) { /* ignore cleanup failure */ }
+    return db.collection('materials').doc(materialId).delete();
   },
 
   /* ---------------- Homework ----------------
@@ -215,6 +372,10 @@ const AppData = {
     return rows;
   },
 
+  async deleteHomework(homeworkId) {
+    return db.collection('homework').doc(homeworkId).delete();
+  },
+
   homeworkProgressId(homeworkId, studentId) {
     return `${homeworkId}__${studentId}`;
   },
@@ -240,6 +401,17 @@ const AppData = {
       homeworkId, studentId: user.uid, completed,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     }, { merge: true });
+
+    // Every task a student completes earns points — checking off a
+    // planned homework day banks points too; unchecking it removes
+    // them again (the deterministic id means re-checking never lets
+    // the same day pay out twice).
+    const pointId = `hw__${homeworkId}__${user.uid}__day${taskIndex}`;
+    if (done) {
+      await this.awardPoints({ id: pointId, source: 'homework', title: 'Homework day completed', points: 10 });
+    } else {
+      await this.revokePoints(pointId);
+    }
     return completed;
   },
 
@@ -406,6 +578,15 @@ const AppData = {
       studentName: user.displayName || user.email || 'Student',
       completedAt: firebase.firestore.FieldValue.serverTimestamp()
     });
+    // Also banks the points in the unified points ledger, the same
+    // system every other task (quizzes, homework days) pays into, so
+    // every task a student completes is counted the same way.
+    await this.awardPoints({
+      id: 'milestone__' + id,
+      source: 'milestone',
+      title: milestone.title,
+      points: milestone.points
+    });
     return ref;
   },
 
@@ -416,9 +597,53 @@ const AppData = {
   },
 
   /** Every completion by every student across every teacher's
-   *  milestones — used to build the class leaderboard. */
+   *  milestones — used to show milestone-specific counts on the
+   *  leaderboard (separate from the total points figure, which now
+   *  also includes quizzes and homework). */
   async allMilestoneCompletions() {
     const snap = await db.collection('milestoneCompletions').get();
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  },
+
+  /* ---------------- Unified points ledger ----------------
+     Every point-earning action a student takes — completing a
+     teacher's milestone, submitting a quiz, checking off a planned
+     homework day — writes one entry here. Each entry's document id is
+     deterministic and source-specific, so the *same* action can never
+     pay out twice (re-clicking, refreshing, or re-submitting is always
+     safe), while genuinely different actions each get their own entry
+     and their own points. This is what the leaderboard, the points
+     hero banner, and the ID card total are all actually built from. */
+
+  async awardPoints({ id, source, title, points }) {
+    const user = auth.currentUser;
+    const ref = db.collection('pointsLedger').doc(id);
+    const existing = await ref.get();
+    if (existing.exists) return existing; // this exact action already paid out
+    return ref.set({
+      source, title, points: Math.max(0, Math.round(points)),
+      studentId: user.uid,
+      studentName: user.displayName || user.email || 'Student',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  },
+
+  /** Removes a previously-awarded ledger entry (used when a student
+   *  unchecks a homework day they'd checked off before). */
+  async revokePoints(id) {
+    return db.collection('pointsLedger').doc(id).delete().catch(() => {});
+  },
+
+  async myPointsLedger() {
+    const user = auth.currentUser;
+    const snap = await db.collection('pointsLedger').where('studentId', '==', user.uid).get();
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  },
+
+  /** Every points-ledger entry from every student — the single source
+   *  of truth behind the class leaderboard. */
+  async allPointsLedger() {
+    const snap = await db.collection('pointsLedger').get();
     return snap.docs.map(d => ({ id: d.id, ...d.data() }));
   },
 
@@ -433,25 +658,35 @@ const AppData = {
   },
 
   /** { uid: { name, points, monthPoints, badges, completed } } for
-   *  every student who has completed at least one milestone, ranked
-   *  highest points first. monthPoints is this calendar month only,
-   *  so both dashboards can show "total" and "this month's progress"
+   *  every student who has earned at least one point from *any* task
+   *  (milestones, quizzes, homework days), ranked highest points
+   *  first. `completed`/`monthCompleted` count milestone completions
+   *  specifically (what the "X milestones completed" caption shows);
+   *  `points`/`monthPoints` are the student's full points total across
+   *  every task type. monthPoints is this calendar month only, so
+   *  both dashboards can show "total" and "this month's progress"
    *  ranking side by side. */
   async leaderboard() {
-    const [completions, students] = await Promise.all([this.allMilestoneCompletions(), this.listStudents()]);
+    const [ledger, completions, students] = await Promise.all([
+      this.allPointsLedger(), this.allMilestoneCompletions(), this.listStudents()
+    ]);
     const thisMonth = this.monthKey();
     const totals = {};
     students.forEach(s => { totals[s.uid] = { uid: s.uid, name: s.name || s.email, points: 0, completed: 0, monthPoints: 0, monthCompleted: 0 }; });
+
+    ledger.forEach(p => {
+      if (!totals[p.studentId]) totals[p.studentId] = { uid: p.studentId, name: p.studentName, points: 0, completed: 0, monthPoints: 0, monthCompleted: 0 };
+      totals[p.studentId].points += p.points || 0;
+      const d = this.tsToDate(p.createdAt);
+      if (d && this.monthKey(d) === thisMonth) totals[p.studentId].monthPoints += p.points || 0;
+    });
     completions.forEach(c => {
       if (!totals[c.studentId]) totals[c.studentId] = { uid: c.studentId, name: c.studentName, points: 0, completed: 0, monthPoints: 0, monthCompleted: 0 };
-      totals[c.studentId].points += c.points || 0;
       totals[c.studentId].completed += 1;
       const d = this.tsToDate(c.completedAt);
-      if (d && this.monthKey(d) === thisMonth) {
-        totals[c.studentId].monthPoints += c.points || 0;
-        totals[c.studentId].monthCompleted += 1;
-      }
+      if (d && this.monthKey(d) === thisMonth) totals[c.studentId].monthCompleted += 1;
     });
+
     const rows = Object.values(totals);
     rows.forEach(r => { r.badge = AppData.badgeForPoints(r.points); });
     rows.sort((a, b) => b.points - a.points);
