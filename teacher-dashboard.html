@@ -77,10 +77,12 @@
       <span data-user-name>—</span>
     </div>
     <button class="btn-logout" data-logout><i class="fa-solid fa-arrow-right-from-bracket"></i> Logout</button>
+    <button class="nav-hamburger" id="navHamburger" onclick="toggleSidenav()" aria-label="Open menu"><i class="fa-solid fa-bars"></i></button>
   </div>
 </header>
 
-<nav class="d-tabnav">
+<div class="sidenav-overlay" id="sidenavOverlay" onclick="closeSidenav()"></div>
+<nav class="d-sidenav" id="sidenav">
   <button class="d-tab active" data-tab="overview" onclick="switchTab('overview', this)"><i class="fa-solid fa-table-columns"></i> Overview</button>
   <button class="d-tab" data-tab="quiz" onclick="switchTab('quiz', this)"><i class="fa-solid fa-list-check"></i> Quizzes</button>
   <button class="d-tab" data-tab="attendance" onclick="switchTab('attendance', this)"><i class="fa-solid fa-user-check"></i> Attendance</button>
@@ -152,17 +154,44 @@
 
   <section id="tab-attendance" class="d-card hidden">
     <div class="d-section-head">
-      <div><h2>Attendance Register</h2><p>Mark today's roll call — students see it instantly on their own dashboard.</p></div>
+      <div><h2>Attendance Register</h2><p>Mark today's roll call — students see it instantly on their own dashboard. Anyone you don't mark is automatically counted as present.</p></div>
       <div class="d-field" style="margin:0;">
         <input type="date" id="attDate" style="min-width:170px;">
       </div>
     </div>
-    <div class="d-field" style="max-width:260px;">
-      <label>Subject / Module</label>
-      <select id="attSubject"><option>Science</option><option>Maths</option><option>Opt Maths</option><option>Computer</option></select>
+
+    <div class="stat-grid" style="margin-bottom:20px;">
+      <div class="stat-tile"><div class="icon"><i class="fa-solid fa-calendar-days"></i></div><div><div class="num" id="attWorkingDays">—</div><div class="label">Working days so far (AI-calculated)</div></div></div>
+      <div class="stat-tile"><div class="icon"><i class="fa-solid fa-umbrella-beach"></i></div><div><div class="num" id="attHolidayCount">—</div><div class="label">Holidays marked</div></div></div>
     </div>
+
+    <div class="d-grid-2" style="align-items:end; margin-bottom:6px;">
+      <div class="d-field" style="max-width:260px; margin-bottom:0;">
+        <label>Subject / Module</label>
+        <select id="attSubject"><option>Science</option><option>Maths</option><option>Opt Maths</option><option>Computer</option></select>
+      </div>
+      <div style="display:flex; gap:10px; align-items:end; justify-content:flex-end; flex-wrap:wrap;">
+        <div class="d-field" style="margin-bottom:0; min-width:200px;">
+          <label>Holiday note (optional)</label>
+          <input type="text" id="holidayNote" placeholder="e.g. Dashain break">
+        </div>
+        <button type="button" class="btn-secondary" id="holidayToggleBtn" onclick="toggleHolidayForSelectedDate()"><i class="fa-solid fa-umbrella-beach"></i> Mark date as holiday</button>
+      </div>
+    </div>
+
+    <div class="d-field" style="max-width:340px; margin-top:14px;">
+      <label>Search students by name</label>
+      <input type="text" id="rosterSearch" placeholder="Type a name to filter…" oninput="renderRoster()">
+    </div>
+
     <div id="rosterWrap" style="margin-top:16px;"></div>
     <div class="empty-state hidden" id="rosterEmpty">No students have signed up yet.</div>
+
+    <div style="margin-top:28px; padding-top:20px; border-top:1.5px dashed var(--panel-border);">
+      <h3 style="font-size:14.5px; margin-bottom:12px;"><i class="fa-solid fa-umbrella-beach"></i> Marked holidays</h3>
+      <div id="holidayList"></div>
+      <div class="empty-state hidden" id="holidayEmpty">No holidays marked yet.</div>
+    </div>
   </section>
 
   <section id="tab-results" class="d-card hidden">
@@ -323,11 +352,21 @@ function toast(msg, type) {
   setTimeout(() => t.classList.remove('show'), 3000);
 }
 
+function toggleSidenav() {
+  document.getElementById('sidenav').classList.toggle('open');
+  document.getElementById('sidenavOverlay').classList.toggle('show');
+}
+function closeSidenav() {
+  document.getElementById('sidenav').classList.remove('open');
+  document.getElementById('sidenavOverlay').classList.remove('show');
+}
+
 function switchTab(id, el) {
   document.querySelectorAll('[id^="tab-"]').forEach(s => s.classList.add('hidden'));
   document.querySelectorAll('.d-tab').forEach(t => t.classList.remove('active'));
   document.getElementById('tab-' + id).classList.remove('hidden');
   el.classList.add('active');
+  closeSidenav(); // collapse the drawer on mobile after picking a section
   if (id === 'attendance') loadRoster();
   if (id === 'results') loadResults();
   if (id === 'materials') loadMaterials();
@@ -415,22 +454,42 @@ async function removeQuiz(id) {
 }
 
 document.getElementById('attDate').value = AppData.todayStr();
+let rosterStudents = [];
+let rosterAttendanceById = {};
+let rosterHolidays = [];
+
 async function loadRoster() {
+  const dateStr = document.getElementById('attDate').value || AppData.todayStr();
+  const [students, existing, holidays] = await Promise.all([
+    AppData.listStudents(), AppData.attendanceForDate(dateStr), AppData.listHolidays()
+  ]);
+  rosterStudents = students;
+  rosterAttendanceById = Object.fromEntries(existing.map(r => [r.studentId, r]));
+  rosterHolidays = holidays;
+  updateHolidayControls(dateStr);
+  renderHolidayList();
+  renderWorkingDaysStat();
+  renderRoster();
+}
+
+function renderRoster() {
   const wrap = document.getElementById('rosterWrap');
   const empty = document.getElementById('rosterEmpty');
+  const query = (document.getElementById('rosterSearch').value || '').trim().toLowerCase();
+  const filtered = rosterStudents.filter(s => !query || (s.name || s.email || '').toLowerCase().includes(query));
   wrap.innerHTML = '';
-  const students = await AppData.listStudents();
-  empty.classList.toggle('hidden', students.length > 0);
-  const dateStr = document.getElementById('attDate').value || AppData.todayStr();
-  const existing = await AppData.attendanceForDate(dateStr);
-  const byId = Object.fromEntries(existing.map(r => [r.studentId, r]));
-  for (const s of students) {
-    const row = byId[s.uid];
+  empty.classList.toggle('hidden', rosterStudents.length > 0);
+  if (rosterStudents.length && filtered.length === 0) {
+    wrap.innerHTML = `<div class="empty-state">No students match "${AppData.escapeHtml(query)}".</div>`;
+    return;
+  }
+  for (const s of filtered) {
+    const row = rosterAttendanceById[s.uid];
     const status = row ? row.status : null;
     const div = document.createElement('div');
     div.className = 'roster-card';
     div.innerHTML = `
-      <div><div class="roster-name">${AppData.escapeHtml(s.name || s.email)}</div><div class="roster-email">${AppData.escapeHtml(s.email)}</div></div>
+      <div><div class="roster-name">${AppData.escapeHtml(s.name || s.email)}</div><div class="roster-email">${AppData.escapeHtml(s.email)}${!status ? ' · defaults to present' : ''}</div></div>
       <div class="att-toggle">
         <button class="att-btn present ${status==='present'?'active':''}" onclick="markAtt('${s.uid}','${AppData.escapeHtml(s.name||s.email)}','present', this)">Present</button>
         <button class="att-btn absent ${status==='absent'?'active':''}" onclick="markAtt('${s.uid}','${AppData.escapeHtml(s.name||s.email)}','absent', this)">Absent</button>
@@ -439,15 +498,70 @@ async function loadRoster() {
   }
 }
 document.getElementById('attDate').addEventListener('change', loadRoster);
+
 async function markAtt(studentId, studentName, status, btn) {
   const dateStr = document.getElementById('attDate').value || AppData.todayStr();
   const subject = document.getElementById('attSubject').value;
   await AppData.setAttendance({ dateStr, studentId, studentName, subject, status });
+  rosterAttendanceById[studentId] = { studentId, status };
   const row = btn.closest('.roster-card');
   row.querySelectorAll('.att-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   toast(`Marked ${status} for ${studentName}.`, 'success');
   loadOverview();
+}
+
+/* ---------------- Holidays & AI working-day calculation ---------------- */
+function holidaySet() { return new Set(rosterHolidays.map(h => h.date)); }
+
+function updateHolidayControls(dateStr) {
+  const btn = document.getElementById('holidayToggleBtn');
+  const already = rosterHolidays.some(h => h.date === dateStr);
+  btn.innerHTML = already
+    ? `<i class="fa-solid fa-xmark"></i> Unmark holiday (${dateStr})`
+    : `<i class="fa-solid fa-umbrella-beach"></i> Mark ${dateStr} as holiday`;
+}
+
+async function toggleHolidayForSelectedDate() {
+  const dateStr = document.getElementById('attDate').value || AppData.todayStr();
+  const already = rosterHolidays.some(h => h.date === dateStr);
+  try {
+    if (already) {
+      await AppData.unmarkHoliday(dateStr);
+      toast('Holiday removed — this date counts as a working day again.', 'success');
+    } else {
+      await AppData.markHoliday(dateStr, document.getElementById('holidayNote').value.trim());
+      toast('Marked as a holiday — excluded from working-day totals.', 'success');
+    }
+    document.getElementById('holidayNote').value = '';
+    loadRoster();
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+function renderHolidayList() {
+  const wrap = document.getElementById('holidayList');
+  document.getElementById('holidayEmpty').classList.toggle('hidden', rosterHolidays.length > 0);
+  document.getElementById('attHolidayCount').textContent = rosterHolidays.length;
+  wrap.innerHTML = rosterHolidays.map(h => `
+    <div class="roster-card">
+      <div><div class="roster-name">${h.date}</div><div class="roster-email">${AppData.escapeHtml(h.note || 'No note') }</div></div>
+      <button class="btn-danger" onclick="removeHoliday('${h.date}')">Remove</button>
+    </div>`).join('');
+}
+async function removeHoliday(dateStr) {
+  await AppData.unmarkHoliday(dateStr);
+  toast('Holiday removed.', 'success');
+  loadRoster();
+}
+
+function renderWorkingDaysStat() {
+  // "Term start" = the earliest student sign-up date on record, so
+  // the AI works out the real number of working days the class has
+  // actually been running, instead of a teacher counting by hand.
+  const joinDates = rosterStudents.map(s => AppData.tsToDate(s.createdAt)).filter(Boolean).map(d => d.toISOString().slice(0, 10));
+  const start = joinDates.length ? joinDates.reduce((a, b) => a < b ? a : b) : AppData.todayStr();
+  const total = AppData.workingDaysBetween(start, holidaySet());
+  document.getElementById('attWorkingDays').textContent = total;
 }
 
 async function loadResults() {
@@ -487,11 +601,20 @@ async function loadMaterials() {
   document.getElementById('materialEmpty').classList.toggle('hidden', list.length > 0);
   wrap.innerHTML = list.map(m => `
     <div class="stat-tile" style="align-items:flex-start; flex-direction:column; gap:6px;">
-      <span class="badge-pill">${AppData.escapeHtml(m.subject)}</span>
+      <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
+        <span class="badge-pill">${AppData.escapeHtml(m.subject)}</span>
+        <button class="btn-danger" onclick="removeMaterial('${m.id}')">Delete</button>
+      </div>
       <strong style="font-size:14px;">${AppData.escapeHtml(m.subtopic)}</strong>
       <span style="font-size:12.5px; color:var(--text-muted);">${AppData.escapeHtml(m.description)}</span>
       ${m.fileURL ? `<a href="${m.fileURL}" target="_blank" rel="noopener" style="font-size:12px; font-weight:700; color:var(--current-accent);"><i class="fa-solid fa-file-pdf"></i> ${AppData.escapeHtml(m.fileName || 'View PDF')}</a>` : ''}
     </div>`).join('');
+}
+async function removeMaterial(id) {
+  if (!confirm('Delete this reading material? This also removes its attached PDF, if any.')) return;
+  await AppData.deleteMaterial(id);
+  toast('Material deleted.', 'success');
+  loadMaterials();
 }
 document.getElementById('materialForm').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -514,9 +637,18 @@ async function loadHomework() {
   document.getElementById('hwEmpty').classList.toggle('hidden', list.length > 0);
   wrap.innerHTML = list.map(h => `
     <div class="roster-card" style="align-items:flex-start; flex-direction:column;">
-      <div><div class="roster-name">${AppData.escapeHtml(h.subject)} — due ${h.dueDate}${h.hours ? ` · ${h.hours}h estimated` : ''}</div><div class="roster-email">${AppData.escapeHtml(h.instructions)}</div></div>
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; width:100%; gap:12px;">
+        <div><div class="roster-name">${AppData.escapeHtml(h.subject)} — due ${h.dueDate}${h.hours ? ` · ${h.hours}h estimated` : ''}</div><div class="roster-email">${AppData.escapeHtml(h.instructions)}</div></div>
+        <button class="btn-danger" onclick="removeHomework('${h.id}')">Delete</button>
+      </div>
       ${h.taskPlan && h.taskPlan.length ? `<div class="hw-plan">${h.taskPlan.map(t => `<span class="hw-plan-chip">${t.label} (${t.dateLabel}): ${t.hours}h</span>`).join('')}</div>` : ''}
     </div>`).join('');
+}
+async function removeHomework(id) {
+  if (!confirm('Delete this homework assignment for every student?')) return;
+  await AppData.deleteHomework(id);
+  toast('Homework deleted.', 'success');
+  loadHomework();
 }
 document.getElementById('hwForm').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -534,13 +666,19 @@ document.getElementById('hwForm').addEventListener('submit', async (e) => {
 });
 
 async function loadOverview() {
-  const [students, quizzes, attempts, attToday] = await Promise.all([
-    AppData.listStudents(), AppData.listQuizzes(), AppData.allAttempts(), AppData.attendanceForDate(AppData.todayStr())
+  const [students, quizzes, attempts, attToday, holidays] = await Promise.all([
+    AppData.listStudents(), AppData.listQuizzes(), AppData.allAttempts(), AppData.attendanceForDate(AppData.todayStr()), AppData.listHolidays()
   ]);
   document.getElementById('stuCount').textContent = students.length;
   document.getElementById('quizCount').textContent = quizzes.filter(q => q.createdBy === auth.currentUser.uid).length;
   document.getElementById('attemptCount').textContent = attempts.length;
-  document.getElementById('todayAttCount').textContent = attToday.filter(a => a.status === 'present').length;
+
+  // Present-by-default: any student without an explicit "absent" mark
+  // today counts as present, unless today itself is a holiday.
+  const isHolidayToday = AppData.isNonWorkingDay(AppData.todayStr(), new Set(holidays.map(h => h.date)));
+  const absentToday = new Set(attToday.filter(a => a.status === 'absent').map(a => a.studentId));
+  const presentToday = isHolidayToday ? 0 : students.filter(s => !absentToday.has(s.uid)).length;
+  document.getElementById('todayAttCount').textContent = presentToday;
 
   const tbody = document.querySelector('#recentAttemptsTable tbody');
   const recent = attempts.slice(0, 6);
@@ -711,6 +849,9 @@ async function loadIdCardsTab() {
         <div class="idc-no" style="margin-top:4px;">${AppData.escapeHtml(u.idCardNo || '—')}</div>
       </div>
       <span class="status-badge ${u.role === 'teacher' ? 'pass' : 'pending'}">${(u.role || '').toUpperCase()}</span>
+      ${u.uid === auth.currentUser.uid
+        ? '<span style="font-size:11px; color:var(--text-muted); font-weight:700;">(you)</span>'
+        : `<button class="btn-danger" onclick="removeUserAccount('${u.uid}', '${u.role}', '${AppData.escapeHtml(u.name || u.email).replace(/'/g, "\\'")}')">Delete</button>`}
     </div>`).join('');
 
   const lwrap = document.getElementById('loginHistoryList');
@@ -720,6 +861,16 @@ async function loadIdCardsTab() {
       <span><strong>${AppData.escapeHtml(l.name)}</strong> <span style="color:var(--text-muted);">(${AppData.escapeHtml(l.role)})</span></span>
       <span style="color:var(--text-muted);">${AppData.fmtDateTime(l.at)}${l.remembered ? ' · kept signed in' : ''}</span>
     </div>`).join('');
+}
+
+async function removeUserAccount(uid, role, name) {
+  if (!confirm(`Permanently remove ${name}'s account (${role})? This deletes their profile and every record tied to it — quiz attempts, attendance, points, etc. This cannot be undone.`)) return;
+  try {
+    await AppData.deleteUserAccount(uid, role);
+    toast(`${name}'s account was removed.`, 'success');
+    loadIdCardsTab();
+    loadOverview();
+  } catch (err) { toast(err.message, 'error'); }
 }
 </script>
 </body>

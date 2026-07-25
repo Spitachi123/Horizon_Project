@@ -84,10 +84,12 @@
       <span data-user-name>—</span>
     </div>
     <button class="btn-logout" data-logout><i class="fa-solid fa-arrow-right-from-bracket"></i> Logout</button>
+    <button class="nav-hamburger" id="navHamburger" onclick="toggleSidenav()" aria-label="Open menu"><i class="fa-solid fa-bars"></i></button>
   </div>
 </header>
 
-<nav class="d-tabnav">
+<div class="sidenav-overlay" id="sidenavOverlay" onclick="closeSidenav()"></div>
+<nav class="d-sidenav" id="sidenav">
   <button class="d-tab active" onclick="switchTab('overview', this)"><i class="fa-solid fa-table-columns"></i> Overview</button>
   <button class="d-tab" onclick="switchTab('milestones', this)"><i class="fa-solid fa-flag-checkered"></i> Milestones</button>
   <button class="d-tab" onclick="switchTab('aidesk', this)"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Study Desk</button>
@@ -115,7 +117,7 @@
       <div class="stat-tile"><div class="icon"><i class="fa-solid fa-trophy"></i></div><div><div class="num" id="ovAvgScore">—</div><div class="label">Average quiz score</div></div></div>
       <div class="stat-tile"><div class="icon"><i class="fa-solid fa-calendar-check"></i></div><div><div class="num" id="ovAttendance">—</div><div class="label">Attendance rate</div></div></div>
       <div class="stat-tile"><div class="icon"><i class="fa-solid fa-book"></i></div><div><div class="num" id="ovMaterials">—</div><div class="label">Materials published</div></div></div>
-      <div class="stat-tile"><div class="icon"><i class="fa-solid fa-flag-checkered"></i></div><div><div class="num" id="ovPoints">—</div><div class="label">Milestone points earned</div></div></div>
+      <div class="stat-tile"><div class="icon"><i class="fa-solid fa-flag-checkered"></i></div><div><div class="num" id="ovPoints">—</div><div class="label">Total points earned</div></div></div>
     </div>
 
     <div style="margin-top:24px;">
@@ -204,15 +206,17 @@
 
   <!-- ATTENDANCE -->
   <section id="tab-attendance" class="d-card hidden">
-    <div class="d-section-head"><div><h2>My Attendance</h2><p>A record of every day your teacher has marked you present or absent.</p></div></div>
+    <div class="d-section-head"><div><h2>My Attendance</h2><p>Working days are calculated automatically (weekends and school holidays excluded). Any day your teacher hasn't marked you absent counts as present.</p></div></div>
     <div class="att-summary">
+      <span class="att-pill" style="background:var(--student-bg); color:var(--current-accent);" id="attWorkingPill">0 working days</span>
       <span class="att-pill" style="background:var(--success-bg); color:var(--success);" id="attPresentPill">0 present</span>
       <span class="att-pill" style="background:var(--danger-bg); color:var(--danger);" id="attAbsentPill">0 absent</span>
-      <span class="att-pill" style="background:var(--student-bg); color:var(--current-accent);" id="attRatePill">0% rate</span>
+      <span class="att-pill" style="background:var(--warn-bg); color:var(--warn);" id="attRatePill">0% rate</span>
     </div>
+    <h3 style="font-size:13.5px; margin:10px 0;">Days you were explicitly marked absent</h3>
     <table class="d-table"><thead><tr><th>Date</th><th>Subject</th><th>Status</th></tr></thead>
       <tbody id="myAttendanceBody"></tbody></table>
-    <div class="empty-state hidden" id="myAttendanceEmpty">No attendance recorded yet.</div>
+    <div class="empty-state hidden" id="myAttendanceEmpty">No absences recorded — great job!</div>
   </section>
 
   <!-- MATERIALS & HOMEWORK -->
@@ -292,11 +296,21 @@ function toast(msg, type) {
   setTimeout(() => t.classList.remove('show'), 3000);
 }
 
+function toggleSidenav() {
+  document.getElementById('sidenav').classList.toggle('open');
+  document.getElementById('sidenavOverlay').classList.toggle('show');
+}
+function closeSidenav() {
+  document.getElementById('sidenav').classList.remove('open');
+  document.getElementById('sidenavOverlay').classList.remove('show');
+}
+
 function switchTab(id, el) {
   document.querySelectorAll('[id^="tab-"]').forEach(s => s.classList.add('hidden'));
   document.querySelectorAll('.d-tab').forEach(t => t.classList.remove('active'));
   document.getElementById('tab-' + id).classList.remove('hidden');
   el.classList.add('active');
+  closeSidenav(); // collapse the drawer on mobile after picking a section
   if (id === 'quiz') loadQuizList();
   if (id === 'results') loadResults();
   if (id === 'attendance') loadAttendance();
@@ -385,15 +399,25 @@ async function loadResults() {
 
 /* ---------------- Attendance ---------------- */
 async function loadAttendance() {
-  const rows = await AppData.myAttendance();
-  const present = rows.filter(r => r.status === 'present').length;
-  const absent = rows.filter(r => r.status === 'absent').length;
-  const rate = rows.length ? Math.round((present / rows.length) * 100) : 0;
-  document.getElementById('attPresentPill').textContent = `${present} present`;
-  document.getElementById('attAbsentPill').textContent = `${absent} absent`;
-  document.getElementById('attRatePill').textContent = `${rate}% rate`;
-  document.getElementById('myAttendanceEmpty').classList.toggle('hidden', rows.length > 0);
-  document.querySelector('#myAttendanceBody').innerHTML = rows.map(r => `
+  const [rows, holidays] = await Promise.all([AppData.myAttendance(), AppData.listHolidays()]);
+  const holidaySet = new Set(holidays.map(h => h.date));
+  const joinDate = window.currentUserProfile && window.currentUserProfile.createdAt
+    ? AppData.tsToDate(window.currentUserProfile.createdAt).toISOString().slice(0, 10)
+    : AppData.todayStr();
+
+  // AI-calculated: total real working days since joining (weekends +
+  // marked holidays excluded), with any day not explicitly marked
+  // absent counting as present — same logic the teacher's register
+  // is built on, kept in sync automatically.
+  const stats = AppData.computeAttendanceStats(joinDate, rows, holidaySet);
+  document.getElementById('attWorkingPill').textContent = `${stats.totalWorkingDays} working days`;
+  document.getElementById('attPresentPill').textContent = `${stats.present} present`;
+  document.getElementById('attAbsentPill').textContent = `${stats.absent} absent`;
+  document.getElementById('attRatePill').textContent = `${stats.rate}% rate`;
+
+  const absentRows = rows.filter(r => r.status === 'absent');
+  document.getElementById('myAttendanceEmpty').classList.toggle('hidden', absentRows.length > 0);
+  document.querySelector('#myAttendanceBody').innerHTML = absentRows.map(r => `
     <tr><td>${r.date}</td><td>${AppData.escapeHtml(r.subject)}</td><td><span class="status-badge ${r.status}">${r.status.toUpperCase()}</span></td></tr>`).join('');
 }
 
@@ -465,16 +489,20 @@ function summarizeMaterial(fileURL, name) {
 
 /* ---------------- Overview ---------------- */
 async function loadOverview() {
-  const [quizzes, attempts, attendance, materials, hw, myCompletions] = await Promise.all([
-    AppData.listQuizzes(), AppData.myAttempts(), AppData.myAttendance(), AppData.listMaterials(), AppData.listHomework(), AppData.myMilestoneCompletions()
+  const [quizzes, attempts, attendance, materials, hw, myLedger, holidays] = await Promise.all([
+    AppData.listQuizzes(), AppData.myAttempts(), AppData.myAttendance(), AppData.listMaterials(), AppData.listHomework(), AppData.myPointsLedger(), AppData.listHolidays()
   ]);
   document.getElementById('ovQuizzes').textContent = quizzes.length;
   const avg = attempts.length ? Math.round(attempts.reduce((s, a) => s + a.percent, 0) / attempts.length) : 0;
   document.getElementById('ovAvgScore').textContent = attempts.length ? avg + '%' : '—';
-  const present = attendance.filter(a => a.status === 'present').length;
-  document.getElementById('ovAttendance').textContent = attendance.length ? Math.round((present / attendance.length) * 100) + '%' : '—';
+
+  const joinDate = window.currentUserProfile && window.currentUserProfile.createdAt
+    ? AppData.tsToDate(window.currentUserProfile.createdAt).toISOString().slice(0, 10)
+    : AppData.todayStr();
+  const stats = AppData.computeAttendanceStats(joinDate, attendance, new Set(holidays.map(h => h.date)));
+  document.getElementById('ovAttendance').textContent = stats.totalWorkingDays ? stats.rate + '%' : '—';
   document.getElementById('ovMaterials').textContent = materials.length;
-  document.getElementById('ovPoints').textContent = myCompletions.reduce((s, c) => s + (c.points || 0), 0);
+  document.getElementById('ovPoints').textContent = myLedger.reduce((s, c) => s + (c.points || 0), 0);
 
   document.getElementById('ovHomeworkEmpty').classList.toggle('hidden', hw.length > 0);
   document.getElementById('ovHomework').innerHTML = hw.slice(0, 4).map(h => `
@@ -519,15 +547,17 @@ function renderLeaderboard() {
 }
 
 async function loadMilestonesTab() {
-  const [milestones, myCompletions, leaderboard] = await Promise.all([
-    AppData.listAllMilestones(), AppData.myMilestoneCompletions(), AppData.leaderboard()
+  const [milestones, myCompletions, myLedger, leaderboard] = await Promise.all([
+    AppData.listAllMilestones(), AppData.myMilestoneCompletions(), AppData.myPointsLedger(), AppData.leaderboard()
   ]);
   lastLeaderboard = leaderboard;
   const doneIds = new Set(myCompletions.map(c => c.milestoneId));
-  const myTotal = myCompletions.reduce((s, c) => s + (c.points || 0), 0);
+  // Total points now come from every task — milestones, quizzes, and
+  // homework days — not just milestones.
+  const myTotal = myLedger.reduce((s, c) => s + (c.points || 0), 0);
   const thisMonth = AppData.monthKey();
-  const myMonthTotal = myCompletions
-    .filter(c => { const d = AppData.tsToDate(c.completedAt); return d && AppData.monthKey(d) === thisMonth; })
+  const myMonthTotal = myLedger
+    .filter(c => { const d = AppData.tsToDate(c.createdAt); return d && AppData.monthKey(d) === thisMonth; })
     .reduce((s, c) => s + (c.points || 0), 0);
   const badge = AppData.badgeForPoints(myTotal);
 
@@ -606,8 +636,8 @@ async function loadIdCardTab() {
   document.getElementById('idcEmail').textContent = profile.email || '';
   document.getElementById('idcJoined').textContent = AppData.fmtDate(profile.createdAt);
 
-  const [completions, logs] = await Promise.all([AppData.myMilestoneCompletions(), AppData.loginHistoryFor(auth.currentUser.uid)]);
-  const total = completions.reduce((s, c) => s + (c.points || 0), 0);
+  const [myLedger, logs] = await Promise.all([AppData.myPointsLedger(), AppData.loginHistoryFor(auth.currentUser.uid)]);
+  const total = myLedger.reduce((s, c) => s + (c.points || 0), 0);
   document.getElementById('idcPoints').textContent = total;
 
   const lwrap = document.getElementById('myLoginHistory');

@@ -7,7 +7,43 @@ and the teacher and student sides are genuinely connected through
 Firestore: a milestone or quiz a teacher publishes shows up instantly
 on every student's dashboard, and vice versa.
 
-## What's new in this round of changes
+## Latest round of changes
+
+- **Points now come from every task, not just milestones.** A new
+  unified `pointsLedger` collection is the single source of truth for
+  the leaderboard, the points hero banner, and the ID card total.
+  Completing a teacher's milestone still pays out as before, but now
+  **submitting a quiz** (10 pts per correct answer) and **checking off
+  a homework day** (10 pts/day) pay into the same ledger. Every entry's
+  document id is deterministic and tied to the specific action, so
+  nothing can ever be double-paid by re-clicking or refreshing.
+- **Smarter attendance.** Teachers can mark any date as a holiday from
+  the Attendance tab; the app automatically works out the real number
+  of **working days** (weekends + marked holidays excluded) instead of
+  anyone counting by hand. Any student not explicitly marked "Absent"
+  on a working day is now automatically counted as **present** — the
+  register only needs to record exceptions. A search box lets a
+  teacher jump straight to a student by name before marking them.
+- **Vertical, responsive navigation.** Both dashboards now use a
+  left-hand slide-in menu (tap the ☰ icon) instead of a horizontal tab
+  strip — it stays permanently docked on desktop/tablet screens and
+  becomes a proper off-canvas drawer with a dimming overlay on mobile.
+- **Delete unwanted accounts and content.** Teachers can now delete
+  any student or teacher account from the **ID Cards** tab (this
+  cascades to remove that person's attendance, quiz attempts, results,
+  points, and — for a teacher — everything they published), and can
+  delete any published **material** or **homework** assignment.
+  Quizzes and milestones already supported delete. Note: account
+  deletion removes the app profile (so the person is bounced to
+  sign-in immediately) but can't revoke the underlying Firebase Auth
+  login itself — that part needs a server-side Cloud Function, since
+  client JS is never allowed to delete another person's credentials.
+- Re-publish the updated `firestore.rules` and `storage.rules` after
+  pulling these changes — several of the features above (holidays,
+  the points ledger, account/content deletion) need the new rules or
+  they'll fail with a permissions error.
+
+## What was new in the previous round
 
 - **Fixed the sign-in email field.** The email input was using
   `type="email"`, but `index.css` only styled `input[type="text"]`
