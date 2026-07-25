@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DIVEDU - Smart Anonymous Classroom Platform</title>
+  <link rel="stylesheet" href="index.css" />
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+</head>
+<body>
+  <!-- Ambient Background Glows -->
+  <div class="bg-glow blob-1"></div>
+  <div class="bg-glow blob-2"></div>
+  <div class="bg-glow blob-3"></div>
+
+  <!-- Global Navigation Header -->
+  <header class="navbar">
+    <div class="nav-brand" onclick="showView('landingView')">
+      <div class="brand-icon">
+        <i class="fa-solid fa-atom"></i>
+      </div>
+      DIV<span>EDU</span>
+    </div>
+
+    <!-- Scroll Navigation Links -->
+    <nav class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#how-it-works">How It Works</a>
+      <a href="#milestones">Milestones</a>
+    </nav>
+
+    <div class="nav-actions">
+      <button class="btn-secondary" onclick="showView('authView')">Sign In</button>
+      <button class="btn-primary" onclick="showView('authView')">Get Started</button>
+    </div>
+  </header>
+
+  <!-- LANDING PAGE WRAPPER (SCROLLABLE) -->
+  <div class="landing-wrapper" id="landingView">
+    
+    <!-- 1. HERO SECTION -->
+    <section class="landing-hero">
+      <!-- Gamified Floating Cards -->
+      <div class="floating-card card-left">
+        <i class="fa-solid fa-user-ninja" style="color: var(--sky-light); font-size: 1.2rem;"></i>
+        <div>
+          <strong>Anonymous Question Posted</strong>
+          <p style="color: var(--text-muted); font-size: 0.75rem;">Identity hidden • Answered in 45s</p>
+        </div>
+      </div>
+
+      <div class="floating-card card-right">
+        <i class="fa-solid fa-trophy" style="color: #ffd700; font-size: 1.2rem;"></i>
+        <div>
+          <strong>Milestone Unlocked!</strong>
+          <p style="color: var(--text-muted); font-size: 0.75rem;">Completed Phase 3: Quantum Basics</p>
+        </div>
+      </div>
+
+      <div class="badge-pill">
+        <i class="fa-solid fa-wand-magic-sparkles"></i> Zero Hesitation Learning Platform
+      </div>
+
+      <h1 class="hero-title">
+        Ask Anything. <span class="gradient-text">Break Down Complex Topics.</span> Reach Every Milestone.
+      </h1>
+
+      <p class="hero-sub">
+        Anonymously ask doubts without fear of judgment, digest complex subjects in bite-sized chunks, and master coursework through structured milestone tracking.
+      </p>
+
+      <div class="hero-cta">
+        <button class="btn-primary" style="padding: 0.85rem 2rem; font-size: 1rem;" onclick="showView('authView')">
+          Join the Classroom <i class="fa-solid fa-arrow-right" style="margin-left: 0.5rem;"></i>
+        </button>
+        <a href="#features" class="btn-secondary" style="padding: 0.85rem 1.8rem; font-size: 1rem; text-decoration: none; display: inline-flex; align-items: center;">
+          Explore Features
+        </a>
+      </div>
+
+      <div class="stats-bar">
+        <div class="stat-item">
+          <h4>100%</h4>
+          <p>Anonymous Options</p>
+        </div>
+        <div class="stat-item">
+          <h4>3x</h4>
+          <p>Faster Concept Clarity</p>
+        </div>
+        <div class="stat-item">
+          <h4>50K+</h4>
+          <p>Milestones Cleared</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. CORE FEATURES SECTION -->
+    <section class="features-section" id="features">
+      <div class="section-header">
+        <span class="section-tag">Built For Fearless Learning</span>
+        <h2>Designed to Overcome Every Classroom Barrier</h2>
+        <p>No more sitting quietly in fear of asking simple questions. DIVEDU provides tools that break down barriers between students and teachers.</p>
+      </div>
+
+      <div class="features-grid">
+        <!-- Feature 1: Anonymous Questions -->
+        <div class="feature-card highlight-card">
+          <div class="feature-icon"><i class="fa-solid fa-user-secret"></i></div>
+          <h3>Anonymous Question System</h3>
+          <p>Ask anything, anytime—without stage fright. Hide your identity when submitting questions to live sessions or classroom forums.</p>
+          <ul class="feature-bullets">
+            <li><i class="fa-solid fa-check"></i> Identity masking for worry-free participation</li>
+            <li><i class="fa-solid fa-check"></i> Upvoting system for popular doubts</li>
+            <li><i class="fa-solid fa-check"></i> Direct, judgment-free responses from teachers</li>
+          </ul>
+        </div>
+
+        <!-- Feature 2: Content Breakdown System -->
+        <div class="feature-card">
+          <div class="feature-icon"><i class="fa-solid fa-diagram-project"></i></div>
+          <h3>Content Breakdown System</h3>
+          <p>Tackle heavy lectures easily. Our intelligent system splits lengthy chapters and hard topics into bite-sized visual chunks.</p>
+          <ul class="feature-bullets">
+            <li><i class="fa-solid fa-check"></i> Micro-learning modules for high retention</li>
+            <li><i class="fa-solid fa-check"></i> Visual topic flowcharts & summaries</li>
+            <li><i class="fa-solid fa-check"></i> Smart summaries generated after each class</li>
+          </ul>
+        </div>
+
+        <!-- Feature 3: Milestone Assignment System -->
+        <div class="feature-card">
+          <div class="feature-icon"><i class="fa-solid fa-flag-checkered"></i></div>
+          <h3>Milestone Assignment System</h3>
+          <p>Ditch overwhelming all-in-one homework. Complete multi-stage assignments broken into manageable step-by-step checkpoints.</p>
+          <ul class="feature-bullets">
+            <li><i class="fa-solid fa-check"></i> Interactive progress bars & dynamic deadlines</li>
+            <li><i class="fa-solid fa-check"></i> Instant feedback at each completed step</li>
+            <li><i class="fa-solid fa-check"></i> Reward badges & XP boosts upon completion</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. HOW IT WORKS WORKFLOW SECTION -->
+    <section class="workflow-section" id="how-it-works">
+      <div class="section-header">
+        <span class="section-tag">Simple & Effective</span>
+        <h2>How DIVEDU Powers Your Success</h2>
+      </div>
+
+      <div class="steps-container">
+        <div class="step-box">
+          <div class="step-num">01</div>
+          <h4>Submit Anonymous Doubts</h4>
+          <p>Type your question in real time during class or study sessions without revealing your name.</p>
+        </div>
+
+        <div class="step-arrow"><i class="fa-solid fa-chevron-right"></i></div>
+
+        <div class="step-box">
+          <div class="step-num">02</div>
+          <h4>Digest Structured Breakdown</h4>
+          <p>Teachers answer questions via visual content breakdowns and clear, step-by-step notes.</p>
+        </div>
+
+        <div class="step-arrow"><i class="fa-solid fa-chevron-right"></i></div>
+
+        <div class="step-box">
+          <div class="step-num">03</div>
+          <h4>Hit Assignment Milestones</h4>
+          <p>Complete project checkpoints one by one, earn XP rewards, and level up your subject rank.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. MILESTONE SHOWCASE / PREVIEW -->
+    <section class="milestone-preview-section" id="milestones">
+      <div class="milestone-banner-box">
+        <div class="milestone-text">
+          <span class="badge-pill" style="margin-bottom: 0.5rem;"><i class="fa-solid fa-bullseye"></i> Gamified Tracking</span>
+          <h2>Never Get Overwhelmed by Big Projects Again</h2>
+          <p>Track your assignments using visual milestone cards, automated reminders, and checkpoint rewards.</p>
+          <button class="btn-primary" style="margin-top: 1.5rem;" onclick="showView('authView')">Start Completing Milestones</button>
+        </div>
+        <div class="milestone-demo-card">
+          <div class="demo-header">
+            <span>Assignment: Data Structures Project</span>
+            <span class="demo-status">66% Done</span>
+          </div>
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill" style="width: 66%;"></div>
+          </div>
+          <div class="checkpoint-list">
+            <div class="checkpoint done"><i class="fa-solid fa-circle-check"></i> Step 1: Linked List Implementation</div>
+            <div class="checkpoint done"><i class="fa-solid fa-circle-check"></i> Step 2: Binary Search Trees</div>
+            <div class="checkpoint active"><i class="fa-regular fa-circle"></i> Step 3: Graph Traversal Algorithms</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. CALL TO ACTION FOOTER BANNER -->
+    <section class="landing-cta-banner">
+      <h2>Ready to Experience Fearless Learning?</h2>
+      <p>Join thousands of students and educators transforming their daily classroom interaction.</p>
+      <button class="btn-primary" style="padding: 1rem 2.5rem; font-size: 1.1rem; margin-top: 1rem;" onclick="showView('authView')">
+        Get Started Now
+      </button>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="landing-footer">
+      <p>&copy; 2026 DIVEDU Systems. All rights reserved.</p>
+    </footer>
+  </div>
+
+  <!-- AUTHENTICATION VIEW -->
+  <div class="portal-wrapper hidden" id="authView">
+    <main class="portal-container">
+      <!-- Left Branding Section -->
+      <section class="branding-panel">
+        <div class="brand-header">
+          <div class="brand-logo">
+            <i class="fa-solid fa-atom"></i>
+          </div>
+          <span class="brand-name">DIV<span>EDU</span></span>
+        </div>
+        <div class="branding-content">
+          <h2 id="brandTitle">Join the Classroom</h2>
+          <p id="brandDesc">A smart classroom platform for students to clear their doubts anonymously and track assignments effortlessly.</p>
+          <div class="feature-pills">
+            <span class="pill"><i class="fa-solid fa-user-secret"></i> Anonymous Questions</span>
+            <span class="pill"><i class="fa-solid fa-diagram-project"></i> Content Breakdown</span>
+            <span class="pill"><i class="fa-solid fa-flag-checkered"></i> Milestone Tasks</span>
+          </div>
+        </div>
+        <div class="branding-footer">
+          <p>&copy; 2026 DIVEDU Systems. All rights reserved.</p>
+        </div>
+      </section>
+
+      <!-- Right Form Section -->
+      <section class="form-panel">
+        <div class="form-header">
+          <h3 id="formTitle">Welcome Back</h3>
+          <p id="formSub">Select a mode to continue</p>
+        </div>
+
+        <!-- Role Selector Tabs -->
+        <div class="role-selector">
+          <button type="button" class="tab-btn active" id="tab-student" onclick="switchRole('student')">
+            <i class="fa-solid fa-user-graduate"></i> Student
+          </button>
+          <button type="button" class="tab-btn" id="tab-teacher" onclick="switchRole('teacher')">
+            <i class="fa-solid fa-chalkboard-user"></i> Teacher
+          </button>
+          <div class="tab-slider" id="slider"></div>
+        </div>
+
+        <!-- Combined Login / Register Form -->
+        <form id="authForm" onsubmit="handleAuthSubmit(event)">
+          <!-- Dynamic Role Badge -->
+          <div class="role-indicator student" id="roleIndicator">
+            <i class="fa-solid fa-user-graduate" id="roleIcon"></i>
+            <span id="roleText">Student Access Mode</span>
+          </div>
+
+          <!-- Full Name (Only in Register Mode) -->
+          <div class="input-group hidden" id="fullNameGroup">
+            <label for="fullName">Full Name</label>
+            <div class="input-wrapper">
+              <i class="fa-solid fa-user input-icon"></i>
+              <input type="text" id="fullName" placeholder="e.g. Alex Morgan" />
+            </div>
+          </div>
+
+          <!-- Identifier / Email -->
+          <div class="input-group">
+            <label for="identifier" id="identifierLabel">Student ID</label>
+            <div class="input-wrapper">
+              <i class="fa-solid fa-id-card input-icon"></i>
+              <input type="text" id="identifier" placeholder="e.g. STU-2026-8942" required />
+            </div>
+          </div>
+
+          <!-- Password -->
+          <div class="input-group">
+            <div class="label-row">
+              <label for="password">Password</label>
+              <a href="#" class="forgot-pass" id="forgotLink" onclick="handleForgot(event)">Forgot?</a>
+            </div>
+            <div class="input-wrapper">
+              <i class="fa-solid fa-lock input-icon"></i>
+              <input type="password" id="password" placeholder="••••••••••••" required />
+              <i class="fa-solid fa-eye toggle-password" id="togglePassword" onclick="togglePassVisibility()"></i>
+            </div>
+          </div>
+
+          <!-- Options -->
+          <div class="form-options">
+            <label class="remember-me">
+              <input type="checkbox" id="remember" />
+              <span class="custom-checkbox"></span>
+              <span id="rememberText">Keep session active</span>
+            </label>
+          </div>
+
+          <!-- Submit Button -->
+          <button type="submit" class="submit-btn" id="submitBtn">
+            <span id="submitBtnText">Enter Classroom</span>
+            <i class="fa-solid fa-arrow-right"></i>
+          </button>
+
+          <!-- Toggle Mode Switcher (Login <-> Create Account) -->
+          <div class="mode-switch">
+            <span id="modePrompt">Don't have an account?</span>
+            <a href="#" id="modeToggleBtn" onclick="toggleAuthMode(event)">Create Account</a>
+          </div>
+
+          <!-- Status Banner -->
+          <div class="status-message" id="statusMessage"></div>
+        </form>
+      </section>
+    </main>
+  </div>
+
+  <!-- DASHBOARD WORKSPACE VIEW -->
+  <div class="dashboard-view hidden" id="dashboardView">
+    <header class="dash-header">
+      <div class="dash-brand">
+        <i class="fa-solid fa-atom" style="color: var(--sky-light);"></i>
+        <span>DIV<span>EDU</span></span>
+      </div>
+      <div class="user-badge" id="dashUserBadge">
+        <i class="fa-solid fa-user-circle"></i>
+        <span id="dashUserName">User Name</span>
+        <span class="role-tag" id="dashRoleTag">STUDENT</span>
+      </div>
+      <button class="logout-btn" onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+    </header>
+
+    <main class="dash-content" id="dashContent">
+      <div class="dash-welcome">
+        <h1>Welcome back, <span id="welcomeUserName" style="color: var(--sky-light);">Student</span>! 👋</h1>
+        <p>Ready to jump back into active learning sessions?</p>
+      </div>
+
+      <div class="grid-cards">
+        <div class="card">
+          <i class="fa-solid fa-user-secret"></i>
+          <h4>Ask Anonymous Doubt</h4>
+          <p>Ask questions freely without revealing your name to peers.</p>
+        </div>
+        <div class="card">
+          <i class="fa-solid fa-diagram-project"></i>
+          <h4>Content Breakdowns</h4>
+          <p>Explore step-by-step topic maps and simplified lesson summaries.</p>
+        </div>
+        <div class="card">
+          <i class="fa-solid fa-flag-checkered"></i>
+          <h4>Milestone Tasks</h4>
+          <p>Complete project checkpoints and track your progress live.</p>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // View Switcher Utility
+    function showView(viewId) {
+      document.getElementById('landingView').classList.add('hidden');
+      document.getElementById('authView').classList.add('hidden');
+      document.getElementById('dashboardView').classList.add('hidden');
+
+      document.getElementById(viewId).classList.remove('hidden');
+      window.scrollTo(0, 0);
+    }
+  </script>
+  <script src="index.js"></script>
+</body>
+</html>
