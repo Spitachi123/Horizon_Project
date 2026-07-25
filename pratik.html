@@ -285,10 +285,27 @@
   @media (prefers-reduced-motion: reduce){
     *{ animation-duration:.01ms !important; transition-duration:.01ms !important; }
   }
+
+  .tool-topbar{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 0 0;
+  }
+  .tool-topbar a, .tool-topbar button{
+    font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:600;
+    color:var(--ink); background:var(--white); border:1px solid var(--rule);
+    border-radius:var(--radius); padding:7px 14px; cursor:pointer; text-decoration:none;
+    display:inline-flex; align-items:center; gap:6px;
+  }
 </style>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
 <div class="wrap">
+
+  <div class="tool-topbar">
+    <a href="javascript:void(0)" onclick="(window.top||window).location.href='student-dashboard.html'"><i class="fa-solid fa-arrow-left"></i> Back to Dashboard</a>
+    <button data-logout><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+  </div>
 
   <header class="masthead">
     <div class="masthead-left">
@@ -732,6 +749,16 @@
     });
   });
 })();
+</script>
+
+<!-- Firebase (Authentication + Firestore) -->
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="app-auth.js"></script>
+<script>
+  AppAuth.protectPage('student');
 </script>
 </body>
 </html>

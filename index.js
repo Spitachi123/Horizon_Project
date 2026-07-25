@@ -4,7 +4,6 @@ let isRegisterMode = false;   // false = Login | true = Sign Up
 
 // UI References
 const authView = document.getElementById('authView');
-const dashboardView = document.getElementById('dashboardView');
 const tabStudent = document.getElementById('tab-student');
 const tabTeacher = document.getElementById('tab-teacher');
 const slider = document.getElementById('slider');
@@ -25,9 +24,6 @@ const submitBtnText = document.getElementById('submitBtnText');
 const modePrompt = document.getElementById('modePrompt');
 const modeToggleBtn = document.getElementById('modeToggleBtn');
 const statusMessage = document.getElementById('statusMessage');
-const dashContent = document.getElementById('dashContent');
-const dashUserName = document.getElementById('dashUserName');
-const dashRoleTag = document.getElementById('dashRoleTag');
 const root = document.documentElement;
 
 // Role Switch Logic
@@ -105,20 +101,21 @@ function togglePassVisibility() {
     : 'fa-solid fa-eye toggle-password';
 }
 
-// Handle Login or Registration
-function handleAuthSubmit(event) {
+// Handle Login or Registration (real Firebase Auth)
+async function handleAuthSubmit(event) {
   event.preventDefault();
 
   const fullName = document.getElementById('fullName').value.trim();
-  const idValue = identifierInput.value.trim();
+  const email = identifierInput.value.trim();
   const passValue = passwordInput.value.trim();
+  const remember = document.getElementById('remember').checked;
 
   if (isRegisterMode && !fullName) {
     showStatus('Please enter your full name.', 'error');
     return;
   }
 
-  if (!idValue || !passValue) {
+  if (!email || !passValue) {
     showStatus('Please enter all required credentials.', 'error');
     return;
   }
@@ -128,90 +125,37 @@ function handleAuthSubmit(event) {
     return;
   }
 
-  const actionText = isRegisterMode ? 'Creating your account...' : 'Authenticating...';
-  showStatus(actionText, 'success');
+  const submitBtn = document.getElementById('submitBtn');
+  submitBtn.disabled = true;
 
-  // Simulate authentication & dynamic redirection
-  setTimeout(() => {
-    const userDisplayName = isRegisterMode ? fullName : idValue;
-    redirectToDashboard(userDisplayName, currentRole);
-  }, 1000);
-}
-
-// REDIRECT LOGIC: Launches unique workspace according to role
-function redirectToDashboard(userName, role) {
-  authView.classList.add('hidden');
-  dashboardView.classList.remove('hidden');
-
-  dashUserName.textContent = userName;
-  dashRoleTag.textContent = role.toUpperCase();
-  dashRoleTag.style.color = role === 'student' ? 'var(--student-accent)' : 'var(--teacher-accent)';
-
-  if (role === 'student') {
-    dashContent.innerHTML = `
-      <div class="dash-welcome">
-        <h1>Welcome, ${userName}! 🎓</h1>
-        <p>Your Smart Classroom dashboard is live and synced.</p>
-      </div>
-      <div class="grid-cards">
-        <div class="card">
-          <i class="fa-solid fa-laptop-code"></i>
-          <h4>Live Class Sessions</h4>
-          <p>Join active virtual labs in Grade 9 Mathematics and Science modules.</p>
-        </div>
-        <div class="card">
-          <i class="fa-solid fa-chart-line"></i>
-          <h4>Performance Tracker</h4>
-          <p>Review real-time quiz results, attendance records, and skill badges.</p>
-        </div>
-        <div class="card">
-          <i class="fa-solid fa-folder-open"></i>
-          <h4>Study Resources</h4>
-          <p>Download interactive worksheets, slide decks, and digital notes.</p>
-        </div>
-      </div>
-    `;
-  } else {
-    dashContent.innerHTML = `
-      <div class="dash-welcome">
-        <h1>Welcome, Educator ${userName}! 👨‍🏫</h1>
-        <p>Faculty portal initialized with administrative controls.</p>
-      </div>
-      <div class="grid-cards">
-        <div class="card">
-          <i class="fa-solid fa-chalkboard"></i>
-          <h4>Classroom Broadcast</h4>
-          <p>Start a live interactive session, launch whiteboard tools, and host polls.</p>
-        </div>
-        <div class="card">
-          <i class="fa-solid fa-users-gear"></i>
-          <h4>Student Roster & Attendance</h4>
-          <p>Manage student enrolments, track participation, and assign grades.</p>
-        </div>
-        <div class="card">
-          <i class="fa-solid fa-square-plus"></i>
-          <h4>Module Creator</h4>
-          <p>Draft new assignments, upload quizzes, and publish lesson schedules.</p>
-        </div>
-      </div>
-    `;
+  try {
+    if (isRegisterMode) {
+      showStatus('Creating your account...', 'success');
+      const { role } = await AppAuth.signUp(fullName, email, passValue, currentRole);
+      showStatus('Account created! Redirecting...', 'success');
+      AppAuth.redirectToDashboard(role);
+    } else {
+      showStatus('Authenticating...', 'success');
+      const { role } = await AppAuth.signIn(email, passValue, remember);
+      showStatus('Welcome back! Redirecting...', 'success');
+      AppAuth.redirectToDashboard(role);
+    }
+  } catch (err) {
+    submitBtn.disabled = false;
+    showStatus(AppAuth.friendlyError(err), 'error');
   }
-}
-
-// Logout & Return to Portal
-function logout() {
-  dashboardView.classList.add('hidden');
-  authView.classList.remove('hidden');
-  identifierInput.value = '';
-  passwordInput.value = '';
-  document.getElementById('fullName').value = '';
-  hideStatus();
 }
 
 function handleForgot(e) {
   e.preventDefault();
-  const idValue = identifierInput.value.trim();
-  alert(idValue ? `Reset instructions sent to: ${idValue}` : 'Please enter your ID/Email first.');
+  const email = identifierInput.value.trim();
+  if (!email) {
+    showStatus('Enter your email above first, then click Forgot.', 'error');
+    return;
+  }
+  AppAuth.resetPassword(email)
+    .then(() => showStatus('Password reset email sent — check your inbox.', 'success'))
+    .catch(err => showStatus(AppAuth.friendlyError(err), 'error'));
 }
 
 function showStatus(msg, type) {

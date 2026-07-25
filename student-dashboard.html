@@ -3,8 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ApexLearn | Educator Suite</title>
+  <title>ApexLearn | Student Suite</title>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <style>
     * {
       box-sizing: border-box;
@@ -391,9 +392,17 @@
             <path d="M6 12v5c3 3 9 3 12 0v-5"/>
           </svg>
         </div>
-        <span>ApexLearn Educator Suite</span>
+        <span>ApexLearn Student Suite</span>
       </div>
-      <div class="faculty-badge">Faculty Workspace</div>
+      <div style="display:flex; align-items:center; gap:14px;">
+        <div class="faculty-badge">Student Workspace</div>
+        <div style="display:flex; align-items:center; gap:8px; font-size:13px; font-weight:800;">
+          <i class="fa-solid fa-user-circle" style="font-size:20px;"></i>
+          <span data-user-name>Loading…</span>
+          <span class="badge-tag" data-user-role>STUDENT</span>
+        </div>
+        <button class="attendance-btn" data-logout href="#"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+      </div>
     </div>
 
     <nav class="navigation-bar">
@@ -403,19 +412,15 @@
       </button>
       <button class="nav-item" onclick="switchTab('quiz', this)">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="m9 15 2 2 4-4"/></svg>
-        Quiz Class
+        Milestones
       </button>
       <button class="nav-item" onclick="switchTab('results', this)">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-        Result Management
+        My Results
       </button>
       <button class="nav-item" onclick="switchTab('materials', this)">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-        Reading Materials
-      </button>
-      <button class="nav-item" onclick="switchTab('homework', this)">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
-        Homework
+        Reading Desk
       </button>
       <button class="nav-item" onclick="switchTab('attendance', this)">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
@@ -428,8 +433,8 @@
 
     <section id="dashboard" class="section-card">
       <div class="section-header">
-        <h2>Faculty Profile Overview</h2>
-        <p>Anonymous Educator Profile and Module Analytics</p>
+        <h2>Student Profile Overview</h2>
+        <p>Your anonymous learning profile and progress analytics</p>
       </div>
 
       <div class="dashboard-layout">
@@ -441,14 +446,13 @@
               <path d="M20 82 C20 62, 35 55, 50 55 C65 55, 80 62, 80 82 Z" fill="#005BCB"/>
             </svg>
           </div>
-          <h3>Educator #104</h3>
-          <p style="font-size: 13px; font-weight: 800; margin-top: 4px;">STEM Faculty Lead</p>
+          <h3 data-user-name>Student</h3>
+          <p style="font-size: 13px; font-weight: 800; margin-top: 4px;">STEM Track Learner</p>
 
           <div class="info-list">
-            <div class="info-item"><strong>Faculty Code:</strong> FAC-8092</div>
+            <div class="info-item"><strong>Role:</strong> <span data-user-role>STUDENT</span></div>
             <div class="info-item"><strong>Department:</strong> Science & Computing</div>
-            <div class="info-item"><strong>Contact:</strong> faculty104@apexlearn.edu</div>
-            <div class="info-item"><strong>Office:</strong> STEM Hall, Section 4</div>
+            <div class="info-item"><strong>Cohort:</strong> Grade 9 — Section A</div>
           </div>
         </div>
 
@@ -459,7 +463,7 @@
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
               </div>
               <div>
-                <div style="font-size: 12px; font-weight: 700;">Active Modules</div>
+                <div style="font-size: 12px; font-weight: 700;">Enrolled Classes</div>
                 <div style="font-size: 22px; font-weight: 800;">4 Classes</div>
               </div>
             </div>
@@ -468,7 +472,7 @@
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
               </div>
               <div>
-                <div style="font-size: 12px; font-weight: 700;">Enrolled Users</div>
+                <div style="font-size: 12px; font-weight: 700;">Classmates</div>
                 <div style="font-size: 22px; font-weight: 800;">128 Total</div>
               </div>
             </div>
@@ -477,14 +481,14 @@
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
               </div>
               <div>
-                <div style="font-size: 12px; font-weight: 700;">Pending Tasks</div>
+                <div style="font-size: 12px; font-weight: 700;">Pending Milestones</div>
                 <div style="font-size: 22px; font-weight: 800;">14 Tasks</div>
               </div>
             </div>
           </div>
 
           <div class="chart-container">
-            <h4>Anonymous Cohort Performance Overview (Average Score %)</h4>
+            <h4>My Performance Overview (Average Score %)</h4>
             <div class="bar-chart">
               <div class="bar-group">
                 <div class="bar" style="height: 85%;"></div>
@@ -510,75 +514,16 @@
 
     <section id="quiz" class="section-card hidden">
       <div class="section-header">
-        <h2>Quiz Class Management</h2>
-        <p>Deploy quizzes and inspect anonymous submissions.</p>
+        <h2>Milestones</h2>
+        <p>Track your assignments and see every milestone you've hit this week.</p>
       </div>
-
-      <div class="grid-2">
-        <div>
-          <h3>Create Interactive Quiz</h3>
-          <form style="margin-top: 14px;" onsubmit="handleFormSubmit(event, 'Quiz published successfully!')">
-            <div class="form-group">
-              <label>Topic / Domain</label>
-              <select required>
-                <option value="Science">Science</option>
-                <option value="Maths">Maths</option>
-                <option value="Opt Maths">Opt Maths</option>
-                <option value="Computer">Computer</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Quiz Title</label>
-              <input type="text" placeholder="e.g. Logic Gates Assessment" required>
-            </div>
-            <div class="form-group">
-              <label>Questions Details</label>
-              <textarea rows="3" placeholder="Enter questions for users..." required></textarea>
-            </div>
-            <button class="btn" type="submit">Publish Quiz</button>
-          </form>
-        </div>
-
-        <div>
-          <h3>Anonymous Quiz Attempts</h3>
-          <table>
-            <thead>
-              <tr>
-                <th>User ID</th>
-                <th>Topic</th>
-                <th>Score</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>User_101</td>
-                <td>Science</td>
-                <td>18/20</td>
-                <td><span class="badge-tag">Passed</span></td>
-              </tr>
-              <tr>
-                <td>User_102</td>
-                <td>Computer</td>
-                <td>20/20</td>
-                <td><span class="badge-tag">Passed</span></td>
-              </tr>
-              <tr>
-                <td>User_103</td>
-                <td>Opt Maths</td>
-                <td>11/20</td>
-                <td><span class="badge-tag">Review</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <iframe src="kris.html" title="Milestones" style="width:100%; min-height:780px; border:0; border-radius:14px;"></iframe>
     </section>
 
     <section id="results" class="section-card hidden">
       <div class="section-header">
-        <h2>Result Management Console</h2>
-        <p>Track academic achievements using anonymous user identifiers.</p>
+        <h2>My Results</h2>
+        <p>Your academic achievements, tracked anonymously by user identifier.</p>
       </div>
 
       <table>
@@ -626,78 +571,16 @@
 
     <section id="materials" class="section-card hidden">
       <div class="section-header">
-        <h2>Reading Materials Library</h2>
-        <p>Upload diagrams, articles, and references for anonymous users.</p>
+        <h2>Reading Desk</h2>
+        <p>Paste or upload any text and break it down into flip-card key points and keyword drills.</p>
       </div>
-
-      <form onsubmit="handleFormSubmit(event, 'Reading material dispatched to users!')">
-        <div class="grid-2">
-          <div class="form-group">
-            <label>Subject Domain</label>
-            <select required>
-              <option value="Science">Science</option>
-              <option value="Maths">Maths</option>
-              <option value="Opt Maths">Opt Maths</option>
-              <option value="Computer">Computer</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Subtopic</label>
-            <input type="text" placeholder="e.g. Data Structures & Binary Trees" required>
-          </div>
-          <div class="form-group full-width">
-            <label>Material Summary / Link</label>
-            <textarea rows="3" placeholder="Provide link or content explanation..." required></textarea>
-          </div>
-        </div>
-        <button class="btn" type="submit">Publish Material</button>
-      </form>
-
-      <div class="material-card">
-        <div class="material-icon">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#005BCB" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-        </div>
-        <div>
-          <h4>Module Reference: Quantum Optics Diagrams</h4>
-          <p style="font-size: 13px; margin-top: 4px;">Published for Science Cohort • Includes vector illustrations and diagrams</p>
-        </div>
-      </div>
-    </section>
-
-    <section id="homework" class="section-card hidden">
-      <div class="section-header">
-        <h2>Homework Assignment Hub</h2>
-        <p>Assign topics, instructions, and deadlines anonymously.</p>
-      </div>
-
-      <form onsubmit="handleFormSubmit(event, 'Homework assigned to student accounts!')">
-        <div class="grid-2">
-          <div class="form-group">
-            <label>Topic</label>
-            <select required>
-              <option value="Science">Science</option>
-              <option value="Maths">Maths</option>
-              <option value="Opt Maths">Opt Maths</option>
-              <option value="Computer">Computer</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Submission Due Date</label>
-            <input type="date" required>
-          </div>
-          <div class="form-group full-width">
-            <label>Homework Instructions</label>
-            <textarea rows="3" placeholder="Specify instructions..." required></textarea>
-          </div>
-        </div>
-        <button class="btn" type="submit">Dispatch Homework Task</button>
-      </form>
+      <iframe src="pratik.html" title="Reading Desk" style="width:100%; min-height:900px; border:0; border-radius:14px;"></iframe>
     </section>
 
     <section id="attendance" class="section-card hidden">
       <div class="section-header">
-        <h2>Anonymous Attendance Tracker</h2>
-        <p>Interactive roll call manager using anonymous handles.</p>
+        <h2>My Attendance</h2>
+        <p>Your attendance record across enrolled modules.</p>
       </div>
 
       <table>
@@ -705,31 +588,29 @@
           <tr>
             <th>User Identifier</th>
             <th>Class Module</th>
-            <th>Status Toggle</th>
-            <th>Reading materials</th>
+            <th>Status</th>
           </tr>
-
         </thead>
         <tbody>
           <tr>
-            <td><strong>User_101</strong></td>
+            <td><strong>You</strong></td>
             <td>Science</td>
-            <td><button class="attendance-btn present" onclick="toggleAttendance(this)">Present</button></td>
-          </tr> 
+            <td><span class="attendance-btn present">Present</span></td>
+          </tr>
           <tr>
-            <td><strong>User_102</strong></td>
+            <td><strong>You</strong></td>
             <td>Maths</td>
-            <td><button class="attendance-btn present" onclick="toggleAttendance(this)">Present</button></td>
+            <td><span class="attendance-btn present">Present</span></td>
           </tr>
           <tr>
-            <td><strong>User_103</strong></td>
+            <td><strong>You</strong></td>
             <td>Opt Maths</td>
-            <td><button class="attendance-btn" onclick="toggleAttendance(this)">Absent</button></td>
+            <td><span class="attendance-btn">Absent</span></td>
           </tr>
           <tr>
-            <td><strong>User_104</strong></td>
+            <td><strong>You</strong></td>
             <td>Computer</td>
-            <td><button class="attendance-btn present" onclick="toggleAttendance(this)">Present</button></td>
+            <td><span class="attendance-btn present">Present</span></td>
           </tr>
         </tbody>
       </table>
@@ -764,6 +645,18 @@
       alert(message);
       event.target.reset();
     }
+  </script>
+
+  <!-- Firebase (Authentication + Firestore) -->
+  <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <script src="app-auth.js"></script>
+  <script>
+    // Only students may view this page — anyone else gets redirected
+    // to the right place, and anyone not signed in goes to index.html.
+    AppAuth.protectPage('student');
   </script>
 </body>
 </html>

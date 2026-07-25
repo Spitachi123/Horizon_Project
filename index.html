@@ -7,6 +7,12 @@
   <link rel="stylesheet" href="index.css" />
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <!-- Firebase (Authentication + Firestore) -->
+  <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <script src="app-auth.js"></script>
 </head>
 <body>
   <!-- Ambient Background Glows -->
@@ -275,12 +281,12 @@
             </div>
           </div>
 
-          <!-- Identifier / Email -->
+          <!-- Email -->
           <div class="input-group">
-            <label for="identifier" id="identifierLabel">Student ID</label>
+            <label for="identifier" id="identifierLabel">Email Address</label>
             <div class="input-wrapper">
               <i class="fa-solid fa-id-card input-icon"></i>
-              <input type="text" id="identifier" placeholder="e.g. STU-2026-8942" required />
+              <input type="email" id="identifier" placeholder="e.g. name@example.com" required />
             </div>
           </div>
 
@@ -325,53 +331,11 @@
     </main>
   </div>
 
-  <!-- DASHBOARD WORKSPACE VIEW -->
-  <div class="dashboard-view hidden" id="dashboardView">
-    <header class="dash-header">
-      <div class="dash-brand">
-        <i class="fa-solid fa-atom" style="color: var(--sky-light);"></i>
-        <span>DIV<span>EDU</span></span>
-      </div>
-      <div class="user-badge" id="dashUserBadge">
-        <i class="fa-solid fa-user-circle"></i>
-        <span id="dashUserName">User Name</span>
-        <span class="role-tag" id="dashRoleTag">STUDENT</span>
-      </div>
-      <button class="logout-btn" onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
-    </header>
-
-    <main class="dash-content" id="dashContent">
-      <div class="dash-welcome">
-        <h1>Welcome back, <span id="welcomeUserName" style="color: var(--sky-light);">Student</span>! 👋</h1>
-        <p>Ready to jump back into active learning sessions?</p>
-      </div>
-
-      <div class="grid-cards">
-        <div class="card">
-          <i class="fa-solid fa-user-secret"></i>
-          <h4>Ask Anonymous Doubt</h4>
-          <p>Ask questions freely without revealing your name to peers.</p>
-        </div>
-        <div class="card">
-          <i class="fa-solid fa-diagram-project"></i>
-          <h4>Content Breakdowns</h4>
-          <p>Explore step-by-step topic maps and simplified lesson summaries.</p>
-        </div>
-        <div class="card">
-          <i class="fa-solid fa-flag-checkered"></i>
-          <h4>Milestone Tasks</h4>
-          <p>Complete project checkpoints and track your progress live.</p>
-        </div>
-      </div>
-    </main>
-  </div>
-
   <script>
-    // View Switcher Utility
+    // View Switcher Utility (landing page ⇄ login/signup form)
     function showView(viewId) {
       document.getElementById('landingView').classList.add('hidden');
       document.getElementById('authView').classList.add('hidden');
-      document.getElementById('dashboardView').classList.add('hidden');
 
       document.getElementById(viewId).classList.remove('hidden');
       window.scrollTo(0, 0);
