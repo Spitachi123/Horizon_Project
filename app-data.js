@@ -221,6 +221,44 @@ const AppData = {
     return db.collection('holidays').doc(dateStr).delete();
   },
 
+  /** Marks every date in `dateStrs` as a holiday in one round trip —
+   *  used by the Attendance tab's calendar, where a teacher can click
+   *  a whole run of days (e.g. an entire festival week) and save them
+   *  all at once instead of one date at a time. Firestore batches cap
+   *  at 500 writes, so this chunks automatically just in case a huge
+   *  range is ever selected. */
+  async markHolidaysBulk(dateStrs, note) {
+    const user = auth.currentUser;
+    const unique = [...new Set(dateStrs)];
+    for (let i = 0; i < unique.length; i += 400) {
+      const chunk = unique.slice(i, i + 400);
+      const batch = db.batch();
+      chunk.forEach(dateStr => {
+        batch.set(db.collection('holidays').doc(dateStr), {
+          date: dateStr,
+          note: note || '',
+          createdBy: user.uid,
+          createdByName: user.displayName || 'Teacher',
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      });
+      await batch.commit();
+    }
+  },
+
+  /** The bulk-unmark counterpart — removes many holiday dates in one
+   *  action (e.g. a teacher re-selecting an already-marked stretch to
+   *  clear it). */
+  async unmarkHolidaysBulk(dateStrs) {
+    const unique = [...new Set(dateStrs)];
+    for (let i = 0; i < unique.length; i += 400) {
+      const chunk = unique.slice(i, i + 400);
+      const batch = db.batch();
+      chunk.forEach(dateStr => batch.delete(db.collection('holidays').doc(dateStr)));
+      await batch.commit();
+    }
+  },
+
   async listHolidays() {
     const snap = await db.collection('holidays').get();
     const rows = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -280,20 +318,72 @@ const AppData = {
 
   /* ---------------- Materials ---------------- */
 
+  /** Uploads a File to Cloudinary using an unsigned upload preset
+   *  (see cloudinary-config.js) — no backend or secret key needed.
+   *  PDFs are uploaded as resource_type "raw" since they aren't
+   *  images. `onProgress(percent)` is called repeatedly while the
+   *  file uploads, if provided (via XHR so we get real progress
+   *  events, which a plain fetch() can't give us). */
+  _uploadToCloudinary(file, onProgress) {
+    if (!window.cloudinaryConfig || !cloudinaryConfig.cloudName || cloudinaryConfig.cloudName === 'YOUR_CLOUD_NAME') {
+      return Promise.reject(new Error('Cloudinary isn\'t set up for this project yet. Paste your cloud name and unsigned upload preset into cloudinary-config.js — see the README.'));
+    }
+    const { cloudName, uploadPreset } = cloudinaryConfig;
+    const url = `https://api.cloudinary.com/v1_1/${cloudName}/raw/upload`;
+    const form = new FormData();
+    form.append('file', file);
+    form.append('upload_preset', uploadPreset);
+
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', url, true);
+      xhr.upload.onprogress = (e) => {
+        if (onProgress && e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+      };
+      xhr.onload = () => {
+        let body = {};
+        try { body = JSON.parse(xhr.responseText); } catch (e) { /* fall through to error below */ }
+        if (xhr.status >= 200 && xhr.status < 300 && body.secure_url) {
+          resolve(body);
+        } else {
+          // Translate the handful of Cloudinary errors a teacher is
+          // actually likely to hit into something actionable.
+          const msg = (body.error && body.error.message) || '';
+          if (/preset not found|upload preset/i.test(msg)) {
+            reject(new Error('Cloudinary rejected the upload — check that CLOUDINARY_UPLOAD_PRESET in cloudinary-config.js matches an existing preset set to "Unsigned" mode.'));
+          } else if (/cloud_name|cloud name/i.test(msg) || xhr.status === 404) {
+            reject(new Error('Cloudinary rejected the upload — check that CLOUDINARY_CLOUD_NAME in cloudinary-config.js is correct.'));
+          } else {
+            reject(new Error(msg || 'Could not upload the file to Cloudinary.'));
+          }
+        }
+      };
+      xhr.onerror = () => reject(new Error('Network error while uploading to Cloudinary.'));
+      xhr.send(form);
+    });
+  },
+
   /** Publishes a reading material, optionally attaching a PDF file
-   *  (stored in Firebase Storage under materials/, with the public
-   *  download URL saved on the Firestore doc). The PDF's text can
-   *  later be pulled out on-demand by AIEngine.extractPdfTextFromUrl
-   *  for the "Summarize with AI" button on the student side. */
-  async publishMaterial({ subject, subtopic, description, file }) {
+   *  (hosted on Cloudinary, with the public secure URL saved on the
+   *  Firestore doc). The PDF's text can later be pulled out
+   *  on-demand by AIEngine.extractPdfTextFromUrl for the "Summarize
+   *  with AI" button on the student side. `onProgress(percent)` is
+   *  called repeatedly while the file uploads, if provided. */
+  async publishMaterial({ subject, subtopic, description, file }, onProgress) {
     const user = auth.currentUser;
     let fileURL = '', fileName = '', filePath = '';
     if (file) {
-      if (!window.storage) throw new Error('File storage is not set up for this project yet.');
-      filePath = `materials/${user.uid}_${Date.now()}_${file.name}`;
-      const ref = storage.ref().child(filePath);
-      await ref.put(file, { contentType: file.type || 'application/pdf' });
-      fileURL = await ref.getDownloadURL();
+      if (!file.type || file.type !== 'application/pdf') {
+        throw new Error('Only PDF files can be attached to a reading material.');
+      }
+      if (file.size > 25 * 1024 * 1024) {
+        throw new Error('That PDF is larger than 25 MB — please attach a smaller file.');
+      }
+      const uploaded = await this._uploadToCloudinary(file, onProgress);
+      fileURL = uploaded.secure_url;
+      // public_id (+ resource_type) is what's needed to delete the
+      // file later via Cloudinary's Admin API.
+      filePath = uploaded.public_id;
       fileName = file.name;
     }
     return db.collection('materials').add({
@@ -311,17 +401,17 @@ const AppData = {
     return rows;
   },
 
-  /** Removes a published material. Also best-effort deletes the
-   *  attached PDF from Firebase Storage, if any (never blocks the
-   *  Firestore delete if that part fails). */
+  /** Removes a published material's Firestore record. Note: unlike
+   *  Firebase Storage, Cloudinary's *unsigned* uploads (the kind used
+   *  here, with no backend) can't be securely deleted straight from
+   *  browser JS — actually deleting the file requires your Cloudinary
+   *  API secret, which must never be shipped to the browser. So this
+   *  removes the material from the app immediately; the underlying
+   *  PDF is left on Cloudinary and can be bulk-cleaned up any time
+   *  from the Cloudinary Console (Media Library) or via a small
+   *  server-side script using the Admin API and each file's
+   *  `filePath` (its Cloudinary public_id). */
   async deleteMaterial(materialId) {
-    try {
-      const snap = await db.collection('materials').doc(materialId).get();
-      const data = snap.exists ? snap.data() : null;
-      if (data && data.filePath && window.storage) {
-        await storage.ref().child(data.filePath).delete().catch(() => {});
-      }
-    } catch (err) { /* ignore cleanup failure */ }
     return db.collection('materials').doc(materialId).delete();
   },
 
@@ -725,6 +815,23 @@ const AppData = {
     const rows = Object.values(totals);
     rows.sort((a, b) => b.score - a.score);
     return rows;
+  },
+
+  /** A single end-of-month-style comparison: the top student and top
+   *  teacher (by this calendar month's points/score), plus the class's
+   *  combined student total vs. combined teacher total for the month —
+   *  used to render a "students vs teachers" leaderboard comparison
+   *  panel on the Milestones tab. */
+  async monthlyComparison() {
+    const [students, teachers] = await Promise.all([this.leaderboard(), this.teacherLeaderboard()]);
+    const topStudent = [...students].sort((a, b) => b.monthPoints - a.monthPoints)[0] || null;
+    const topTeacher = [...teachers].sort((a, b) => b.monthScore - a.monthScore)[0] || null;
+    return {
+      topStudent,
+      topTeacher,
+      studentMonthTotal: students.reduce((s, r) => s + (r.monthPoints || 0), 0),
+      teacherMonthTotal: teachers.reduce((s, r) => s + (r.monthScore || 0), 0)
+    };
   },
 
   badgeForPoints(points) {

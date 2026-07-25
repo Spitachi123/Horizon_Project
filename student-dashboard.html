@@ -59,12 +59,26 @@
   .mode-tab { border:1.5px solid var(--panel-border); background:var(--surface-white); color:var(--text-muted); padding:7px 14px; border-radius:20px; font-weight:700; font-size:12px; cursor:pointer; }
   .mode-tab.active { background: var(--current-accent); color:#fff; border-color: var(--current-accent); }
 
-  /* Homework task checklist */
-  .hw-progress-track { height:8px; border-radius:6px; background: var(--bg-main); overflow:hidden; margin:10px 0; }
-  .hw-progress-fill { height:100%; border-radius:6px; background: linear-gradient(90deg, var(--current-accent), var(--sky-accent)); transition: width .5s ease; }
-  .hw-task-row { display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:8px; background:var(--bg-main); margin-bottom:6px; font-size:12.5px; }
-  .hw-task-row input { width:16px; height:16px; accent-color: var(--current-accent); cursor:pointer; }
-  .hw-task-row.done { background: var(--success-bg); color: var(--success); font-weight:700; }
+  /* Homework task checklist — made fun: progress ring + emoji milestones,
+     bouncy day chips, and a little confetti burst on 100%. */
+  .hw-fun-head { display:flex; align-items:center; gap:14px; margin-bottom:12px; }
+  .hw-ring { --pct: 0; width:56px; height:56px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:20px;
+    background: conic-gradient(var(--current-accent) calc(var(--pct) * 1%), var(--bg-main) 0); transition: background .5s ease; position:relative; }
+  .hw-ring::after { content:""; position:absolute; inset:5px; border-radius:50%; background: var(--surface-white); }
+  .hw-ring span { position:relative; z-index:1; }
+  .hw-fun-msg { font-size:12.5px; font-weight:800; color: var(--current-accent); }
+  .hw-fun-sub { font-size:11px; color:var(--text-muted); font-weight:600; margin-top:2px; }
+  .hw-streak { display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:800; color:#f0a93a; margin-left:8px; }
+  .hw-task-row { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:12px; background:var(--bg-main); margin-bottom:7px; font-size:12.5px; font-weight:600; transition: transform .15s ease, background .3s ease; }
+  .hw-task-row:hover { transform: translateX(3px); }
+  .hw-task-row input { width:19px; height:19px; accent-color: var(--current-accent); cursor:pointer; }
+  .hw-task-row.done { background: var(--success-bg); color: var(--success); font-weight:800; text-decoration: line-through; text-decoration-thickness:2px; }
+  .hw-task-row .day-emoji { font-size:15px; }
+  .hw-confetti-piece { position:fixed; top:-20px; font-size:18px; pointer-events:none; z-index:9999; animation: hwConfettiFall linear forwards; }
+  @keyframes hwConfettiFall {
+    0% { transform: translateY(0) rotate(0deg); opacity:1; }
+    100% { transform: translateY(100vh) rotate(360deg); opacity:0; }
+  }
 </style>
 </head>
 <body class="divedu">
@@ -282,8 +296,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-storage-compat.js"></script>
 <script src="firebase-config.js"></script>
+<script src="cloudinary-config.js"></script>
 <script src="app-auth.js"></script>
 <script src="app-data.js"></script>
 <script>
@@ -445,33 +459,89 @@ async function loadMaterialsHomework() {
     </div>`).join('');
 
   // Load each homework's per-student checklist progress and render it.
+  // Each fetch is isolated in its own try/catch so one bad doc can
+  // never blank out the whole checklist grid for every assignment.
   for (const h of hw) {
     if (!h.taskPlan || !h.taskPlan.length) continue;
-    const progress = await AppData.getMyHomeworkProgress(h.id);
-    renderHwChecklist(h, progress.completed || []);
+    try {
+      const progress = await AppData.getMyHomeworkProgress(h.id);
+      renderHwChecklist(h, progress.completed || []);
+    } catch (err) {
+      const el = document.getElementById('hw-tasks-' + h.id);
+      if (el) el.innerHTML = `<div class="empty-state" style="padding:10px;">Couldn't load your checklist (${AppData.escapeHtml(err.message)}). Try refreshing.</div>`;
+    }
   }
 }
+
+const HW_MOODS = [
+  { min: 0, emoji: '🌱', msg: "Let's get started!" },
+  { min: 25, emoji: '🌿', msg: 'Nice, making progress!' },
+  { min: 50, emoji: '🚀', msg: 'Halfway there — keep going!' },
+  { min: 75, emoji: '🔥', msg: 'Almost done, so close!' },
+  { min: 100, emoji: '🎉', msg: 'All done — great work!' }
+];
 
 function renderHwChecklist(h, completed) {
   const el = document.getElementById('hw-tasks-' + h.id);
   if (!el) return;
-  const pct = Math.round((completed.length / h.taskPlan.length) * 100);
+  const total = h.taskPlan.length;
+  const pct = Math.round((completed.length / total) * 100);
+  const mood = [...HW_MOODS].reverse().find(m => pct >= m.min);
+
+  // Longest current streak of consecutive completed days counting
+  // back from the most recent day, so students feel momentum building
+  // rather than just a raw count.
+  let streak = 0;
+  for (let i = total - 1; i >= 0; i--) { if (completed.includes(i)) streak++; else break; }
+
   el.innerHTML = `
-    <div class="hw-progress-track"><div class="hw-progress-fill" style="width:${pct}%;"></div></div>
-    <div style="font-size:11px; color:var(--text-muted); margin-bottom:6px;">${completed.length}/${h.taskPlan.length} days completed · ${pct}%</div>
+    <div class="hw-fun-head">
+      <div class="hw-ring" style="--pct:${pct};"><span>${mood.emoji}</span></div>
+      <div>
+        <div class="hw-fun-msg">${mood.msg}${streak >= 2 ? `<span class="hw-streak">🔥 ${streak}-day streak!</span>` : ''}</div>
+        <div class="hw-fun-sub">${completed.length}/${total} days checked off · ${pct}%</div>
+      </div>
+    </div>
     ${h.taskPlan.map((t, i) => `
       <label class="hw-task-row ${completed.includes(i) ? 'done' : ''}">
         <input type="checkbox" ${completed.includes(i) ? 'checked' : ''} onchange="toggleHwTask('${h.id}', ${i}, this.checked)">
+        <span class="day-emoji">${completed.includes(i) ? '✅' : '📅'}</span>
         <span>${t.label} (${t.dateLabel}) — ${t.hours}h planned</span>
       </label>`).join('')}`;
+}
+
+/** A quick, silly confetti burst — a handful of emoji drifting down
+ *  the screen with CSS, no external library needed — fired when a
+ *  student finishes every day of a homework's checklist. */
+function celebrateHomeworkComplete() {
+  const pieces = ['🎉', '✨', '🎊', '⭐', '🥳'];
+  for (let i = 0; i < 16; i++) {
+    const el = document.createElement('div');
+    el.className = 'hw-confetti-piece';
+    el.textContent = pieces[Math.floor(Math.random() * pieces.length)];
+    el.style.left = Math.random() * 100 + 'vw';
+    el.style.animationDuration = (2 + Math.random() * 1.5) + 's';
+    el.style.fontSize = (14 + Math.random() * 14) + 'px';
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 4000);
+  }
 }
 
 async function toggleHwTask(homeworkId, taskIndex, done) {
   try {
     const completed = await AppData.toggleHomeworkTask(homeworkId, taskIndex, done);
     const hw = (await AppData.listHomework()).find(x => x.id === homeworkId);
-    if (hw) renderHwChecklist(hw, completed);
-    toast(done ? 'Day marked complete.' : 'Marked incomplete.', 'success');
+    if (hw) {
+      renderHwChecklist(hw, completed);
+      if (done && hw.taskPlan && completed.length === hw.taskPlan.length) {
+        celebrateHomeworkComplete();
+        toast('🎉 Homework fully complete — awesome work!', 'success');
+        loadOverview();
+        return;
+      }
+    }
+    toast(done ? 'Day marked complete — +10 points!' : 'Marked incomplete.', 'success');
+    loadOverview();
   } catch (err) { toast(err.message, 'error'); }
 }
 

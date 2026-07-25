@@ -114,7 +114,19 @@ service cloud.firestore {
     // read/write their own progress row; teachers can read every
     // row to see class-wide completion rates.
     match /homeworkProgress/{docId} {
-      allow read: if signedIn() && (resource.data.studentId == request.auth.uid || isTeacher());
+      // IMPORTANT: a student's very first checklist tick for a given
+      // homework has no document yet — `resource` is null on that
+      // first read/write. Checking `resource.data.studentId` without
+      // guarding for null first throws in the rules engine and gets
+      // treated as "permission denied", which is exactly what broke
+      // the homework checklist from ever loading. Always check
+      // `resource == null` first so a not-yet-created doc reads as
+      // "allowed" (there's nothing sensitive in "no progress yet").
+      allow read: if signedIn() && (
+                    resource == null ||
+                    resource.data.studentId == request.auth.uid ||
+                    isTeacher()
+                  );
       allow create, update: if signedIn()
                     && request.resource.data.studentId == request.auth.uid
                     && docId == request.resource.data.homeworkId + '__' + request.auth.uid;

@@ -7,7 +7,48 @@ and the teacher and student sides are genuinely connected through
 Firestore: a milestone or quiz a teacher publishes shows up instantly
 on every student's dashboard, and vice versa.
 
-## Latest round of changes
+## Latest round of fixes
+
+- **Fixed: the homework checklist wouldn't load.** The Firestore rule
+  for `homeworkProgress` checked `resource.data.studentId` without
+  first guarding for "this document doesn't exist yet" — which is
+  exactly the case the very first time a student ever opens a
+  homework's checklist. That null-reference check silently failed as
+  a permissions error and broke the whole checklist. Fixed by allowing
+  the not-yet-created case explicitly. **Re-publish `firestore.rules`
+  for this fix to take effect.**
+- **Fixed: the side navigation didn't work on desktop/Windows.** Two
+  CSS rules for `.d-container`'s margin were tied for specificity, and
+  the one that came *later* in the file (a plain reset with no
+  `margin-left`) was silently overriding the one that shifted the page
+  content right to make room for the docked sidebar — so on wide
+  screens the sidebar sat on top of the page instead of beside it.
+  Reordered so the desktop override always wins.
+- **Reading materials: clearer PDF upload errors + progress bar.**
+  The publish button now shows a live upload percentage, validates the
+  file is really a PDF under 25 MB before attempting anything, and
+  translates Firebase Storage's error codes into a plain-English
+  explanation (most commonly: Storage needs to be enabled in the
+  Firebase Console, which now requires the project to be on the
+  Blaze pay-as-you-go plan — see step 3b below).
+- **Holidays are now marked from a real calendar, in bulk.** The
+  Attendance tab has a proper month calendar (defaults to the actual
+  current month, with today highlighted); click any number of days —
+  even a whole break — then save them all as holidays in one action.
+  Clicking an already-marked day queues it for removal instead.
+- **A real attendance history table.** Below the daily roll call,
+  every student now has a row and every marked date a column, with a
+  ✓ / ✕ / – at each cell (– means "not marked, counts as present").
+- **Monthly students-vs-teachers comparison.** The Milestones tab now
+  shows this month's top student, top teacher, and each side's
+  combined point total side by side, alongside the existing full
+  student leaderboard and Teacher Activity Ranking.
+- **A more fun homework checklist.** Each homework now shows a little
+  progress ring with a mood emoji (🌱 → 🌿 → 🚀 → 🔥 → 🎉), a
+  streak counter for consecutive days checked off, and a confetti
+  burst + celebratory toast when a checklist hits 100%.
+
+## Previous round of changes
 
 - **Points now come from every task, not just milestones.** A new
   unified `pointsLedger` collection is the single source of truth for
