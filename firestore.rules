@@ -1,0 +1,22 @@
+rules_version = '2';
+
+// Paste this into Firebase Console → Firestore Database → Rules,
+// then click "Publish".
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Each signed-in user may read and update only their OWN profile
+    // document (users/{their-uid}), and may create it once at sign-up.
+    // Nobody can read another user's profile, and the "role" field
+    // can only be set at creation — not changed afterwards, so a
+    // student can't quietly promote themselves to teacher.
+    match /users/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null && request.auth.uid == userId
+                    && request.resource.data.role in ['student', 'teacher'];
+      allow update: if request.auth != null && request.auth.uid == userId
+                    && request.resource.data.role == resource.data.role;
+      allow delete: if false;
+    }
+  }
+}
