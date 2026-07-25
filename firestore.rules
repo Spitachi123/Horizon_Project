@@ -5,18 +5,76 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // Looks up the caller's OWN profile doc to check their role.
+    // Used so teachers can be granted broader read/write access
+    // without students being able to fake a "teacher" role, since
+    // the role on their own profile can never be changed after
+    // creation (see the /users rule below).
+    function myRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+    function isTeacher() {
+      return signedIn() && myRole() == 'teacher';
+    }
+
     // Each signed-in user may read and update only their OWN profile
     // document (users/{their-uid}), and may create it once at sign-up.
-    // Nobody can read another user's profile, and the "role" field
-    // can only be set at creation — not changed afterwards, so a
-    // student can't quietly promote themselves to teacher.
+    // The "role" field can only be set at creation — not changed
+    // afterwards, so a student can't quietly promote themselves to
+    // teacher. Teachers may additionally read every profile, which is
+    // what lets a teacher see the class roster for attendance/quizzes.
     match /users/{userId} {
-      allow read: if request.auth != null && request.auth.uid == userId;
-      allow create: if request.auth != null && request.auth.uid == userId
+      allow read: if signedIn() && (request.auth.uid == userId || isTeacher());
+      allow create: if signedIn() && request.auth.uid == userId
                     && request.resource.data.role in ['student', 'teacher'];
-      allow update: if request.auth != null && request.auth.uid == userId
+      allow update: if signedIn() && request.auth.uid == userId
                     && request.resource.data.role == resource.data.role;
       allow delete: if false;
+    }
+
+    // Quizzes are authored by teachers, and readable by every signed
+    // in user so students can find and take them.
+    match /quizzes/{quizId} {
+      allow read: if signedIn();
+      allow create: if isTeacher() && request.resource.data.createdBy == request.auth.uid;
+      allow update, delete: if isTeacher() && resource.data.createdBy == request.auth.uid;
+    }
+
+    // A student may create their own attempt and read only their own
+    // attempts. Teachers may read every attempt to grade/analyse.
+    match /quizAttempts/{attemptId} {
+      allow create: if signedIn() && request.resource.data.studentId == request.auth.uid;
+      allow read: if signedIn() && (resource.data.studentId == request.auth.uid || isTeacher());
+      allow update, delete: if false;
+    }
+
+    // Attendance is written by teachers only. A student may read the
+    // rows that belong to them; a teacher may read/update everything.
+    match /attendance/{rowId} {
+      allow read: if signedIn() && (resource.data.studentId == request.auth.uid || isTeacher());
+      allow create, update: if isTeacher();
+      allow delete: if isTeacher();
+    }
+
+    // Reading materials & homework: teachers publish, everyone reads.
+    match /materials/{docId} {
+      allow read: if signedIn();
+      allow create, update, delete: if isTeacher();
+    }
+    match /homework/{docId} {
+      allow read: if signedIn();
+      allow create, update, delete: if isTeacher();
+    }
+
+    // Manually-entered results: teachers write, the owning student
+    // (and any teacher) can read.
+    match /results/{docId} {
+      allow read: if signedIn() && (resource.data.studentId == request.auth.uid || isTeacher());
+      allow create, update, delete: if isTeacher();
     }
   }
 }
