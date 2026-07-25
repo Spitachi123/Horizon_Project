@@ -1,790 +1,420 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ApexLearn | Educator Suite</title>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-  <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: 'Plus Jakarta Sans', sans-serif;
-    }
-
-    :root {
-      --primary: #005BCB;
-      --bg-light: #F0FAFD;
-      --surface: #FFFFFF;
-      --border: #BFEAFA;
-      --shadow-sm: 0 4px 12px rgba(0, 91, 203, 0.08);
-      --shadow-lg: 0 16px 36px rgba(0, 91, 203, 0.12);
-      --radius: 14px;
-    }
-
-    body {
-      background-color: var(--bg-light);
-      color: var(--primary);
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
-
-    header {
-      background: var(--surface);
-      border-bottom: 2px solid var(--border);
-      position: sticky;
-      top: 0;
-      z-index: 100;
-      box-shadow: var(--shadow-sm);
-    }
-
-    .top-nav {
-      padding: 16px 40px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      font-size: 22px;
-      font-weight: 800;
-      color: var(--primary);
-    }
-
-    .brand-icon {
-      width: 40px;
-      height: 40px;
-      background: var(--primary);
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--bg-light);
-      font-weight: 800;
-    }
-
-    .faculty-badge {
-      background: var(--bg-light);
-      border: 1.5px solid var(--primary);
-      padding: 6px 16px;
-      border-radius: 20px;
-      font-size: 13px;
-      font-weight: 800;
-    }
-
-    .navigation-bar {
-      background: var(--primary);
-      padding: 0 40px;
-      display: flex;
-      gap: 6px;
-      overflow-x: auto;
-    }
-
-    .nav-item {
-      color: var(--bg-light);
-      padding: 16px 20px;
-      font-weight: 700;
-      font-size: 14px;
-      cursor: pointer;
-      border: none;
-      background: none;
-      border-bottom: 4px solid transparent;
-      transition: all 0.2s ease;
-      white-space: nowrap;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .nav-item:hover {
-      background: rgba(240, 250, 253, 0.15);
-    }
-
-    .nav-item.active {
-      border-bottom-color: var(--bg-light);
-      background: rgba(240, 250, 253, 0.22);
-    }
-
-    .container {
-      max-width: 1200px;
-      margin: 30px auto;
-      padding: 0 20px;
-      width: 100%;
-      flex: 1;
-    }
-
-    .section-card {
-      background: var(--surface);
-      border: 2px solid var(--border);
-      border-radius: var(--radius);
-      padding: 32px;
-      box-shadow: var(--shadow-lg);
-    }
-
-    .hidden {
-      display: none !important;
-    }
-
-    h1, h2, h3, h4 {
-      font-weight: 800;
-      line-height: 1.2;
-    }
-
-    .section-header {
-      margin-bottom: 24px;
-      padding-bottom: 12px;
-      border-bottom: 2px solid var(--bg-light);
-    }
-
-    .dashboard-layout {
-      display: grid;
-      grid-template-columns: 320px 1fr;
-      gap: 30px;
-    }
-
-    .teacher-card {
-      background: var(--bg-light);
-      border: 2px solid var(--border);
-      border-radius: var(--radius);
-      padding: 24px;
-      text-align: center;
-    }
-
-    .teacher-illustration {
-      width: 110px;
-      height: 110px;
-      margin: 0 auto 16px auto;
-    }
-
-    .info-list {
-      margin-top: 20px;
-      text-align: left;
-      font-size: 13px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
-    .info-item {
-      background: var(--surface);
-      padding: 10px 12px;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-    }
-
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 16px;
-      margin-bottom: 24px;
-    }
-
-    .stat-card {
-      background: var(--bg-light);
-      border: 1.5px solid var(--border);
-      border-radius: var(--radius);
-      padding: 18px;
-      display: flex;
-      align-items: center;
-      gap: 14px;
-    }
-
-    .stat-icon {
-      width: 44px;
-      height: 44px;
-      background: var(--primary);
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--bg-light);
-    }
-
-    .chart-container {
-      background: var(--bg-light);
-      border: 2px solid var(--border);
-      border-radius: var(--radius);
-      padding: 20px;
-      margin-top: 20px;
-    }
-
-    .bar-chart {
-      display: flex;
-      align-items: flex-end;
-      gap: 20px;
-      height: 160px;
-      padding-top: 20px;
-      border-bottom: 2px solid var(--primary);
-    }
-
-    .bar-group {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 8px;
-      height: 100%;
-      justify-content: flex-end;
-    }
-
-    .bar {
-      width: 100%;
-      background: var(--primary);
-      border-radius: 6px 6px 0 0;
-      transition: height 0.5s ease;
-    }
-
-    .bar-label {
-      font-size: 12px;
-      font-weight: 700;
-    }
-
-    .grid-2 {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 20px;
-    }
-
-    .full-width {
-      grid-column: span 2;
-    }
-
-    .form-group {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      margin-bottom: 14px;
-    }
-
-    label {
-      font-size: 12px;
-      font-weight: 800;
-      text-transform: uppercase;
-    }
-
-    input, select, textarea {
-      width: 100%;
-      padding: 12px;
-      border: 1.5px solid var(--border);
-      border-radius: 8px;
-      background: var(--bg-light);
-      color: var(--primary);
-      font-size: 14px;
-      font-weight: 600;
-    }
-
-    input:focus, select:focus, textarea:focus {
-      outline: none;
-      border-color: var(--primary);
-      background: var(--surface);
-    }
-
-    .btn {
-      background: var(--primary);
-      color: var(--bg-light);
-      border: none;
-      padding: 12px 24px;
-      border-radius: 8px;
-      font-weight: 800;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      justify-content: center;
-      transition: transform 0.1s;
-    }
-
-    .btn:active {
-      transform: scale(0.98);
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 16px;
-    }
-
-    th, td {
-      padding: 12px 16px;
-      text-align: left;
-      border-bottom: 1px solid var(--border);
-      font-size: 14px;
-    }
-
-    th {
-      background: var(--bg-light);
-      font-weight: 800;
-    }
-
-    .badge-tag {
-      padding: 4px 10px;
-      border-radius: 12px;
-      font-size: 12px;
-      font-weight: 800;
-      background: var(--bg-light);
-      border: 1px solid var(--primary);
-    }
-
-    .attendance-btn {
-      padding: 6px 12px;
-      border-radius: 6px;
-      border: 1.5px solid var(--primary);
-      background: var(--surface);
-      color: var(--primary);
-      font-weight: 800;
-      cursor: pointer;
-    }
-
-    .attendance-btn.present {
-      background: var(--primary);
-      color: var(--bg-light);
-    }
-
-    .material-card {
-      border: 1.5px solid var(--border);
-      border-radius: var(--radius);
-      padding: 20px;
-      background: var(--bg-light);
-      margin-top: 16px;
-      display: flex;
-      gap: 20px;
-      align-items: center;
-    }
-
-    .material-icon {
-      width: 60px;
-      height: 60px;
-      background: var(--surface);
-      border: 2px solid var(--primary);
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    @media (max-width: 850px) {
-      .dashboard-layout, .grid-2 {
-        grid-template-columns: 1fr;
-      }
-      .full-width {
-        grid-column: span 1;
-      }
-      .top-nav, .navigation-bar {
-        padding: 10px 16px;
-      }
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DIVEDU | Teacher Dashboard</title>
+<link rel="stylesheet" href="theme.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+  :root { --current-accent: var(--teacher-accent); --current-glow: var(--teacher-glow); --student-bg: var(--teacher-bg); }
+  .quiz-builder-q { border: 1.5px dashed var(--panel-border); border-radius: var(--radius); padding: 16px; margin-bottom: 14px; background: var(--bg-main); }
+  .quiz-builder-q .opt-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .quiz-builder-q .opt-row input[type="radio"] { width: 18px; height: 18px; accent-color: var(--current-accent); flex-shrink: 0; }
+  .remove-q { background: none; border: none; color: var(--danger); font-weight: 700; font-size: 12px; cursor: pointer; }
+  .roster-card { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border: 1px solid var(--panel-border); border-radius: var(--radius-sm); margin-bottom: 10px; background: var(--bg-main); }
+  .roster-name { font-weight: 700; font-size: 13.5px; }
+  .roster-email { font-size: 11.5px; color: var(--text-muted); }
+  .att-toggle { display: flex; gap: 6px; }
+  .att-btn { padding: 7px 14px; border-radius: 20px; border: 1.5px solid var(--panel-border); background: var(--surface-white); font-weight: 700; font-size: 12px; cursor: pointer; color: var(--text-muted); }
+  .att-btn.present.active { background: var(--success-bg); color: var(--success); border-color: var(--success); }
+  .att-btn.absent.active { background: var(--danger-bg); color: var(--danger); border-color: var(--danger); }
+  .quiz-list-item { border: 1px solid var(--panel-border); border-radius: var(--radius); padding: 16px 18px; margin-bottom: 12px; }
+  .quiz-list-item h4 { font-size: 14.5px; }
+  .quiz-list-item .meta { font-size: 11.5px; color: var(--text-muted); margin-top: 4px; }
+</style>
 </head>
-<body>
+<body class="divedu">
+<div class="bg-glow blob-1"></div>
+<div class="bg-glow blob-2"></div>
+<div class="bg-glow blob-3"></div>
 
-  <header>
-    <div class="top-nav">
-      <div class="brand">
-        <div class="brand-icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
-            <path d="M6 12v5c3 3 9 3 12 0v-5"/>
-          </svg>
-        </div>
-        <span>ApexLearn Educator Suite</span>
+<header class="d-navbar">
+  <div class="d-brand" onclick="location.href='index.html'">
+    <div class="d-brand-icon"><i class="fa-solid fa-atom"></i></div>
+    DIV<span>EDU</span>
+  </div>
+  <div class="d-navbar-right">
+    <span class="role-pill"><span class="pulse-dot"></span> Teacher Workspace</span>
+    <div class="user-chip">
+      <div class="avatar" id="avatarInitial">T</div>
+      <span data-user-name>—</span>
+    </div>
+    <button class="btn-logout" data-logout><i class="fa-solid fa-arrow-right-from-bracket"></i> Logout</button>
+  </div>
+</header>
+
+<nav class="d-tabnav">
+  <button class="d-tab active" data-tab="overview" onclick="switchTab('overview', this)"><i class="fa-solid fa-table-columns"></i> Overview</button>
+  <button class="d-tab" data-tab="quiz" onclick="switchTab('quiz', this)"><i class="fa-solid fa-list-check"></i> Quizzes</button>
+  <button class="d-tab" data-tab="attendance" onclick="switchTab('attendance', this)"><i class="fa-solid fa-user-check"></i> Attendance</button>
+  <button class="d-tab" data-tab="results" onclick="switchTab('results', this)"><i class="fa-solid fa-chart-simple"></i> Results</button>
+  <button class="d-tab" data-tab="materials" onclick="switchTab('materials', this)"><i class="fa-solid fa-book"></i> Materials</button>
+  <button class="d-tab" data-tab="homework" onclick="switchTab('homework', this)"><i class="fa-solid fa-pen-ruler"></i> Homework</button>
+</nav>
+
+<div class="d-container">
+
+  <section id="tab-overview" class="d-card">
+    <div class="d-section-head">
+      <div>
+        <h2>Welcome back, <span data-user-name>Teacher</span></h2>
+        <p>A live snapshot of your class, pulled straight from Firestore.</p>
       </div>
-      <div style="display:flex; align-items:center; gap:14px;">
-        <div class="faculty-badge">Faculty Workspace</div>
-        <div style="display:flex; align-items:center; gap:8px; font-size:13px; font-weight:800;">
-          <i class="fa-solid fa-user-circle" style="font-size:20px;"></i>
-          <span data-user-name>Loading…</span>
-          <span class="badge-tag" data-user-role>TEACHER</span>
-        </div>
-        <button class="attendance-btn" data-logout href="#"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
-      </div>
+      <span class="badge-pill"><i class="fa-solid fa-circle-check"></i> Connected class</span>
+    </div>
+    <div class="stat-grid">
+      <div class="stat-tile"><div class="icon"><i class="fa-solid fa-users"></i></div><div><div class="num" id="stuCount">—</div><div class="label">Students enrolled</div></div></div>
+      <div class="stat-tile"><div class="icon"><i class="fa-solid fa-list-check"></i></div><div><div class="num" id="quizCount">—</div><div class="label">Quizzes published</div></div></div>
+      <div class="stat-tile"><div class="icon"><i class="fa-solid fa-file-circle-check"></i></div><div><div class="num" id="attemptCount">—</div><div class="label">Quiz submissions</div></div></div>
+      <div class="stat-tile"><div class="icon"><i class="fa-solid fa-calendar-check"></i></div><div><div class="num" id="todayAttCount">—</div><div class="label">Marked present today</div></div></div>
+    </div>
+    <div style="margin-top:24px;">
+      <h3 style="font-size:15px; margin-bottom:12px;">Recent quiz submissions</h3>
+      <table class="d-table" id="recentAttemptsTable">
+        <thead><tr><th>Student</th><th>Quiz</th><th>Score</th><th>Submitted</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div class="empty-state hidden" id="recentAttemptsEmpty">No submissions yet — publish a quiz to get started.</div>
+    </div>
+  </section>
+
+  <section id="tab-quiz" class="d-card hidden">
+    <div class="d-section-head">
+      <div><h2>Quiz Builder</h2><p>Create multiple-choice quizzes your students can take instantly.</p></div>
     </div>
 
-    <nav class="navigation-bar">
-      <button class="nav-item active" onclick="switchTab('dashboard', this)">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-        Dashboard
-      </button>
-      <button class="nav-item" onclick="switchTab('quiz', this)">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="m9 15 2 2 4-4"/></svg>
-        Quiz Class
-      </button>
-      <button class="nav-item" onclick="switchTab('results', this)">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-        Result Management
-      </button>
-      <button class="nav-item" onclick="switchTab('materials', this)">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-        Reading Materials
-      </button>
-      <button class="nav-item" onclick="switchTab('homework', this)">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
-        Homework
-      </button>
-      <button class="nav-item" onclick="switchTab('attendance', this)">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        Attendance
-      </button>
-    </nav>
-  </header>
-
-  <div class="container">
-
-    <section id="dashboard" class="section-card">
-      <div class="section-header">
-        <h2>Faculty Profile Overview</h2>
-        <p>Anonymous Educator Profile and Module Analytics</p>
+    <form id="quizForm">
+      <div class="d-grid-2">
+        <div class="d-field"><label>Subject</label>
+          <select id="qSubject" required>
+            <option>Science</option><option>Maths</option><option>Opt Maths</option><option>Computer</option>
+          </select>
+        </div>
+        <div class="d-field"><label>Quiz Title</label>
+          <input type="text" id="qTitle" placeholder="e.g. Logic Gates & Circuit Design" required>
+        </div>
       </div>
 
-      <div class="dashboard-layout">
-        <div class="teacher-card">
-          <div class="teacher-illustration">
-            <svg viewBox="0 0 100 100" width="100%" height="100%">
-              <circle cx="50" cy="50" r="48" fill="#F0FAFD" stroke="#005BCB" stroke-width="4"/>
-              <circle cx="50" cy="38" r="18" fill="#005BCB"/>
-              <path d="M20 82 C20 62, 35 55, 50 55 C65 55, 80 62, 80 82 Z" fill="#005BCB"/>
-            </svg>
-          </div>
-          <h3>Educator #104</h3>
-          <p style="font-size: 13px; font-weight: 800; margin-top: 4px;">STEM Faculty Lead</p>
+      <div id="questionsWrap"></div>
+      <button type="button" class="btn-secondary" onclick="addQuestion()"><i class="fa-solid fa-plus"></i> Add question</button>
+      <div style="margin-top:18px;">
+        <button class="btn-primary" type="submit" style="width:100%;"><i class="fa-solid fa-paper-plane"></i> Publish Quiz</button>
+      </div>
+    </form>
 
-          <div class="info-list">
-            <div class="info-item"><strong>Faculty Code:</strong> FAC-8092</div>
-            <div class="info-item"><strong>Department:</strong> Science & Computing</div>
-            <div class="info-item"><strong>Contact:</strong> faculty104@apexlearn.edu</div>
-            <div class="info-item"><strong>Office:</strong> STEM Hall, Section 4</div>
-          </div>
+    <div style="margin-top:32px; padding-top:24px; border-top:1.5px dashed var(--panel-border);">
+      <h3 style="font-size:15px; margin-bottom:14px;">Your published quizzes</h3>
+      <div id="myQuizList"></div>
+      <div class="empty-state hidden" id="myQuizEmpty">You haven't published any quizzes yet.</div>
+    </div>
+  </section>
+
+  <section id="tab-attendance" class="d-card hidden">
+    <div class="d-section-head">
+      <div><h2>Attendance Register</h2><p>Mark today's roll call — students see it instantly on their own dashboard.</p></div>
+      <div class="d-field" style="margin:0;">
+        <input type="date" id="attDate" style="min-width:170px;">
+      </div>
+    </div>
+    <div class="d-field" style="max-width:260px;">
+      <label>Subject / Module</label>
+      <select id="attSubject"><option>Science</option><option>Maths</option><option>Opt Maths</option><option>Computer</option></select>
+    </div>
+    <div id="rosterWrap" style="margin-top:16px;"></div>
+    <div class="empty-state hidden" id="rosterEmpty">No students have signed up yet.</div>
+  </section>
+
+  <section id="tab-results" class="d-card hidden">
+    <div class="d-section-head">
+      <div><h2>Result Management</h2><p>Enter marks — the grade, percentage and pass status are calculated automatically.</p></div>
+    </div>
+    <form id="resultForm">
+      <div class="d-grid-2">
+        <div class="d-field"><label>Student</label>
+          <select id="rStudent" required></select>
         </div>
+        <div class="d-field"><label>Subject</label>
+          <select id="rSubject" required><option>Science</option><option>Maths</option><option>Opt Maths</option><option>Computer</option></select>
+        </div>
+        <div class="d-field"><label>Full Marks</label><input type="number" id="rFull" value="100" required></div>
+        <div class="d-field"><label>Pass Marks</label><input type="number" id="rPass" value="40" required></div>
+        <div class="d-field"><label>Gained Marks</label><input type="number" id="rGained" required></div>
+      </div>
+      <button class="btn-primary" type="submit"><i class="fa-solid fa-floppy-disk"></i> Save Result</button>
+    </form>
+    <table class="d-table" style="margin-top:24px;" id="resultsTable">
+      <thead><tr><th>Student</th><th>Subject</th><th>Score</th><th>Grade</th><th>Status</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <div class="empty-state hidden" id="resultsEmpty">No results recorded yet.</div>
+  </section>
 
+  <section id="tab-materials" class="d-card hidden">
+    <div class="d-section-head"><div><h2>Reading Materials</h2><p>Publish notes and references — visible on every student's dashboard.</p></div></div>
+    <form id="materialForm">
+      <div class="d-grid-2">
+        <div class="d-field"><label>Subject</label><select id="mSubject"><option>Science</option><option>Maths</option><option>Opt Maths</option><option>Computer</option></select></div>
+        <div class="d-field"><label>Subtopic</label><input type="text" id="mSubtopic" placeholder="e.g. Wave Optics & Refraction" required></div>
+        <div class="d-field d-full"><label>Description / Link</label><textarea id="mDesc" rows="3" required></textarea></div>
+      </div>
+      <button class="btn-primary" type="submit"><i class="fa-solid fa-upload"></i> Publish Resource</button>
+    </form>
+    <div id="materialList" style="margin-top:20px; display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:16px;"></div>
+    <div class="empty-state hidden" id="materialEmpty">Nothing published yet.</div>
+  </section>
+
+  <section id="tab-homework" class="d-card hidden">
+    <div class="d-section-head"><div><h2>Homework</h2><p>Assign work with a due date — students see a countdown automatically.</p></div></div>
+    <form id="hwForm">
+      <div class="d-grid-2">
+        <div class="d-field"><label>Subject</label><select id="hwSubject"><option>Science</option><option>Maths</option><option>Opt Maths</option><option>Computer</option></select></div>
+        <div class="d-field"><label>Due Date</label><input type="date" id="hwDue" required></div>
+        <div class="d-field d-full"><label>Instructions</label><textarea id="hwInstr" rows="3" required></textarea></div>
+      </div>
+      <button class="btn-primary" type="submit"><i class="fa-solid fa-paper-plane"></i> Assign Homework</button>
+    </form>
+    <div id="hwList" style="margin-top:20px;"></div>
+    <div class="empty-state hidden" id="hwEmpty">No homework assigned yet.</div>
+  </section>
+
+</div>
+
+<div class="d-toast" id="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="app-auth.js"></script>
+<script src="app-data.js"></script>
+<script>
+AppAuth.protectPage('teacher');
+
+function toast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'd-toast show' + (type ? ' ' + type : '');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function switchTab(id, el) {
+  document.querySelectorAll('[id^="tab-"]').forEach(s => s.classList.add('hidden'));
+  document.querySelectorAll('.d-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.remove('hidden');
+  el.classList.add('active');
+  if (id === 'attendance') loadRoster();
+  if (id === 'results') loadResults();
+  if (id === 'materials') loadMaterials();
+  if (id === 'homework') loadHomework();
+  if (id === 'quiz') loadMyQuizzes();
+}
+
+let qCount = 0;
+function addQuestion() {
+  qCount++;
+  const id = 'q' + qCount;
+  const div = document.createElement('div');
+  div.className = 'quiz-builder-q';
+  div.id = id;
+  div.innerHTML = `
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+      <strong style="font-size:12.5px; color:var(--text-muted);">Question ${qCount}</strong>
+      <button type="button" class="remove-q" onclick="document.getElementById('${id}').remove()">Remove</button>
+    </div>
+    <div class="d-field" style="margin-bottom:10px;"><input type="text" class="q-text" placeholder="Question text" required></div>
+    ${[0,1,2,3].map(i => `
+      <div class="opt-row">
+        <input type="radio" name="${id}-correct" value="${i}" ${i===0?'checked':''}>
+        <input type="text" class="q-opt" placeholder="Option ${i+1}" required style="flex:1; padding:9px 12px; border:1.5px solid var(--panel-border); border-radius:8px; background:var(--surface-white);">
+      </div>`).join('')}
+  `;
+  document.getElementById('questionsWrap').appendChild(div);
+}
+addQuestion();
+
+document.getElementById('quizForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const blocks = document.querySelectorAll('.quiz-builder-q');
+  if (blocks.length === 0) { toast('Add at least one question.', 'error'); return; }
+  const questions = [];
+  for (const b of blocks) {
+    const text = b.querySelector('.q-text').value.trim();
+    const opts = Array.from(b.querySelectorAll('.q-opt')).map(o => o.value.trim());
+    const correct = b.querySelector('input[type=radio]:checked');
+    if (!text || opts.some(o => !o) || !correct) { toast('Fill in every question fully.', 'error'); return; }
+    questions.push({ text, options: opts, correctIndex: parseInt(correct.value, 10) });
+  }
+  try {
+    await AppData.createQuiz({ title: document.getElementById('qTitle').value.trim(), subject: document.getElementById('qSubject').value, questions });
+    toast('Quiz published — students can take it now.', 'success');
+    document.getElementById('quizForm').reset();
+    document.getElementById('questionsWrap').innerHTML = '';
+    qCount = 0;
+    addQuestion();
+    loadMyQuizzes();
+    loadOverview();
+  } catch (err) { toast(err.message, 'error'); }
+});
+
+async function loadMyQuizzes() {
+  const wrap = document.getElementById('myQuizList');
+  const empty = document.getElementById('myQuizEmpty');
+  wrap.innerHTML = '';
+  const quizzes = (await AppData.listQuizzes()).filter(q => q.createdBy === auth.currentUser.uid);
+  empty.classList.toggle('hidden', quizzes.length > 0);
+  for (const q of quizzes) {
+    const attempts = await AppData.attemptsForQuiz(q.id);
+    const avg = attempts.length ? Math.round(attempts.reduce((s, a) => s + a.percent, 0) / attempts.length) : 0;
+    const div = document.createElement('div');
+    div.className = 'quiz-list-item';
+    div.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
         <div>
-          <div class="stats-grid">
-            <div class="stat-card">
-              <div class="stat-icon">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-              </div>
-              <div>
-                <div style="font-size: 12px; font-weight: 700;">Active Modules</div>
-                <div style="font-size: 22px; font-weight: 800;">4 Classes</div>
-              </div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-icon">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
-              </div>
-              <div>
-                <div style="font-size: 12px; font-weight: 700;">Enrolled Users</div>
-                <div style="font-size: 22px; font-weight: 800;">128 Total</div>
-              </div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-icon">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-              </div>
-              <div>
-                <div style="font-size: 12px; font-weight: 700;">Pending Tasks</div>
-                <div style="font-size: 22px; font-weight: 800;">14 Tasks</div>
-              </div>
-            </div>
-          </div>
-
-          <div class="chart-container">
-            <h4>Anonymous Cohort Performance Overview (Average Score %)</h4>
-            <div class="bar-chart">
-              <div class="bar-group">
-                <div class="bar" style="height: 85%;"></div>
-                <div class="bar-label">Science</div>
-              </div>
-              <div class="bar-group">
-                <div class="bar" style="height: 92%;"></div>
-                <div class="bar-label">Maths</div>
-              </div>
-              <div class="bar-group">
-                <div class="bar" style="height: 78%;"></div>
-                <div class="bar-label">Opt Maths</div>
-              </div>
-              <div class="bar-group">
-                <div class="bar" style="height: 95%;"></div>
-                <div class="bar-label">Computer</div>
-              </div>
-            </div>
-          </div>
+          <h4>${AppData.escapeHtml(q.title)}</h4>
+          <div class="meta">${AppData.escapeHtml(q.subject)} · ${q.questions.length} questions · ${attempts.length} submission${attempts.length===1?'':'s'} · avg ${avg}%</div>
         </div>
-      </div>
-    </section>
+        <button class="btn-danger" onclick="removeQuiz('${q.id}')">Delete</button>
+      </div>`;
+    wrap.appendChild(div);
+  }
+}
+async function removeQuiz(id) {
+  if (!confirm('Delete this quiz and hide it from students?')) return;
+  await AppData.deleteQuiz(id);
+  toast('Quiz deleted.', 'success');
+  loadMyQuizzes();
+}
 
-    <section id="quiz" class="section-card hidden">
-      <div class="section-header">
-        <h2>Quiz Class Management</h2>
-        <p>Deploy quizzes and inspect anonymous submissions.</p>
-      </div>
+document.getElementById('attDate').value = AppData.todayStr();
+async function loadRoster() {
+  const wrap = document.getElementById('rosterWrap');
+  const empty = document.getElementById('rosterEmpty');
+  wrap.innerHTML = '';
+  const students = await AppData.listStudents();
+  empty.classList.toggle('hidden', students.length > 0);
+  const dateStr = document.getElementById('attDate').value || AppData.todayStr();
+  const existing = await AppData.attendanceForDate(dateStr);
+  const byId = Object.fromEntries(existing.map(r => [r.studentId, r]));
+  for (const s of students) {
+    const row = byId[s.uid];
+    const status = row ? row.status : null;
+    const div = document.createElement('div');
+    div.className = 'roster-card';
+    div.innerHTML = `
+      <div><div class="roster-name">${AppData.escapeHtml(s.name || s.email)}</div><div class="roster-email">${AppData.escapeHtml(s.email)}</div></div>
+      <div class="att-toggle">
+        <button class="att-btn present ${status==='present'?'active':''}" onclick="markAtt('${s.uid}','${AppData.escapeHtml(s.name||s.email)}','present', this)">Present</button>
+        <button class="att-btn absent ${status==='absent'?'active':''}" onclick="markAtt('${s.uid}','${AppData.escapeHtml(s.name||s.email)}','absent', this)">Absent</button>
+      </div>`;
+    wrap.appendChild(div);
+  }
+}
+document.getElementById('attDate').addEventListener('change', loadRoster);
+async function markAtt(studentId, studentName, status, btn) {
+  const dateStr = document.getElementById('attDate').value || AppData.todayStr();
+  const subject = document.getElementById('attSubject').value;
+  await AppData.setAttendance({ dateStr, studentId, studentName, subject, status });
+  const row = btn.closest('.roster-card');
+  row.querySelectorAll('.att-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  toast(`Marked ${status} for ${studentName}.`, 'success');
+  loadOverview();
+}
 
-      <div class="grid-2">
-        <div>
-          <h3>Create Interactive Quiz</h3>
-          <form style="margin-top: 14px;" onsubmit="handleFormSubmit(event, 'Quiz published successfully!')">
-            <div class="form-group">
-              <label>Topic / Domain</label>
-              <select required>
-                <option value="Science">Science</option>
-                <option value="Maths">Maths</option>
-                <option value="Opt Maths">Opt Maths</option>
-                <option value="Computer">Computer</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Quiz Title</label>
-              <input type="text" placeholder="e.g. Logic Gates Assessment" required>
-            </div>
-            <div class="form-group">
-              <label>Questions Details</label>
-              <textarea rows="3" placeholder="Enter questions for users..." required></textarea>
-            </div>
-            <button class="btn" type="submit">Publish Quiz</button>
-          </form>
-        </div>
+async function loadResults() {
+  const sel = document.getElementById('rStudent');
+  if (!sel.dataset.loaded) {
+    const students = await AppData.listStudents();
+    sel.innerHTML = students.map(s => `<option value="${s.uid}" data-name="${AppData.escapeHtml(s.name||s.email)}">${AppData.escapeHtml(s.name||s.email)}</option>`).join('');
+    sel.dataset.loaded = '1';
+  }
+  const tbody = document.querySelector('#resultsTable tbody');
+  const results = await AppData.allResults();
+  document.getElementById('resultsEmpty').classList.toggle('hidden', results.length > 0);
+  tbody.innerHTML = results.map(r => `
+    <tr><td>${AppData.escapeHtml(r.studentName)}</td><td>${AppData.escapeHtml(r.subject)}</td>
+    <td>${r.gainedMarks}/${r.fullMarks} (${r.percent}%)</td><td>${r.grade}</td>
+    <td><span class="status-badge ${r.status}">${r.status.toUpperCase()}</span></td></tr>`).join('');
+}
+document.getElementById('resultForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const sel = document.getElementById('rStudent');
+  const opt = sel.options[sel.selectedIndex];
+  try {
+    await AppData.publishResult({
+      studentId: sel.value, studentName: opt.dataset.name, subject: document.getElementById('rSubject').value,
+      fullMarks: parseFloat(document.getElementById('rFull').value), passMarks: parseFloat(document.getElementById('rPass').value),
+      gainedMarks: parseFloat(document.getElementById('rGained').value)
+    });
+    toast('Result saved.', 'success');
+    document.getElementById('rGained').value = '';
+    loadResults();
+  } catch (err) { toast(err.message, 'error'); }
+});
 
-        <div>
-          <h3>Anonymous Quiz Attempts</h3>
-          <table>
-            <thead>
-              <tr>
-                <th>User ID</th>
-                <th>Topic</th>
-                <th>Score</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>User_101</td>
-                <td>Science</td>
-                <td>18/20</td>
-                <td><span class="badge-tag">Passed</span></td>
-              </tr>
-              <tr>
-                <td>User_102</td>
-                <td>Computer</td>
-                <td>20/20</td>
-                <td><span class="badge-tag">Passed</span></td>
-              </tr>
-              <tr>
-                <td>User_103</td>
-                <td>Opt Maths</td>
-                <td>11/20</td>
-                <td><span class="badge-tag">Review</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </section>
+async function loadMaterials() {
+  const wrap = document.getElementById('materialList');
+  const list = await AppData.listMaterials();
+  document.getElementById('materialEmpty').classList.toggle('hidden', list.length > 0);
+  wrap.innerHTML = list.map(m => `
+    <div class="stat-tile" style="align-items:flex-start; flex-direction:column; gap:6px;">
+      <span class="badge-pill">${AppData.escapeHtml(m.subject)}</span>
+      <strong style="font-size:14px;">${AppData.escapeHtml(m.subtopic)}</strong>
+      <span style="font-size:12.5px; color:var(--text-muted);">${AppData.escapeHtml(m.description)}</span>
+    </div>`).join('');
+}
+document.getElementById('materialForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  try {
+    await AppData.publishMaterial({ subject: document.getElementById('mSubject').value, subtopic: document.getElementById('mSubtopic').value, description: document.getElementById('mDesc').value });
+    toast('Resource published.', 'success');
+    document.getElementById('materialForm').reset();
+    loadMaterials();
+  } catch (err) { toast(err.message, 'error'); }
+});
 
-    <section id="results" class="section-card hidden">
-      <div class="section-header">
-        <h2>Result Management Console</h2>
-        <p>Track academic achievements using anonymous user identifiers.</p>
-      </div>
+async function loadHomework() {
+  const wrap = document.getElementById('hwList');
+  const list = await AppData.listHomework();
+  document.getElementById('hwEmpty').classList.toggle('hidden', list.length > 0);
+  wrap.innerHTML = list.map(h => `
+    <div class="roster-card" style="align-items:flex-start;">
+      <div><div class="roster-name">${AppData.escapeHtml(h.subject)} — due ${h.dueDate}</div><div class="roster-email">${AppData.escapeHtml(h.instructions)}</div></div>
+    </div>`).join('');
+}
+document.getElementById('hwForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  try {
+    await AppData.publishHomework({ subject: document.getElementById('hwSubject').value, dueDate: document.getElementById('hwDue').value, instructions: document.getElementById('hwInstr').value });
+    toast('Homework assigned.', 'success');
+    document.getElementById('hwForm').reset();
+    loadHomework();
+  } catch (err) { toast(err.message, 'error'); }
+});
 
-      <table>
-        <thead>
-          <tr>
-            <th>User Identifier</th>
-            <th>Topic</th>
-            <th>Quiz Avg</th>
-            <th>Homework Grade</th>
-            <th>Final Grade</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>User_101</td>
-            <td>Science</td>
-            <td>90%</td>
-            <td>A</td>
-            <td><span class="badge-tag">A (Excellent)</span></td>
-          </tr>
-          <tr>
-            <td>User_102</td>
-            <td>Maths</td>
-            <td>98%</td>
-            <td>A+</td>
-            <td><span class="badge-tag">A+ (Top Scorer)</span></td>
-          </tr>
-          <tr>
-            <td>User_103</td>
-            <td>Opt Maths</td>
-            <td>72%</td>
-            <td>B</td>
-            <td><span class="badge-tag">B (Average)</span></td>
-          </tr>
-          <tr>
-            <td>User_104</td>
-            <td>Computer</td>
-            <td>88%</td>
-            <td>A</td>
-            <td><span class="badge-tag">A (Consistent)</span></td>
-          </tr>
-        </tbody>
-      </table>
-    </section>
+async function loadOverview() {
+  const [students, quizzes, attempts, attToday] = await Promise.all([
+    AppData.listStudents(), AppData.listQuizzes(), AppData.allAttempts(), AppData.attendanceForDate(AppData.todayStr())
+  ]);
+  document.getElementById('stuCount').textContent = students.length;
+  document.getElementById('quizCount').textContent = quizzes.filter(q => q.createdBy === auth.currentUser.uid).length;
+  document.getElementById('attemptCount').textContent = attempts.length;
+  document.getElementById('todayAttCount').textContent = attToday.filter(a => a.status === 'present').length;
 
-    <section id="materials" class="section-card hidden">
-      <div class="section-header">
-        <h2>Reading Materials Library</h2>
-        <p>Upload diagrams, articles, and references for anonymous users.</p>
-      </div>
+  const tbody = document.querySelector('#recentAttemptsTable tbody');
+  const recent = attempts.slice(0, 6);
+  document.getElementById('recentAttemptsEmpty').classList.toggle('hidden', recent.length > 0);
+  tbody.innerHTML = recent.map(a => `
+    <tr><td>${AppData.escapeHtml(a.studentName)}</td><td>${AppData.escapeHtml(a.quizTitle)}</td>
+    <td>${a.score}/${a.total} (${a.percent}%)</td><td>${AppData.fmtDate(a.submittedAt)}</td></tr>`).join('');
+}
 
-      <form onsubmit="handleFormSubmit(event, 'Reading material dispatched to users!')">
-        <div class="grid-2">
-          <div class="form-group">
-            <label>Subject Domain</label>
-            <select required>
-              <option value="Science">Science</option>
-              <option value="Maths">Maths</option>
-              <option value="Opt Maths">Opt Maths</option>
-              <option value="Computer">Computer</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Subtopic</label>
-            <input type="text" placeholder="e.g. Data Structures & Binary Trees" required>
-          </div>
-          <div class="form-group full-width">
-            <label>Material Summary / Link</label>
-            <textarea rows="3" placeholder="Provide link or content explanation..." required></textarea>
-          </div>
-        </div>
-        <button class="btn" type="submit">Publish Material</button>
-      </form>
-
-      <div class="material-card">
-        <div class="material-icon">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#005BCB" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-        </div>
-        <div>
-          <h4>Module Reference: Quantum Optics Diagrams</h4>
-          <p style="font-size: 13px; margin-top: 4px;">Published for Science Cohort • Includes vector illustrations and diagrams</p>
-        </div>
-      </div>
-    </section>
-
-    <section id="homework" class="section-card hidden">
-      <div class="section-header">
-        <h2>Homework Assignment Hub</h2>
-        <p>Assign topics, instructions, and deadlines anonymously.</p>
-      </div>
-
-      <form onsubmit="handleFormSubmit(event, 'Homework assigned to student accounts!')">
-        <div class="grid-2">
-          <div class="form-group">
-            <label>Topic</label>
-            <select required>
-              <option value="Science">Science</option>
-              <option value="Maths">Maths</option>
-              <option value="Opt Maths">Opt Maths</option>
-              <option value="Computer">Computer</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Submission Due Date</label>
-            <input type="date" required>
-          </div>
-          <div class="form-group full-width">
-            <label>Homework Instructions</label>
-            <textarea rows="3" placeholder="Specify instructions..." required></textarea>
-          </div>
-        </div>
-        <button class="btn" type="submit">Dispatch Homework Task</button>
-      </form>
-    </section>
-
-    <section id="attendance" class="section-card hidden">
-      <div class="section-header">
-        <h2>Anonymous Attendance Tracker</h2>
-        <p>Interactive roll call manager using anonymous handles.</p>
-      </div>
-
-      <table>
-        <thead>
-          <tr>
-            <th>User Identifier</th>
-            <th>Class Module</th>
-            <th>Status Toggle</th>
-            <th>Reading materials</th>
-          </tr>
-
-        </thead>
-        <tbody>
-          <tr>
-            <td><strong>User_101</strong></td>
-            <td>Science</td>
-            <td><button class="attendance-btn present" onclick="toggleAttendance(this)">Present</button></td>
-          </tr> 
-          <tr>
-            <td><strong>User_102</strong></td>
-            <td>Maths</td>
-            <td><button class="attendance-btn present" onclick="toggleAttendance(this)">Present</button></td>
-          </tr>
-          <tr>
-            <td><strong>User_103</strong></td>
-            <td>Opt Maths</td>
-            <td><button class="attendance-btn" onclick="toggleAttendance(this)">Absent</button></td>
-          </tr>
-          <tr>
-            <td><strong>User_104</strong></td>
-            <td>Computer</td>
-            <td><button class="attendance-btn present" onclick="toggleAttendance(this)">Present</button></td>
-          </tr>
-        </tbody>
-      </table>
-    </section>
-
-  </div>
-
-  <script>
-    function switchTab(sectionId, element) {
-      const sections = document.querySelectorAll('.section-card');
-      sections.forEach(sec => sec.classList.add('hidden'));
-
-      const navItems = document.querySelectorAll('.nav-item');
-      navItems.forEach(item => item.classList.remove('active'));
-
-      document.getElementById(sectionId).classList.remove('hidden');
-      element.classList.add('active');
-    }
-
-    function toggleAttendance(btn) {
-      if (btn.classList.contains('present')) {
-        btn.classList.remove('present');
-        btn.innerText = 'Absent';
-      } else {
-        btn.classList.add('present');
-        btn.innerText = 'Present';
-      }
-    }
-
-    function handleFormSubmit(event, message) {
-      event.preventDefault();
-      alert(message);
-      event.target.reset();
-    }
-  </script>
-
-  <!-- Firebase (Authentication + Firestore) -->
-  <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js"></script>
-  <script src="app-auth.js"></script>
-  <script>
-    // Only teachers may view this page — anyone else gets redirected
-    // to the right place, and anyone not signed in goes to index.html.
-    AppAuth.protectPage('teacher');
-  </script>
+auth.onAuthStateChanged(user => {
+  if (!user) return;
+  document.getElementById('avatarInitial').textContent = (user.displayName || user.email || 'T').charAt(0).toUpperCase();
+  loadOverview();
+});
+</script>
 </body>
 </html>

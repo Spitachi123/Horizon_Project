@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DIVEDU | AI Study Desk</title>
+<link rel="stylesheet" href="theme.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+  body.divedu { background: var(--bg-main); }
+  .desk-wrap { max-width: 1100px; margin: 0 auto; padding: 28px 24px 60px; }
+  .desk-head { display:flex; justify-content:space-between; align-items:flex-end; gap:16px; flex-wrap:wrap; margin-bottom:22px; }
+  .desk-head h1 { font-size: 22px; font-weight: 800; display:flex; align-items:center; gap:10px; }
+  .desk-head p { font-size:13px; color:var(--text-muted); margin-top:4px; }
+  .desk-grid { display:grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+  @media (max-width: 900px) { .desk-grid { grid-template-columns: 1fr; } }
+  .desk-panel { background: var(--surface-white); border:1px solid var(--panel-border); border-radius: var(--radius-lg); padding: 24px; box-shadow: var(--shadow-sm); }
+  .desk-panel h3 { font-size: 14.5px; margin-bottom: 12px; display:flex; align-items:center; gap:8px; }
+  textarea#inputText { width:100%; min-height: 320px; padding: 14px; border:1.5px solid var(--panel-border); border-radius: var(--radius-sm); background: var(--bg-main); font-size: 14px; line-height:1.6; resize: vertical; color: var(--text-main); }
+  textarea#inputText:focus { outline:none; border-color: var(--current-accent); background: var(--surface-white); }
+  .desk-controls { display:flex; gap:10px; align-items:center; margin-top: 14px; flex-wrap:wrap; }
+  .len-btn { border:1.5px solid var(--panel-border); background:var(--bg-main); color:var(--text-muted); padding:8px 14px; border-radius:20px; font-weight:700; font-size:12.5px; cursor:pointer; }
+  .len-btn.active { background: var(--current-accent); color:#fff; border-color: var(--current-accent); }
+  .desk-stats { display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; }
+  .desk-stat { background: var(--bg-main); border-radius: 12px; padding: 10px 14px; font-size: 12px; font-weight:700; color: var(--text-muted); }
+  .desk-stat b { color: var(--text-main); font-size: 14px; display:block; }
+  #summaryOut { min-height: 200px; font-size: 14.5px; line-height: 1.75; color: var(--text-main); }
+  #summaryOut p { margin-bottom: 12px; }
+  .key-terms { display:flex; flex-wrap:wrap; gap:8px; margin-top: 16px; }
+  .key-term { background: var(--student-bg); color: var(--current-accent); padding: 5px 12px; border-radius: 20px; font-size: 11.5px; font-weight: 700; }
+  .empty-hint { color: var(--text-muted); font-size: 13.5px; text-align:center; padding: 60px 20px; }
+  .toolbar-row { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom: 4px; flex-wrap:wrap; }
+</style>
+</head>
+<body class="divedu">
+<div class="bg-glow blob-1"></div>
+<div class="bg-glow blob-2"></div>
+
+<div class="desk-wrap">
+  <div class="desk-head">
+    <div>
+      <h1><i class="fa-solid fa-wand-magic-sparkles" style="color:var(--current-accent);"></i> AI Study Desk</h1>
+      <p>Paste any chapter, article or note — get an instant summary and the key ideas pulled out for you.</p>
+    </div>
+    <span class="badge-pill"><i class="fa-solid fa-bolt"></i> Runs instantly in your browser</span>
+  </div>
+
+  <div class="desk-grid">
+    <div class="desk-panel">
+      <h3><i class="fa-solid fa-file-lines"></i> Paste your text</h3>
+      <textarea id="inputText" placeholder="Paste a paragraph, chapter, or set of notes here..."></textarea>
+      <div class="desk-controls">
+        <span style="font-size:12px; font-weight:700; color:var(--text-muted);">Summary length:</span>
+        <button class="len-btn" data-ratio="0.15" onclick="setLength(this)">Short</button>
+        <button class="len-btn active" data-ratio="0.3" onclick="setLength(this)">Medium</button>
+        <button class="len-btn" data-ratio="0.5" onclick="setLength(this)">Detailed</button>
+      </div>
+      <div class="desk-stats">
+        <div class="desk-stat"><b id="statWords">0</b>words</div>
+        <div class="desk-stat"><b id="statSentences">0</b>sentences</div>
+        <div class="desk-stat"><b id="statReadTime">0 min</b>read time</div>
+      </div>
+      <button class="btn-primary" style="width:100%; margin-top:18px;" onclick="runSummary()"><i class="fa-solid fa-sparkles"></i> Summarize</button>
+    </div>
+
+    <div class="desk-panel">
+      <div class="toolbar-row">
+        <h3 style="margin-bottom:0;"><i class="fa-solid fa-list-check"></i> Summary</h3>
+        <button class="btn-secondary" id="copyBtn" style="display:none; padding:6px 14px; font-size:12px;" onclick="copySummary()"><i class="fa-regular fa-copy"></i> Copy</button>
+      </div>
+      <div id="summaryOut">
+        <div class="empty-hint"><i class="fa-solid fa-arrow-left" style="opacity:.5;"></i><br><br>Paste some text on the left and hit <strong>Summarize</strong> to see it broken down here.</div>
+      </div>
+      <div id="keyTermsWrap"></div>
+    </div>
+  </div>
+</div>
+
+<div class="d-toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   Lightweight extractive summarizer — entirely client-side.
+   No API key or server needed, so it works the moment this
+   page is opened (locally, in the dashboard iframe, or on
+   GitHub Pages). It scores each sentence by how many
+   important (frequent, non-stopword) terms it contains, then
+   keeps the highest-scoring sentences in their original order.
+   ============================================================ */
+
+const STOPWORDS = new Set(("a an the and or but if then else when while of to in on for with as by is are was were " +
+  "be been being this that these those it its it's i you he she they we my your his her their our " +
+  "not no so than too very can will just also into about over under out up down at from").split(' '));
+
+let currentRatio = 0.3;
+
+function setLength(btn) {
+  document.querySelectorAll('.len-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  currentRatio = parseFloat(btn.dataset.ratio);
+}
+
+function toast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'd-toast show' + (type ? ' ' + type : '');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function splitSentences(text) {
+  const clean = text.replace(/\s+/g, ' ').trim();
+  const matches = clean.match(/[^.!?]+[.!?]+(\s|$)|[^.!?]+$/g) || [];
+  return matches.map(s => s.trim()).filter(s => s.length > 0);
+}
+
+function tokenize(text) {
+  return (text.toLowerCase().match(/[a-z0-9']+/g) || []);
+}
+
+function updateStats() {
+  const text = document.getElementById('inputText').value;
+  const words = tokenize(text);
+  const sentences = splitSentences(text);
+  document.getElementById('statWords').textContent = words.length;
+  document.getElementById('statSentences').textContent = sentences.length;
+  document.getElementById('statReadTime').textContent = Math.max(1, Math.round(words.length / 200)) + ' min';
+}
+document.getElementById('inputText').addEventListener('input', updateStats);
+
+function runSummary() {
+  const text = document.getElementById('inputText').value.trim();
+  if (!text) { toast('Paste some text first.', 'error'); return; }
+
+  const sentences = splitSentences(text);
+  if (sentences.length === 0) { toast('Could not find any sentences in that text.', 'error'); return; }
+
+  // Word frequency table (excluding stopwords)
+  const freq = {};
+  sentences.forEach(s => {
+    tokenize(s).forEach(w => {
+      if (STOPWORDS.has(w) || w.length < 3) return;
+      freq[w] = (freq[w] || 0) + 1;
+    });
+  });
+  const maxFreq = Math.max(1, ...Object.values(freq));
+  Object.keys(freq).forEach(w => freq[w] = freq[w] / maxFreq);
+
+  // Score every sentence
+  const scored = sentences.map((s, idx) => {
+    const words = tokenize(s).filter(w => !STOPWORDS.has(w) && w.length >= 3);
+    let score = words.reduce((sum, w) => sum + (freq[w] || 0), 0);
+    if (words.length > 0) score = score / Math.sqrt(words.length); // avoid rewarding sheer length
+    if (idx === 0) score *= 1.25;                // lead sentence bonus
+    if (idx === sentences.length - 1) score *= 1.1; // closing sentence bonus
+    return { idx, text: s, score };
+  });
+
+  const keepCount = Math.max(1, Math.round(sentences.length * currentRatio));
+  const top = [...scored].sort((a, b) => b.score - a.score).slice(0, keepCount);
+  top.sort((a, b) => a.idx - b.idx);
+
+  const summaryHtml = top.map(t => `<p>${escapeHtml(t.text)}</p>`).join('');
+  document.getElementById('summaryOut').innerHTML = summaryHtml;
+  document.getElementById('copyBtn').style.display = 'inline-flex';
+
+  // Key terms: top frequent words
+  const terms = Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([w]) => w);
+  document.getElementById('keyTermsWrap').innerHTML = terms.length
+    ? `<div style="font-size:12px; font-weight:700; color:var(--text-muted); margin-top:18px;">Key terms</div>
+       <div class="key-terms">${terms.map(t => `<span class="key-term">${escapeHtml(t)}</span>`).join('')}</div>`
+    : '';
+
+  toast(`Summarized ${sentences.length} sentences down to ${top.length}.`, 'success');
+}
+
+function copySummary() {
+  const text = document.getElementById('summaryOut').innerText;
+  navigator.clipboard.writeText(text).then(() => toast('Summary copied to clipboard.', 'success'));
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+updateStats();
+</script>
+</body>
+</html>
