@@ -11,6 +11,9 @@ const roleIndicator = document.getElementById('roleIndicator');
 const roleIcon = document.getElementById('roleIcon');
 const roleText = document.getElementById('roleText');
 const fullNameGroup = document.getElementById('fullNameGroup');
+const extraFieldGroup = document.getElementById('extraFieldGroup');
+const extraFieldLabel = document.getElementById('extraFieldLabel');
+const extraFieldInput = document.getElementById('extraField');
 const identifierLabel = document.getElementById('identifierLabel');
 const identifierInput = document.getElementById('identifier');
 const passwordInput = document.getElementById('password');
@@ -44,6 +47,8 @@ function switchRole(role) {
     roleText.textContent = isRegisterMode ? 'New Student Registration' : 'Student Access Mode';
     identifierLabel.textContent = isRegisterMode ? 'Student Email Address' : 'Student ID or Email';
     identifierInput.placeholder = 'e.g. STU-2026-8942';
+    extraFieldLabel.textContent = 'Class / Grade';
+    extraFieldInput.placeholder = 'e.g. Grade 10';
 
   } else if (role === 'teacher') {
     tabTeacher.classList.add('active');
@@ -58,6 +63,8 @@ function switchRole(role) {
     roleText.textContent = isRegisterMode ? 'New Faculty Account' : 'Educator Portal Mode';
     identifierLabel.textContent = isRegisterMode ? 'Faculty Email Address' : 'Faculty ID or Work Email';
     identifierInput.placeholder = 'e.g. FAC-2026-1049';
+    extraFieldLabel.textContent = 'Subject Specialization';
+    extraFieldInput.placeholder = 'e.g. Physics & Maths';
   }
 }
 
@@ -76,6 +83,7 @@ function toggleAuthMode(e) {
     modePrompt.textContent = 'Already have an account?';
     modeToggleBtn.textContent = 'Sign In';
     fullNameGroup.classList.remove('hidden');
+    extraFieldGroup.classList.remove('hidden');
     forgotLink.classList.add('hidden');
   } else {
     formTitle.textContent = 'Welcome Back';
@@ -86,6 +94,7 @@ function toggleAuthMode(e) {
     modePrompt.textContent = "Don't have an account?";
     modeToggleBtn.textContent = 'Create Account';
     fullNameGroup.classList.add('hidden');
+    extraFieldGroup.classList.add('hidden');
     forgotLink.classList.remove('hidden');
   }
 
@@ -131,7 +140,9 @@ async function handleAuthSubmit(event) {
   try {
     if (isRegisterMode) {
       showStatus('Creating your account...', 'success');
-      const { role } = await AppAuth.signUp(fullName, email, passValue, currentRole);
+      const extraValue = extraFieldInput.value.trim();
+      const extra = currentRole === 'teacher' ? { subjectFocus: extraValue } : { grade: extraValue };
+      const { role } = await AppAuth.signUp(fullName, email, passValue, currentRole, extra);
       showStatus('Account created! Redirecting...', 'success');
       AppAuth.redirectToDashboard(role);
     } else {

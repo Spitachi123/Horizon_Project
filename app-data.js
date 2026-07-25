@@ -1,8 +1,9 @@
 /* ============================================================
    APP-DATA.JS — shared Firestore helpers for quizzes, attendance,
-   materials, homework and results. Loaded after app-auth.js on
-   both dashboards so teacher & student pages talk to the exact
-   same collections and never drift out of sync.
+   materials, homework, results, anonymous Q&A, and the milestone/
+   points system. Loaded after app-auth.js on both dashboards so
+   teacher & student pages talk to the exact same collections and
+   never drift out of sync.
    ============================================================ */
 
 const AppData = {
@@ -61,11 +62,43 @@ const AppData = {
     return rows;
   },
 
-  /* ---------------- Roster ---------------- */
+  /* ---------------- Roster / ID cards ---------------- */
 
   async listStudents() {
     const snap = await db.collection('users').where('role', '==', 'student').get();
+    const rows = snap.docs.map(d => ({ uid: d.id, ...d.data() }));
+    rows.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    return rows;
+  },
+
+  async listTeachers() {
+    const snap = await db.collection('users').where('role', '==', 'teacher').get();
     return snap.docs.map(d => ({ uid: d.id, ...d.data() }));
+  },
+
+  /** Every account ever created, newest first — the master roster
+   *  behind the "ID Cards" tab. */
+  async listAllUsers() {
+    const snap = await db.collection('users').get();
+    const rows = snap.docs.map(d => ({ uid: d.id, ...d.data() }));
+    rows.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+    return rows;
+  },
+
+  /** Full sign-in history — every time anyone has entered the
+   *  platform, newest first. */
+  async loginHistory(limit) {
+    let q = db.collection('loginLogs').orderBy('at', 'desc');
+    if (limit) q = q.limit(limit);
+    const snap = await q.get();
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  },
+
+  async loginHistoryFor(uid) {
+    const snap = await db.collection('loginLogs').where('uid', '==', uid).get();
+    const rows = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    rows.sort((a, b) => (b.at?.seconds || 0) - (a.at?.seconds || 0));
+    return rows;
   },
 
   /* ---------------- Attendance ---------------- */
@@ -175,6 +208,168 @@ const AppData = {
     return rows;
   },
 
+  /* ---------------- Anonymous Q&A ----------------
+     Students post a question tagged only with their studentId
+     (needed so *they* can find their own question again and see
+     the answer) plus their studentName. Every UI in this app that
+     a *teacher* uses must never render q.studentName — that's a
+     front-end contract, enforced by only ever building teacher-side
+     question cards through AppData.escapeHtml(..) on the question
+     text/subject and never touching studentName. The student's own
+     "My Questions" view is the only place the name is implicitly
+     tied to them (because it's already their own screen). */
+
+  async askQuestion({ subject, text }) {
+    const user = auth.currentUser;
+    return db.collection('questions').add({
+      subject, text,
+      studentId: user.uid,
+      studentName: user.displayName || user.email || 'Student',
+      status: 'pending',
+      answer: '',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  },
+
+  /** All questions, for the teacher-side anonymous inbox. Caller
+   *  must not surface `studentName` in the UI. */
+  async listAllQuestions() {
+    const snap = await db.collection('questions').get();
+    const rows = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    rows.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+    return rows;
+  },
+
+  async myQuestions() {
+    const user = auth.currentUser;
+    const snap = await db.collection('questions').where('studentId', '==', user.uid).get();
+    const rows = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    rows.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+    return rows;
+  },
+
+  async answerQuestion(questionId, answer) {
+    const user = auth.currentUser;
+    return db.collection('questions').doc(questionId).update({
+      answer, status: 'answered',
+      answeredBy: user.uid,
+      answeredAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  },
+
+  /* ---------------- Milestones & Points ----------------
+     A milestone is a bite-sized task a teacher drops in for the
+     whole class (e.g. "Solve 5 practice sums — 20 pts"). Every
+     signed-in teacher can add up to 3 per calendar day; every
+     milestone from every teacher lands in one shared feed that all
+     students see immediately. A student "completes" a milestone by
+     creating a `milestoneCompletions` doc (one per student per
+     milestone — the doc id itself prevents double-claiming), which
+     is what awards the points. Totals are always computed live from
+     completions rather than a cached counter, so they can never
+     drift out of sync. */
+
+  MILESTONES_PER_TEACHER_PER_DAY: 3,
+
+  async myMilestoneCountToday() {
+    const user = auth.currentUser;
+    const dateStr = this.todayStr();
+    const snap = await db.collection('milestones')
+      .where('createdBy', '==', user.uid)
+      .where('dateKey', '==', dateStr)
+      .get();
+    return snap.size;
+  },
+
+  async createMilestone({ title, description, subject, points }) {
+    const user = auth.currentUser;
+    const dateStr = this.todayStr();
+    const countToday = await this.myMilestoneCountToday();
+    if (countToday >= this.MILESTONES_PER_TEACHER_PER_DAY) {
+      throw new Error(`You've already added ${this.MILESTONES_PER_TEACHER_PER_DAY} milestones today — try again tomorrow.`);
+    }
+    return db.collection('milestones').add({
+      title, description: description || '', subject, points: Math.max(1, Math.round(points)),
+      dateKey: dateStr,
+      createdBy: user.uid,
+      createdByName: user.displayName || 'Teacher',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  },
+
+  async deleteMilestone(id) {
+    return db.collection('milestones').doc(id).delete();
+  },
+
+  /** Every milestone from every teacher, newest first — the shared
+   *  feed both dashboards render. */
+  async listAllMilestones() {
+    const snap = await db.collection('milestones').get();
+    const rows = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    rows.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+    return rows;
+  },
+
+  milestoneCompletionId(milestoneId, studentId) {
+    return `${milestoneId}__${studentId}`;
+  },
+
+  async completeMilestone(milestone) {
+    const user = auth.currentUser;
+    const id = this.milestoneCompletionId(milestone.id, user.uid);
+    const ref = db.collection('milestoneCompletions').doc(id);
+    const existing = await ref.get();
+    if (existing.exists) return existing; // already claimed — no double points
+    await ref.set({
+      milestoneId: milestone.id,
+      milestoneTitle: milestone.title,
+      subject: milestone.subject,
+      points: milestone.points,
+      studentId: user.uid,
+      studentName: user.displayName || user.email || 'Student',
+      completedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    return ref;
+  },
+
+  async myMilestoneCompletions() {
+    const user = auth.currentUser;
+    const snap = await db.collection('milestoneCompletions').where('studentId', '==', user.uid).get();
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  },
+
+  /** Every completion by every student across every teacher's
+   *  milestones — used to build the class leaderboard. */
+  async allMilestoneCompletions() {
+    const snap = await db.collection('milestoneCompletions').get();
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  },
+
+  /** { uid: { name, points, badges, completed } } for every student
+   *  who has completed at least one milestone, sorted highest first. */
+  async leaderboard() {
+    const [completions, students] = await Promise.all([this.allMilestoneCompletions(), this.listStudents()]);
+    const totals = {};
+    students.forEach(s => { totals[s.uid] = { uid: s.uid, name: s.name || s.email, points: 0, completed: 0 }; });
+    completions.forEach(c => {
+      if (!totals[c.studentId]) totals[c.studentId] = { uid: c.studentId, name: c.studentName, points: 0, completed: 0 };
+      totals[c.studentId].points += c.points || 0;
+      totals[c.studentId].completed += 1;
+    });
+    const rows = Object.values(totals);
+    rows.forEach(r => { r.badge = AppData.badgeForPoints(r.points); });
+    rows.sort((a, b) => b.points - a.points);
+    return rows;
+  },
+
+  badgeForPoints(points) {
+    if (points >= 500) return { label: 'Platinum', icon: 'fa-gem', color: '#8b5cf6' };
+    if (points >= 250) return { label: 'Gold', icon: 'fa-trophy', color: '#f0a93a' };
+    if (points >= 100) return { label: 'Silver', icon: 'fa-medal', color: '#94a3b8' };
+    if (points >= 25) return { label: 'Bronze', icon: 'fa-award', color: '#b45309' };
+    return { label: 'Newcomer', icon: 'fa-seedling', color: '#10b981' };
+  },
+
   /* ---------------- Small utils ---------------- */
 
   todayStr() {
@@ -185,6 +380,12 @@ const AppData = {
     if (!ts) return '—';
     const d = ts.seconds ? new Date(ts.seconds * 1000) : new Date(ts);
     return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  },
+
+  fmtDateTime(ts) {
+    if (!ts) return '—';
+    const d = ts.seconds ? new Date(ts.seconds * 1000) : new Date(ts);
+    return d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
   },
 
   escapeHtml(str) {

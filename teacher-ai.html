@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DIVEDU | AI Teaching Assistant</title>
+<link rel="stylesheet" href="theme.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+  :root { --current-accent: var(--teacher-accent); --current-glow: var(--teacher-glow); --student-bg: var(--teacher-bg); }
+  body.divedu { background: var(--bg-main); }
+  .desk-wrap { max-width: 1180px; margin: 0 auto; padding: 28px 24px 60px; }
+  .desk-head { display:flex; justify-content:space-between; align-items:flex-end; gap:16px; flex-wrap:wrap; margin-bottom:22px; }
+  .desk-head h1 { font-size: 22px; font-weight: 800; display:flex; align-items:center; gap:10px; }
+  .desk-head p { font-size:13px; color:var(--text-muted); margin-top:4px; }
+  .desk-panel { background: var(--surface-white); border:1px solid var(--panel-border); border-radius: var(--radius-lg); padding: 24px; box-shadow: var(--shadow-sm); margin-bottom: 22px; }
+  .desk-panel h3 { font-size: 14.5px; margin-bottom: 12px; display:flex; align-items:center; gap:8px; }
+  textarea#lessonText { width:100%; min-height: 220px; padding: 14px; border:1.5px solid var(--panel-border); border-radius: var(--radius-sm); background: var(--bg-main); font-size: 14px; line-height:1.6; resize: vertical; color: var(--text-main); }
+  textarea#lessonText:focus { outline:none; border-color: var(--current-accent); background: var(--surface-white); }
+  .mode-tabs { display:flex; gap:8px; margin: 16px 0; flex-wrap:wrap; }
+  .mode-tab { border:1.5px solid var(--panel-border); background:var(--bg-main); color:var(--text-muted); padding:9px 16px; border-radius:20px; font-weight:700; font-size:12.5px; cursor:pointer; display:flex; align-items:center; gap:6px; }
+  .mode-tab.active { background: var(--current-accent); color:#fff; border-color: var(--current-accent); }
+  .out-grid { display:grid; grid-template-columns: 1fr; gap: 18px; }
+  .out-block { background: var(--bg-main); border:1px solid var(--panel-border); border-radius: var(--radius); padding: 18px 20px; }
+  .out-block h4 { font-size:13px; text-transform:uppercase; letter-spacing:.03em; color:var(--text-muted); margin-bottom:10px; }
+  .key-terms { display:flex; flex-wrap:wrap; gap:8px; }
+  .key-term { background: var(--student-bg); color: var(--current-accent); padding: 5px 12px; border-radius: 20px; font-size: 11.5px; font-weight: 700; }
+  .gen-q { border:1px solid var(--panel-border); border-radius: var(--radius-sm); background:var(--surface-white); padding: 12px 14px; margin-bottom:10px; }
+  .gen-q .qtxt { font-weight:700; font-size:13.5px; margin-bottom:6px; }
+  .gen-q .qans { font-size:12.5px; color: var(--current-accent); font-weight:700; }
+  .milestone-suggest { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px 14px; border-radius:10px; background:var(--surface-white); border:1px solid var(--panel-border); margin-bottom:8px; font-size:13px; }
+  .milestone-suggest .pts { font-weight:800; color: var(--current-accent); font-size:12px; }
+  .use-btn { background:none; border:1.5px solid var(--current-accent); color:var(--current-accent); font-size:11px; font-weight:800; padding:5px 10px; border-radius:8px; cursor:pointer; white-space:nowrap; }
+  .empty-hint { color: var(--text-muted); font-size: 13.5px; text-align:center; padding: 40px 20px; }
+  .ai-note { display:flex; gap:10px; align-items:flex-start; background: var(--teacher-bg); border-radius: var(--radius-sm); padding: 12px 16px; font-size:12px; color:var(--text-muted); margin-bottom:18px; }
+  .ai-note i { color: var(--current-accent); margin-top:2px; }
+</style>
+</head>
+<body class="divedu">
+<div class="bg-glow blob-1"></div>
+<div class="bg-glow blob-2"></div>
+
+<div class="desk-wrap">
+  <div class="desk-head">
+    <div>
+      <h1><i class="fa-solid fa-robot" style="color:var(--current-accent);"></i> AI Teaching Assistant</h1>
+      <p>Paste lesson notes, a chapter, or a topic brief — get a summary, key terms, ready-to-use quiz questions, and daily milestone ideas.</p>
+    </div>
+    <span class="badge-pill"><i class="fa-solid fa-bolt"></i> Runs instantly, no API key needed</span>
+  </div>
+
+  <div class="ai-note">
+    <i class="fa-solid fa-circle-info"></i>
+    <div>This assistant uses on-device text analysis (word-frequency summarization + heuristic question generation) so it works immediately with zero setup. It's great for a fast first draft — always review before publishing to your class.</div>
+  </div>
+
+  <div class="desk-panel">
+    <h3><i class="fa-solid fa-file-lines"></i> Paste your lesson content</h3>
+    <textarea id="lessonText" placeholder="Paste a chapter, lecture notes, or a topic description here..."></textarea>
+    <div class="mode-tabs">
+      <button class="mode-tab active" data-mode="summary" onclick="setMode(this)"><i class="fa-solid fa-list-check"></i> Summary</button>
+      <button class="mode-tab" data-mode="quiz" onclick="setMode(this)"><i class="fa-solid fa-circle-question"></i> Quiz Questions</button>
+      <button class="mode-tab" data-mode="milestones" onclick="setMode(this)"><i class="fa-solid fa-flag-checkered"></i> Milestone Ideas</button>
+    </div>
+    <button class="btn-primary" style="width:100%;" onclick="runAssist()"><i class="fa-solid fa-sparkles"></i> Generate</button>
+  </div>
+
+  <div class="desk-panel">
+    <h3><i class="fa-solid fa-wand-magic-sparkles"></i> Results</h3>
+    <div id="output">
+      <div class="empty-hint"><i class="fa-solid fa-arrow-up" style="opacity:.5;"></i><br><br>Paste some content above, pick a mode, and hit <strong>Generate</strong>.</div>
+    </div>
+  </div>
+</div>
+
+<div class="d-toast" id="toast"></div>
+
+<script>
+const STOPWORDS = new Set(("a an the and or but if then else when while of to in on for with as by is are was were " +
+  "be been being this that these those it its it's i you he she they we my your his her their our " +
+  "not no so than too very can will just also into about over under out up down at from").split(' '));
+
+let currentMode = 'summary';
+function setMode(btn) {
+  document.querySelectorAll('.mode-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  currentMode = btn.dataset.mode;
+}
+
+function toast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'd-toast show' + (type ? ' ' + type : '');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function splitSentences(text) {
+  const clean = text.replace(/\s+/g, ' ').trim();
+  const matches = clean.match(/[^.!?]+[.!?]+(\s|$)|[^.!?]+$/g) || [];
+  return matches.map(s => s.trim()).filter(s => s.length > 0);
+}
+function tokenize(text) { return (text.toLowerCase().match(/[a-z0-9']+/g) || []); }
+function escapeHtml(str) { const div = document.createElement('div'); div.textContent = str; return div.innerHTML; }
+
+function scoreSentences(sentences) {
+  const freq = {};
+  sentences.forEach(s => {
+    tokenize(s).forEach(w => {
+      if (STOPWORDS.has(w) || w.length < 3) return;
+      freq[w] = (freq[w] || 0) + 1;
+    });
+  });
+  const maxFreq = Math.max(1, ...Object.values(freq));
+  Object.keys(freq).forEach(w => freq[w] = freq[w] / maxFreq);
+  const scored = sentences.map((s, idx) => {
+    const words = tokenize(s).filter(w => !STOPWORDS.has(w) && w.length >= 3);
+    let score = words.reduce((sum, w) => sum + (freq[w] || 0), 0);
+    if (words.length > 0) score = score / Math.sqrt(words.length);
+    if (idx === 0) score *= 1.25;
+    if (idx === sentences.length - 1) score *= 1.1;
+    return { idx, text: s, score, words };
+  });
+  return { scored, freq };
+}
+
+function runAssist() {
+  const text = document.getElementById('lessonText').value.trim();
+  const out = document.getElementById('output');
+  if (!text) { toast('Paste some lesson content first.', 'error'); return; }
+  const sentences = splitSentences(text);
+  if (sentences.length === 0) { toast('Could not find sentences in that text.', 'error'); return; }
+  const { scored, freq } = scoreSentences(sentences);
+  const terms = Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([w]) => w);
+
+  if (currentMode === 'summary') renderSummary(scored, terms, sentences.length);
+  else if (currentMode === 'quiz') renderQuiz(scored, terms);
+  else renderMilestones(scored, terms, sentences.length);
+}
+
+function renderSummary(scored, terms, total) {
+  const keepCount = Math.max(1, Math.round(total * 0.3));
+  const top = [...scored].sort((a, b) => b.score - a.score).slice(0, keepCount);
+  top.sort((a, b) => a.idx - b.idx);
+  const out = document.getElementById('output');
+  out.innerHTML = `
+    <div class="out-grid">
+      <div class="out-block">
+        <h4>Condensed summary</h4>
+        ${top.map(t => `<p style="margin-bottom:10px; line-height:1.7; font-size:14px;">${escapeHtml(t.text)}</p>`).join('')}
+      </div>
+      <div class="out-block">
+        <h4>Key terms</h4>
+        <div class="key-terms">${terms.map(t => `<span class="key-term">${escapeHtml(t)}</span>`).join('')}</div>
+      </div>
+    </div>`;
+  toast(`Summarized ${total} sentences.`, 'success');
+}
+
+function renderQuiz(scored, terms) {
+  const top = [...scored].filter(s => s.words.length >= 4).sort((a, b) => b.score - a.score).slice(0, 6);
+  const out = document.getElementById('output');
+  if (top.length === 0) { out.innerHTML = `<div class="empty-hint">Not enough substantial sentences to draft questions from — try pasting a longer passage.</div>`; return; }
+  const html = top.map((t, i) => {
+    // Pick the most "important" (highest-frequency) word in the sentence as the blank.
+    const candidate = t.words.slice().sort((a, b) => 0)[0] || t.words[0];
+    const answerWord = candidate;
+    const re = new RegExp('\\b' + answerWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i');
+    const blanked = t.text.replace(re, '_____');
+    return `
+      <div class="gen-q">
+        <div class="qtxt">${i + 1}. Fill in the blank: "${escapeHtml(blanked)}"</div>
+        <div class="qans">Answer: ${escapeHtml(answerWord)}</div>
+      </div>`;
+  }).join('');
+  out.innerHTML = `<div class="out-grid"><div class="out-block"><h4>Draft quiz questions (fill-in-the-blank)</h4>${html}
+    <p style="margin-top:8px; font-size:11.5px; color:var(--text-muted);">Tip: turn any of these into multiple-choice in the Quiz Builder by adding 3 plausible wrong options.</p>
+  </div></div>`;
+  toast(`Drafted ${top.length} question ideas.`, 'success');
+}
+
+function renderMilestones(scored, terms, total) {
+  const top = [...scored].sort((a, b) => b.score - a.score).slice(0, 3);
+  const out = document.getElementById('output');
+  const suggestions = top.map((t, i) => {
+    const topic = terms[i] || terms[0] || 'this topic';
+    const points = 15 + i * 10;
+    const title = `Review & summarize: ${topic}`;
+    return { title, points, hint: t.text.slice(0, 90) + (t.text.length > 90 ? '…' : '') };
+  });
+  out.innerHTML = `
+    <div class="out-grid"><div class="out-block">
+      <h4>Suggested milestones for today (max 3/day)</h4>
+      ${suggestions.map(s => `
+        <div class="milestone-suggest">
+          <div><strong>${escapeHtml(s.title)}</strong><div style="color:var(--text-muted); font-size:11.5px;">${escapeHtml(s.hint)}</div></div>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <span class="pts">+${s.points} pts</span>
+          </div>
+        </div>`).join('')}
+      <p style="margin-top:8px; font-size:11.5px; color:var(--text-muted);">Copy a title into the Milestones tab to publish it to your class.</p>
+    </div></div>`;
+  toast('Generated milestone ideas.', 'success');
+}
+</script>
+</body>
+</html>

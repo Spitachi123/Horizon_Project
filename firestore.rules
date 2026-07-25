@@ -26,7 +26,8 @@ service cloud.firestore {
     // The "role" field can only be set at creation — not changed
     // afterwards, so a student can't quietly promote themselves to
     // teacher. Teachers may additionally read every profile, which is
-    // what lets a teacher see the class roster for attendance/quizzes.
+    // what lets a teacher see the class roster / ID cards for
+    // attendance, quizzes and the milestone leaderboard.
     match /users/{userId} {
       allow read: if signedIn() && (request.auth.uid == userId || isTeacher());
       allow create: if signedIn() && request.auth.uid == userId
@@ -34,6 +35,25 @@ service cloud.firestore {
       allow update: if signedIn() && request.auth.uid == userId
                     && request.resource.data.role == resource.data.role;
       allow delete: if false;
+    }
+
+    // Tiny counters used only to hand out sequential ID-card numbers
+    // (STU-2026-0001, TCH-2026-0001, ...) at sign-up. No personal
+    // data lives here — just a running number per role per year.
+    match /counters/{counterId} {
+      allow read: if signedIn();
+      allow write: if signedIn();
+      allow delete: if false;
+    }
+
+    // Append-only sign-in history: every time any student or teacher
+    // has entered the platform. Anyone signed in may write their own
+    // entry (checked by uid match); only teachers can read the full
+    // log (a student can still read entries with their own uid).
+    match /loginLogs/{logId} {
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
+      allow read: if signedIn() && (resource.data.uid == request.auth.uid || isTeacher());
+      allow update, delete: if false;
     }
 
     // Quizzes are authored by teachers, and readable by every signed
@@ -75,6 +95,53 @@ service cloud.firestore {
     match /results/{docId} {
       allow read: if signedIn() && (resource.data.studentId == request.auth.uid || isTeacher());
       allow create, update, delete: if isTeacher();
+    }
+
+    // Anonymous Q&A: a student creates a question tagged with their
+    // own uid (needed so *they* can see their own answer later) and
+    // can read only their own. Teachers can read every question and
+    // answer it (update) — the app's UI is responsible for never
+    // displaying the student's name to a teacher, since the data
+    // itself must still carry an owner for delivery/security.
+    // Nobody may delete a question, and nobody but a teacher may
+    // set/change its answer.
+    match /questions/{qId} {
+      allow create: if signedIn() && request.resource.data.studentId == request.auth.uid
+                    && request.resource.data.status == 'pending';
+      allow read: if signedIn() && (resource.data.studentId == request.auth.uid || isTeacher());
+      allow update: if isTeacher()
+                    && request.resource.data.studentId == resource.data.studentId
+                    && request.resource.data.text == resource.data.text;
+      allow delete: if false;
+    }
+
+    // Milestones: any signed-in teacher may create one (the 3-per-day
+    // cap is enforced client-side by counting today's docs before
+    // creating — Firestore rules can't cheaply count documents, so
+    // this is a soft limit rather than a hard security guarantee).
+    // Every signed-in user (every student) can read the shared feed.
+    // Only the teacher who created a milestone may delete it.
+    match /milestones/{mId} {
+      allow read: if signedIn();
+      allow create: if isTeacher() && request.resource.data.createdBy == request.auth.uid;
+      allow update: if false;
+      allow delete: if isTeacher() && resource.data.createdBy == request.auth.uid;
+    }
+
+    // Milestone completions award points. A student may only ever
+    // create a completion for themselves (their own uid must match),
+    // and the completion's document id is deterministic
+    // (`${milestoneId}__${studentId}`), so a student physically
+    // cannot create two completions for the same milestone — that's
+    // what stops double-claiming points. Everyone signed in can read
+    // the completions feed (needed for the leaderboard); nothing can
+    // ever be edited or removed once earned.
+    match /milestoneCompletions/{cId} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+                    && request.resource.data.studentId == request.auth.uid
+                    && cId == request.resource.data.milestoneId + '__' + request.auth.uid;
+      allow update, delete: if false;
     }
   }
 }
