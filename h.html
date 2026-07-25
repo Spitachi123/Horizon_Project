@@ -50,6 +50,13 @@
       <h3><i class="fa-solid fa-file-lines"></i> Paste your text</h3>
       <textarea id="inputText" placeholder="Paste a paragraph, chapter, or set of notes here..."></textarea>
       <div class="desk-controls">
+        <label class="len-btn" for="pdfInput" style="display:inline-flex; align-items:center; gap:6px; cursor:pointer;">
+          <i class="fa-solid fa-file-pdf"></i> Upload PDF
+        </label>
+        <input type="file" id="pdfInput" accept="application/pdf" class="hidden">
+        <span id="pdfStatus" style="font-size:11.5px; color:var(--text-muted);"></span>
+      </div>
+      <div class="desk-controls">
         <span style="font-size:12px; font-weight:700; color:var(--text-muted);">Summary length:</span>
         <button class="len-btn" data-ratio="0.15" onclick="setLength(this)">Short</button>
         <button class="len-btn active" data-ratio="0.3" onclick="setLength(this)">Medium</button>
@@ -69,8 +76,9 @@
         <button class="btn-secondary" id="copyBtn" style="display:none; padding:6px 14px; font-size:12px;" onclick="copySummary()"><i class="fa-regular fa-copy"></i> Copy</button>
       </div>
       <div id="summaryOut">
-        <div class="empty-hint"><i class="fa-solid fa-arrow-left" style="opacity:.5;"></i><br><br>Paste some text on the left and hit <strong>Summarize</strong> to see it broken down here.</div>
+        <div class="empty-hint"><i class="fa-solid fa-arrow-left" style="opacity:.5;"></i><br><br>Paste some text (or upload a PDF) on the left and hit <strong>Summarize</strong> to see it broken down here.</div>
       </div>
+      <div id="definitionsWrap"></div>
       <div id="keyTermsWrap"></div>
     </div>
   </div>
@@ -78,19 +86,14 @@
 
 <div class="d-toast" id="toast"></div>
 
+<script src="ai-engine.js"></script>
 <script>
 /* ============================================================
-   Lightweight extractive summarizer — entirely client-side.
-   No API key or server needed, so it works the moment this
-   page is opened (locally, in the dashboard iframe, or on
-   GitHub Pages). It scores each sentence by how many
-   important (frequent, non-stopword) terms it contains, then
-   keeps the highest-scoring sentences in their original order.
+   AI Study Desk — now backed by AIEngine (TextRank ranking,
+   heading/structure detection, real definition extraction) and
+   able to pull text straight out of an uploaded PDF. Still runs
+   entirely in the browser, no API key or server required.
    ============================================================ */
-
-const STOPWORDS = new Set(("a an the and or but if then else when while of to in on for with as by is are was were " +
-  "be been being this that these those it its it's i you he she they we my your his her their our " +
-  "not no so than too very can will just also into about over under out up down at from").split(' '));
 
 let currentRatio = 0.3;
 
@@ -107,70 +110,89 @@ function toast(msg, type) {
   setTimeout(() => t.classList.remove('show'), 2500);
 }
 
-function splitSentences(text) {
-  const clean = text.replace(/\s+/g, ' ').trim();
-  const matches = clean.match(/[^.!?]+[.!?]+(\s|$)|[^.!?]+$/g) || [];
-  return matches.map(s => s.trim()).filter(s => s.length > 0);
-}
-
-function tokenize(text) {
-  return (text.toLowerCase().match(/[a-z0-9']+/g) || []);
-}
-
 function updateStats() {
   const text = document.getElementById('inputText').value;
-  const words = tokenize(text);
-  const sentences = splitSentences(text);
+  const words = AIEngine.tokenize(text);
+  const sentences = AIEngine.splitSentences(text);
   document.getElementById('statWords').textContent = words.length;
   document.getElementById('statSentences').textContent = sentences.length;
   document.getElementById('statReadTime').textContent = Math.max(1, Math.round(words.length / 200)) + ' min';
 }
 document.getElementById('inputText').addEventListener('input', updateStats);
 
+/* ---------------- PDF upload ---------------- */
+document.getElementById('pdfInput').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const statusEl = document.getElementById('pdfStatus');
+  statusEl.textContent = 'Reading PDF…';
+  try {
+    const text = await AIEngine.extractPdfText(file, (p, total) => {
+      statusEl.textContent = `Reading page ${p}/${total}…`;
+    });
+    if (!text) { toast('Could not find any text in that PDF (it may be scanned images).', 'error'); statusEl.textContent = ''; return; }
+    document.getElementById('inputText').value = text;
+    updateStats();
+    statusEl.textContent = `Loaded "${file.name}" — ${AIEngine.tokenize(text).length} words.`;
+    toast('PDF text extracted — hit Summarize.', 'success');
+  } catch (err) {
+    toast(err.message || 'Could not read that PDF.', 'error');
+    statusEl.textContent = '';
+  }
+});
+
+/* Handoff from the parent dashboard's Materials tab ("Summarize
+   with AI" on a published PDF material). The parent posts either
+   raw text or a PDF URL to this iframe; we extract + auto-run. */
+window.addEventListener('message', async (event) => {
+  const data = event.data || {};
+  if (data.type === 'divedu-ai-desk-load-text' && data.text) {
+    document.getElementById('inputText').value = data.text;
+    updateStats();
+    runSummary();
+  } else if (data.type === 'divedu-ai-desk-load-pdf-url' && data.url) {
+    const statusEl = document.getElementById('pdfStatus');
+    statusEl.textContent = `Fetching "${data.name || 'material'}"…`;
+    try {
+      const text = await AIEngine.extractPdfTextFromUrl(data.url, (p, total) => {
+        statusEl.textContent = `Reading page ${p}/${total}…`;
+      });
+      document.getElementById('inputText').value = text;
+      updateStats();
+      statusEl.textContent = `Loaded "${data.name || 'material'}".`;
+      runSummary();
+    } catch (err) {
+      toast(err.message || 'Could not load that material.', 'error');
+      statusEl.textContent = '';
+    }
+  }
+});
+// Let the parent know this iframe is ready to receive a handoff.
+try { window.parent.postMessage({ type: 'divedu-ai-desk-ready' }, '*'); } catch (e) { /* ignore */ }
+
 function runSummary() {
   const text = document.getElementById('inputText').value.trim();
   if (!text) { toast('Paste some text first.', 'error'); return; }
 
-  const sentences = splitSentences(text);
-  if (sentences.length === 0) { toast('Could not find any sentences in that text.', 'error'); return; }
+  const result = AIEngine.summarize(text, currentRatio);
+  if (!result) { toast('Could not find any sentences in that text.', 'error'); return; }
 
-  // Word frequency table (excluding stopwords)
-  const freq = {};
-  sentences.forEach(s => {
-    tokenize(s).forEach(w => {
-      if (STOPWORDS.has(w) || w.length < 3) return;
-      freq[w] = (freq[w] || 0) + 1;
-    });
-  });
-  const maxFreq = Math.max(1, ...Object.values(freq));
-  Object.keys(freq).forEach(w => freq[w] = freq[w] / maxFreq);
-
-  // Score every sentence
-  const scored = sentences.map((s, idx) => {
-    const words = tokenize(s).filter(w => !STOPWORDS.has(w) && w.length >= 3);
-    let score = words.reduce((sum, w) => sum + (freq[w] || 0), 0);
-    if (words.length > 0) score = score / Math.sqrt(words.length); // avoid rewarding sheer length
-    if (idx === 0) score *= 1.25;                // lead sentence bonus
-    if (idx === sentences.length - 1) score *= 1.1; // closing sentence bonus
-    return { idx, text: s, score };
-  });
-
-  const keepCount = Math.max(1, Math.round(sentences.length * currentRatio));
-  const top = [...scored].sort((a, b) => b.score - a.score).slice(0, keepCount);
-  top.sort((a, b) => a.idx - b.idx);
-
-  const summaryHtml = top.map(t => `<p>${escapeHtml(t.text)}</p>`).join('');
-  document.getElementById('summaryOut').innerHTML = summaryHtml;
+  const headlineHtml = result.headline
+    ? `<h4 style="font-size:15px; color:var(--current-accent); margin-bottom:10px;">${escapeHtml(result.headline)}</h4>` : '';
+  document.getElementById('summaryOut').innerHTML = headlineHtml + result.summarySentences.map(s => `<p>${escapeHtml(s)}</p>`).join('');
   document.getElementById('copyBtn').style.display = 'inline-flex';
 
-  // Key terms: top frequent words
-  const terms = Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([w]) => w);
-  document.getElementById('keyTermsWrap').innerHTML = terms.length
-    ? `<div style="font-size:12px; font-weight:700; color:var(--text-muted); margin-top:18px;">Key terms</div>
-       <div class="key-terms">${terms.map(t => `<span class="key-term">${escapeHtml(t)}</span>`).join('')}</div>`
+  document.getElementById('definitionsWrap').innerHTML = result.definitions.length
+    ? `<div style="font-size:12px; font-weight:700; color:var(--text-muted); margin-top:18px;">Definitions found in the text</div>
+       ${result.definitions.map(d => `<div style="background:var(--bg-main); border-radius:10px; padding:10px 14px; margin-top:8px; font-size:13px;"><strong>${escapeHtml(d.term)}:</strong> ${escapeHtml(d.sentence)}</div>`).join('')}`
     : '';
 
-  toast(`Summarized ${sentences.length} sentences down to ${top.length}.`, 'success');
+  document.getElementById('keyTermsWrap').innerHTML = result.terms.length
+    ? `<div style="font-size:12px; font-weight:700; color:var(--text-muted); margin-top:18px;">Key terms</div>
+       <div class="key-terms">${result.terms.map(t => `<span class="key-term">${escapeHtml(t)}</span>`).join('')}</div>`
+    : '';
+
+  toast(`Summarized ${result.sentenceCount} sentences down to ${result.keptCount}.`, 'success');
 }
 
 function copySummary() {
