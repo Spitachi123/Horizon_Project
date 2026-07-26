@@ -551,6 +551,63 @@ input:focus {
 .mode-switch { margin-top: 1.25rem; text-align: center; font-size: 0.85rem; color: var(--text-muted); }
 .mode-switch a { color: var(--primary-indigo); font-weight: 700; text-decoration: none; margin-left: 0.3rem; }
 
+/* Status banner under the auth form — was referenced in index.js but
+   never actually defined, so "Authenticating..." / error messages had
+   no background, spacing, or color and were easy to miss. Adds a
+   proper loading state (with spinner) alongside success/error. */
+.status-message {
+  display: none;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 1.1rem;
+  padding: 0.7rem 1rem;
+  border-radius: 14px;
+  font-size: 0.83rem;
+  font-weight: 700;
+  animation: statusIn 0.25s ease;
+}
+.status-message.success,
+.status-message.error,
+.status-message.loading {
+  display: flex;
+}
+.status-message.success { background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.25); }
+.status-message.error { background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.25); }
+.status-message.loading { background: rgba(120, 134, 250, 0.1); color: var(--primary-indigo); border: 1px solid rgba(120, 134, 250, 0.25); }
+
+@keyframes statusIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.status-spinner {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(120, 134, 250, 0.25);
+  border-top-color: var(--primary-indigo);
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Submit button loading state — swaps the arrow for a spinner and
+   dims/locks the button so a click can't be registered twice while
+   a sign-in is already in flight. */
+.submit-btn:disabled {
+  opacity: 0.75;
+  cursor: not-allowed;
+  transform: none !important;
+}
+.submit-btn .btn-spinner {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #fff;
+  animation: spin 0.7s linear infinite;
+}
+
 /* Dashboard Workspace View */
 .dashboard-view { 
   width: 100%; 

@@ -29,6 +29,7 @@ const submitBtnText = document.getElementById('submitBtnText');
 const modePrompt = document.getElementById('modePrompt');
 const modeToggleBtn = document.getElementById('modeToggleBtn');
 const statusMessage = document.getElementById('statusMessage');
+const submitBtn = document.getElementById('submitBtn');
 const root = document.documentElement;
 
 // Role Switch Logic
@@ -136,12 +137,14 @@ async function handleAuthSubmit(event) {
     return;
   }
 
-  const submitBtn = document.getElementById('submitBtn');
-  submitBtn.disabled = true;
+  // Give instant feedback the moment the click happens — before any
+  // network round-trip — so the form never just sits there looking
+  // unresponsive while Firebase does its thing.
+  setSubmitLoading(true);
 
   try {
     if (isRegisterMode) {
-      showStatus('Creating your account...', 'success');
+      showStatus('Creating your account...', 'loading');
       const extra = currentRole === 'teacher'
         ? { subjectFocus: teacherSubjectSelect.value }
         : { grade: extraFieldInput.value.trim() };
@@ -149,14 +152,47 @@ async function handleAuthSubmit(event) {
       showStatus('Account created! Redirecting...', 'success');
       AppAuth.redirectToDashboard(role);
     } else {
-      showStatus('Authenticating...', 'success');
+      showStatus('Authenticating...', 'loading');
       const { role } = await AppAuth.signIn(email, passValue, remember);
       showStatus('Welcome back! Redirecting...', 'success');
       AppAuth.redirectToDashboard(role);
     }
   } catch (err) {
-    submitBtn.disabled = false;
+    setSubmitLoading(false);
     showStatus(AppAuth.friendlyError(err), 'error');
+  }
+}
+
+/** Locks/unlocks the submit button and swaps its label + arrow for a
+ *  spinner, so there's always a visible "this is working" state
+ *  instead of the button just sitting there after a click. Hides the
+ *  existing text/icon rather than overwriting them, so whatever label
+ *  toggleAuthMode had set (login vs. sign-up) comes back correctly. */
+function setSubmitLoading(isLoading) {
+  if (!submitBtn) return;
+  submitBtn.disabled = isLoading;
+  let spinner = submitBtn.querySelector('.btn-spinner');
+
+  if (isLoading) {
+    if (!spinner) {
+      spinner = document.createElement('span');
+      spinner.className = 'btn-spinner';
+      submitBtn.prepend(spinner);
+    }
+    Array.from(submitBtn.children).forEach(child => {
+      if (child !== spinner && child !== submitBtnText) child.style.display = 'none';
+    });
+    if (submitBtnText.dataset.prevText === undefined) {
+      submitBtnText.dataset.prevText = submitBtnText.textContent;
+    }
+    submitBtnText.textContent = isRegisterMode ? 'Creating account...' : 'Signing in...';
+  } else {
+    if (spinner) spinner.remove();
+    Array.from(submitBtn.children).forEach(child => { child.style.display = ''; });
+    if (submitBtnText.dataset.prevText !== undefined) {
+      submitBtnText.textContent = submitBtnText.dataset.prevText;
+      delete submitBtnText.dataset.prevText;
+    }
   }
 }
 
@@ -173,7 +209,9 @@ function handleForgot(e) {
 }
 
 function showStatus(msg, type) {
-  statusMessage.textContent = msg;
+  statusMessage.innerHTML = type === 'loading'
+    ? `<span class="status-spinner"></span><span>${msg}</span>`
+    : `<span>${msg}</span>`;
   statusMessage.className = `status-message ${type}`;
 }
 

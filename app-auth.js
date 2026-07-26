@@ -66,7 +66,10 @@ const AppAuth = {
     };
     await db.collection('users').doc(cred.user.uid).set(profile);
 
-    await this._logLogin(cred.user, role, idCardNo, true);
+    // Fire-and-forget: the login-history entry is a nice-to-have
+    // audit log, not something the redirect depends on, so it
+    // shouldn't add an extra network round-trip of wait time here.
+    this._logLogin(cred.user, role, idCardNo, true);
 
     return { user: cred.user, role, idCardNo };
   },
@@ -89,7 +92,8 @@ const AppAuth = {
     const data = snap.exists ? snap.data() : {};
     const role = data.role || 'student';
 
-    await this._logLogin(cred.user, role, data.idCardNo || '', rememberMe);
+    // Fire-and-forget — see signUp() above for why this isn't awaited.
+    this._logLogin(cred.user, role, data.idCardNo || '', rememberMe);
 
     return { user: cred.user, role };
   },
