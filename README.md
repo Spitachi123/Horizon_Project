@@ -9,6 +9,21 @@ on every student's dashboard, and vice versa.
 
 ## Latest round of fixes
 
+- **Fixed: the whole Milestones/Overview tab could throw "Missing or
+  insufficient permissions" for students.** The `users` collection
+  rule only let a student read their *own* profile (or a teacher read
+  everyone's). But the leaderboard needs `AppData.listStudents()` and
+  `listTeachers()` — collection queries across every student/teacher
+  profile — and Firestore rejects an entire query the moment it hits
+  even one document the rule doesn't allow, not just that one row.
+  So a student loading their dashboard would hit another student's or
+  teacher's profile in that query and the whole `Promise.all(...)`
+  chained after it would fail silently — which is exactly what made
+  milestones, points, and the leaderboard all appear broken at once.
+  Fixed by letting any signed-in user read a profile whose `role` is
+  `student` or `teacher` (names/points are already shown to the whole
+  class on the leaderboard by design, so this exposes nothing new).
+  **Re-publish `firestore.rules` for this fix to take effect.**
 - **Student Attendance tab now shows the same "working days by
   month" breakdown as the teacher's register** — total working days
   since you joined, broken down month by month with a running

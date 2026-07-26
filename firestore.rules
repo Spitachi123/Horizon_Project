@@ -33,15 +33,37 @@ service cloud.firestore {
       return isTeacher() && mySubject() == subj;
     }
 
-    // Each signed-in user may read and update only their OWN profile
-    // document (users/{their-uid}), and may create it once at sign-up.
-    // The "role" field can only be set at creation — not changed
+    // Each signed-in user may update only their OWN profile document
+    // (users/{their-uid}), and may create it once at sign-up. The
+    // "role" field can only be set at creation — not changed
     // afterwards, so a student can't quietly promote themselves to
-    // teacher. Teachers may additionally read every profile, which is
-    // what lets a teacher see the class roster / ID cards for
-    // attendance, quizzes and the milestone leaderboard.
+    // teacher.
+    //
+    // READ is broader than just "your own doc": a teacher may read
+    // every profile (class roster / ID cards / attendance / results),
+    // and — this is the important part — ANY signed-in user, students
+    // included, may read a profile whose `role` is 'student' or
+    // 'teacher'. That's required for the class leaderboard to work at
+    // all: AppData.listStudents()/listTeachers() run a collection
+    // query filtered by `role`, and Firestore rejects the ENTIRE query
+    // the instant it hits even a single matched document the rule
+    // doesn't allow — not just that one row. With the old
+    // self-or-teacher-only rule, a student loading the Milestones or
+    // Overview tab would hit another student's/teacher's doc in that
+    // query and the whole query (and everything chained after it in
+    // the same Promise.all) would throw "Missing or insufficient
+    // permissions", which is exactly what silently broke milestones,
+    // points, and the leaderboard on the student dashboard. Since
+    // names/points are already shown to the whole class on the
+    // leaderboard by design, this isn't exposing anything the UI
+    // doesn't already surface.
     match /users/{userId} {
-      allow read: if signedIn() && (request.auth.uid == userId || isTeacher());
+      allow read: if signedIn() && (
+                    request.auth.uid == userId
+                    || isTeacher()
+                    || resource.data.role == 'student'
+                    || resource.data.role == 'teacher'
+                  );
       allow create: if signedIn() && request.auth.uid == userId
                     && request.resource.data.role in ['student', 'teacher'];
       allow update: if signedIn() && request.auth.uid == userId
