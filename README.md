@@ -1,4 +1,4 @@
-# Horizon_Project — GyanSetu
+# Horizon_Project — ज्ञानSetu
 
 A smart classroom platform with a **real** login system (Firebase
 Authentication + Firestore) that works when published on GitHub
@@ -281,7 +281,7 @@ dashboard instead.
 ## 1. Create your Firebase project (free)
 
 1. Go to <https://console.firebase.google.com> and click **Add
-   project**. Name it anything (e.g. "gyansetu").
+   project**. Name it anything (e.g. "ज्ञानsetu").
 2. You can skip Google Analytics — it's not needed here.
 
 ## 2. Turn on Email/Password sign-in

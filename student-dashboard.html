@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GyanSetu | Student Dashboard</title>
+<title>ज्ञानSetu | Student Dashboard</title>
 <link rel="stylesheet" href="theme.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
@@ -20,6 +20,37 @@
   .quiz-result-banner .score { font-size: 40px; font-weight: 800; color: var(--current-accent); }
   .att-summary { display:flex; gap:14px; margin-bottom:18px; flex-wrap:wrap; }
   .att-pill { padding:8px 16px; border-radius:20px; font-weight:700; font-size:12.5px; }
+
+  /* Printable result sheet */
+  .result-modal-overlay { position:fixed; inset:0; background:rgba(15,23,42,.55); z-index:500; display:none; align-items:flex-start; justify-content:center; overflow-y:auto; padding:40px 16px; }
+  .result-modal-overlay.open { display:flex; }
+  .result-sheet { background:#fff; width:100%; max-width:720px; border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); padding:36px 40px; color:#1e293b; position:relative; }
+  .result-sheet .rs-close { position:absolute; top:14px; right:16px; background:none; border:none; font-size:20px; color:var(--text-muted); cursor:pointer; }
+  .rs-head { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:2px solid var(--current-accent); padding-bottom:16px; margin-bottom:20px; gap:16px; }
+  .rs-head h2 { font-size:20px; font-weight:800; }
+  .rs-head .rs-sub { font-size:12px; color:var(--text-muted); margin-top:2px; }
+  .rs-head .rs-brand { text-align:right; font-size:12px; color:var(--text-muted); }
+  .rs-head .rs-brand strong { display:block; font-size:16px; color:var(--current-accent); }
+  .rs-info-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px 24px; margin-bottom:22px; font-size:13px; }
+  .rs-info-grid div span { color:var(--text-muted); font-weight:600; }
+  .rs-info-grid div b { display:block; }
+  .rs-table { width:100%; border-collapse:collapse; margin-bottom:22px; font-size:13px; }
+  .rs-table th, .rs-table td { border:1px solid #e2e4fb; padding:9px 12px; text-align:left; }
+  .rs-table th { background:var(--bg-main); font-weight:800; text-transform:uppercase; font-size:11px; letter-spacing:.03em; }
+  .rs-summary { display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap; background:var(--bg-main); border-radius: var(--radius); padding:16px 20px; margin-bottom:24px; }
+  .rs-summary .rs-stat { text-align:center; }
+  .rs-summary .rs-stat b { display:block; font-size:20px; font-weight:800; color:var(--current-accent); }
+  .rs-summary .rs-stat span { font-size:11px; color:var(--text-muted); font-weight:700; text-transform:uppercase; }
+  .rs-footer { display:flex; justify-content:space-between; align-items:flex-end; margin-top:32px; font-size:11.5px; color:var(--text-muted); }
+  .rs-sign { text-align:center; }
+  .rs-sign .line { width:150px; border-top:1px solid #94a3b8; margin-top:34px; padding-top:6px; }
+  .rs-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:24px; }
+  @media print {
+    body:has(.result-modal-overlay.open) > *:not(.result-modal-overlay) { display:none !important; }
+    .result-modal-overlay.open { position:static !important; background:none !important; padding:0 !important; z-index:auto; }
+    .result-modal-overlay.open .result-sheet { box-shadow:none !important; max-width:100% !important; padding:0 !important; }
+    .rs-close, .rs-actions { display:none !important; }
+  }
 
   /* Milestones */
   .points-hero { display:flex; align-items:center; justify-content:space-between; gap:16px; background: linear-gradient(135deg, var(--current-accent), var(--sky-accent)); border-radius: var(--radius-lg); padding:24px 28px; color:#fff; margin-bottom:22px; flex-wrap:wrap; }
@@ -92,7 +123,10 @@
 <header class="d-navbar">
   <div class="d-brand" onclick="location.href='index.html'">
     <div class="d-brand-icon"><i class="fa-solid fa-atom"></i></div>
-    GYAN<span>SETU</span>
+    <div class="brand-text">
+      <div>ज्ञान<span>SETU</span></div>
+      <div class="brand-sub">ज्ञान सेतु</div>
+    </div>
   </div>
   <div class="d-navbar-right">
     <span class="role-pill"><span class="pulse-dot"></span> Student Workspace</span>
@@ -222,7 +256,10 @@
 
   <!-- RESULTS -->
   <section id="tab-results" class="d-card hidden">
-    <div class="d-section-head"><div><h2>My Results</h2><p>Quiz scores and teacher-graded results, all in one place.</p></div></div>
+    <div class="d-section-head">
+      <div><h2>My Results</h2><p>Quiz scores and teacher-graded results, all in one place.</p></div>
+      <button class="btn-primary" id="genResultBtn" onclick="openResultSheet()" disabled><i class="fa-solid fa-file-invoice"></i> Generate Result Sheet</button>
+    </div>
     <h3 style="font-size:14.5px; margin-bottom:10px;">Quiz attempts</h3>
     <table class="d-table"><thead><tr><th>Quiz</th><th>Subject</th><th>Score</th><th>Date</th></tr></thead>
       <tbody id="myAttemptsBody"></tbody></table>
@@ -315,6 +352,45 @@
 </div>
 
 <div class="d-toast" id="toast"></div>
+
+<!-- Printable result sheet -->
+<div class="result-modal-overlay" id="resultModalOverlay">
+  <div class="result-sheet" id="resultSheet">
+    <button class="rs-close" onclick="closeResultSheet()" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+    <div class="rs-head">
+      <div>
+        <h2>Academic Result Sheet</h2>
+        <div class="rs-sub" id="rsGeneratedOn">Generated —</div>
+      </div>
+      <div class="rs-brand"><strong>ज्ञानSetu</strong>ज्ञान सेतु · Smart Classroom Platform</div>
+    </div>
+    <div class="rs-info-grid">
+      <div><span>Student name</span><b id="rsName">—</b></div>
+      <div><span>ID card number</span><b id="rsIdCard">—</b></div>
+      <div><span>Class / Grade</span><b id="rsGrade">—</b></div>
+      <div><span>Email</span><b id="rsEmail">—</b></div>
+    </div>
+    <table class="rs-table">
+      <thead><tr><th>Subject</th><th>Full marks</th><th>Pass marks</th><th>Obtained</th><th>Percent</th><th>Grade</th><th>Status</th></tr></thead>
+      <tbody id="rsTableBody"></tbody>
+    </table>
+    <div class="rs-summary">
+      <div class="rs-stat"><b id="rsTotalObtained">0</b><span>Marks obtained</span></div>
+      <div class="rs-stat"><b id="rsTotalFull">0</b><span>Full marks</span></div>
+      <div class="rs-stat"><b id="rsOverallPercent">0%</b><span>Overall %</span></div>
+      <div class="rs-stat"><b id="rsOverallGrade">—</b><span>Overall grade</span></div>
+      <div class="rs-stat"><b id="rsOverallStatus">—</b><span>Result</span></div>
+    </div>
+    <div class="rs-footer">
+      <div>This result sheet is auto-generated from teacher-graded records on file and is not an official transcript unless stamped by the institution.</div>
+      <div class="rs-sign"><div class="line">Class Teacher / Principal</div></div>
+    </div>
+    <div class="rs-actions">
+      <button class="btn-secondary" onclick="closeResultSheet()">Close</button>
+      <button class="btn-primary" onclick="window.print()"><i class="fa-solid fa-print"></i> Print / Save as PDF</button>
+    </div>
+  </div>
+</div>
 
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
@@ -424,6 +500,8 @@ document.getElementById('submitQuizBtn').addEventListener('click', async () => {
 });
 
 /* ---------------- Results ---------------- */
+let myResultsCache = []; // cached teacher-graded results, used by the printable result sheet
+
 async function loadResults() {
   const [attempts, results] = await Promise.all([AppData.myAttempts(), AppData.myResults()]);
   document.getElementById('myAttemptsEmpty').classList.toggle('hidden', attempts.length > 0);
@@ -432,6 +510,62 @@ async function loadResults() {
   document.getElementById('myResultsEmpty').classList.toggle('hidden', results.length > 0);
   document.querySelector('#myResultsBody').innerHTML = results.map(r => `
     <tr><td>${AppData.escapeHtml(r.subject)}</td><td>${r.gainedMarks}/${r.fullMarks} (${r.percent}%)</td><td>${r.grade}</td><td><span class="status-badge ${r.status}">${r.status.toUpperCase()}</span></td></tr>`).join('');
+
+  myResultsCache = results;
+  document.getElementById('genResultBtn').disabled = results.length === 0;
+}
+
+/** Builds and opens the printable result sheet from the cached
+ *  teacher-graded results — one row per subject, plus overall totals
+ *  computed with the same grade bands app-data.js uses for a single
+ *  subject (>=90 A+, >=80 A, >=70 B+, >=60 B, >=50 C, >=40 D, else F),
+ *  applied here to the combined total. Pure arithmetic, no AI. */
+function openResultSheet() {
+  if (!myResultsCache.length) { toast('No graded results to include yet.', 'error'); return; }
+  const profile = window.currentUserProfile || {};
+
+  document.getElementById('rsGeneratedOn').textContent = 'Generated on ' + new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+  document.getElementById('rsName').textContent = profile.name || profile.email || 'Student';
+  document.getElementById('rsIdCard').textContent = profile.idCardNo || '—';
+  document.getElementById('rsGrade').textContent = profile.grade || '—';
+  document.getElementById('rsEmail').textContent = profile.email || '—';
+
+  document.getElementById('rsTableBody').innerHTML = myResultsCache.map(r => `
+    <tr>
+      <td>${AppData.escapeHtml(r.subject)}</td>
+      <td>${r.fullMarks}</td>
+      <td>${r.passMarks}</td>
+      <td>${r.gainedMarks}</td>
+      <td>${r.percent}%</td>
+      <td>${r.grade}</td>
+      <td>${r.status.toUpperCase()}</td>
+    </tr>`).join('');
+
+  const totalObtained = myResultsCache.reduce((s, r) => s + (Number(r.gainedMarks) || 0), 0);
+  const totalFull = myResultsCache.reduce((s, r) => s + (Number(r.fullMarks) || 0), 0);
+  const overallPercent = totalFull > 0 ? Math.round((totalObtained / totalFull) * 100) : 0;
+  let overallGrade = 'F';
+  if (overallPercent >= 90) overallGrade = 'A+';
+  else if (overallPercent >= 80) overallGrade = 'A';
+  else if (overallPercent >= 70) overallGrade = 'B+';
+  else if (overallPercent >= 60) overallGrade = 'B';
+  else if (overallPercent >= 50) overallGrade = 'C';
+  else if (overallPercent >= 40) overallGrade = 'D';
+  const allPassed = myResultsCache.every(r => r.status === 'pass');
+
+  document.getElementById('rsTotalObtained').textContent = totalObtained;
+  document.getElementById('rsTotalFull').textContent = totalFull;
+  document.getElementById('rsOverallPercent').textContent = overallPercent + '%';
+  document.getElementById('rsOverallGrade').textContent = overallGrade;
+  const statusEl = document.getElementById('rsOverallStatus');
+  statusEl.textContent = allPassed ? 'PASS' : 'FAIL';
+  statusEl.style.color = allPassed ? 'var(--success)' : 'var(--danger)';
+
+  document.getElementById('resultModalOverlay').classList.add('open');
+}
+
+function closeResultSheet() {
+  document.getElementById('resultModalOverlay').classList.remove('open');
 }
 
 /* ---------------- Attendance ---------------- */
@@ -452,7 +586,7 @@ async function loadAttendance() {
   document.getElementById('attAbsentPill').textContent = `${stats.absent} absent`;
   document.getElementById('attRatePill').textContent = `${stats.rate}% rate`;
 
-  renderMyMonthlyWorkingDays(joinDate, holidaySet);
+  renderMyMonthlyWorkingDays(joinDate, rows, holidaySet);
 
   const absentRows = rows.filter(r => r.status === 'absent');
   document.getElementById('myAttendanceEmpty').classList.toggle('hidden', absentRows.length > 0);
@@ -460,30 +594,27 @@ async function loadAttendance() {
     <tr><td>${r.date}</td><td>${AppData.escapeHtml(r.subject)}</td><td><span class="status-badge ${r.status}">${r.status.toUpperCase()}</span></td></tr>`).join('');
 }
 
-/** Breaks the student's own working-day count down month by month,
- *  with a running cumulative total — the same calculation and layout
- *  the teacher's register uses (AppData.dateRange + isNonWorkingDay),
- *  just scoped to this one student's own join date instead of the
- *  whole class's earliest sign-up. */
-function renderMyMonthlyWorkingDays(startDateStr, holidaySet) {
+/** Breaks the student's own attendance down month by month — Total
+ *  Days in Month, Total Working Days (weekends + holidays excluded),
+ *  Absent, and Present (Total Working Days − Absent) — with running
+ *  cumulative totals. Pure calendar arithmetic via
+ *  AppData.computeMonthlyBreakdown; no AI involved in this part. */
+function renderMyMonthlyWorkingDays(startDateStr, attendanceRows, holidaySet) {
   const wrap = document.getElementById('myAttMonthlyWrap');
-  const end = AppData.todayStr();
-  if (!startDateStr || startDateStr > end) { wrap.innerHTML = '<div class="empty-state">No working days yet.</div>'; return; }
-  const byMonth = {};
-  AppData.dateRange(startDateStr, end).forEach(d => {
-    if (AppData.isNonWorkingDay(d, holidaySet)) return;
-    const mk = d.slice(0, 7);
-    byMonth[mk] = (byMonth[mk] || 0) + 1;
-  });
-  const months = Object.keys(byMonth).sort();
+  const months = AppData.computeMonthlyBreakdown(startDateStr, attendanceRows, holidaySet);
   if (!months.length) { wrap.innerHTML = '<div class="empty-state">No working days yet.</div>'; return; }
-  let cumulative = 0;
-  const rows = months.map(mk => {
-    cumulative += byMonth[mk];
-    const label = new Date(mk + '-01T00:00:00').toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
-    return `<tr><td>${label}</td><td>${byMonth[mk]}</td><td><strong>${cumulative}</strong></td></tr>`;
-  }).join('');
-  wrap.innerHTML = `<table class="d-table"><thead><tr><th>Month</th><th>Working days that month</th><th>Cumulative total</th></tr></thead><tbody>${rows}</tbody></table>`;
+  const rows = months.map(m => `
+    <tr>
+      <td>${m.label}</td>
+      <td>${m.totalDaysInMonth}</td>
+      <td>${m.totalWorkingDays}</td>
+      <td><span style="color:var(--danger); font-weight:700;">${m.absent}</span></td>
+      <td><span style="color:var(--success); font-weight:700;">${m.present}</span></td>
+      <td><strong>${m.cumulativeWorkingDays}</strong></td>
+    </tr>`).join('');
+  wrap.innerHTML = `<table class="d-table"><thead><tr>
+      <th>Month</th><th>Total days</th><th>Working days</th><th>Absent</th><th>Present</th><th>Cumulative working days</th>
+    </tr></thead><tbody>${rows}</tbody></table>`;
 }
 
 /* ---------------- Materials & Homework ---------------- */

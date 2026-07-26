@@ -327,6 +327,58 @@ const AppData = {
     return { totalWorkingDays: total, present, absent, rate: total ? Math.round((present / total) * 100) : 100 };
   },
 
+  /** Same idea as computeAttendanceStats, broken down month by month
+   *  with running cumulative totals — this is the one shared place
+   *  both the student's "My Attendance" tab and the teacher's
+   *  register build their monthly table from, so the numbers can
+   *  never drift out of sync between the two dashboards.
+   *
+   *  Plain calendar arithmetic only, no AI/estimation involved:
+   *    totalDaysInMonth = calendar days that month, capped to `endDateStr`
+   *    totalWorkingDays = totalDaysInMonth − (weekends + marked holidays)
+   *    present          = totalWorkingDays − absent
+   *  ("Total working days" is an institutional count of days the
+   *  school was open, so it excludes weekends/holidays only — never a
+   *  particular student's absences. "Present"/"student working days"
+   *  is the one that subtracts absences, per row.) */
+  computeMonthlyBreakdown(startDateStr, attendanceRows, holidaySet, endDateStr) {
+    const end = endDateStr || this.todayStr();
+    if (!startDateStr || startDateStr > end) return [];
+
+    const explicitByDate = {};
+    (attendanceRows || []).forEach(r => { explicitByDate[r.date] = r.status; });
+
+    const byMonth = {};
+    this.dateRange(startDateStr, end).forEach(d => {
+      const mk = d.slice(0, 7);
+      if (!byMonth[mk]) byMonth[mk] = { totalDaysInMonth: 0, totalWorkingDays: 0, absent: 0 };
+      const bucket = byMonth[mk];
+      bucket.totalDaysInMonth++;
+      if (!this.isNonWorkingDay(d, holidaySet)) {
+        bucket.totalWorkingDays++;
+        if (explicitByDate[d] === 'absent') bucket.absent++;
+      }
+    });
+
+    let cumulativeWorkingDays = 0, cumulativePresent = 0;
+    return Object.keys(byMonth).sort().map(mk => {
+      const b = byMonth[mk];
+      const present = b.totalWorkingDays - b.absent; // total working days - absent = present (student working days)
+      cumulativeWorkingDays += b.totalWorkingDays;
+      cumulativePresent += present;
+      return {
+        monthKey: mk,
+        label: new Date(mk + '-01T00:00:00').toLocaleDateString(undefined, { month: 'long', year: 'numeric' }),
+        totalDaysInMonth: b.totalDaysInMonth,
+        totalWorkingDays: b.totalWorkingDays,
+        absent: b.absent,
+        present,
+        cumulativeWorkingDays,
+        cumulativePresent
+      };
+    });
+  },
+
   /* ---------------- Materials ---------------- */
 
   /** Uploads a File to Cloudinary using an unsigned upload preset

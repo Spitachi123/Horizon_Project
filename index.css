@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+Devanagari:wght@500;700&display=swap');
 
 :root {
   /* Soft Modern Palette Inspired by Reference */
@@ -104,6 +104,16 @@ body {
 }
 
 .nav-brand span { color: var(--primary-indigo); }
+
+.brand-text { display: flex; flex-direction: column; line-height: 1.05; }
+.brand-sub {
+  font-family: 'Noto Sans Devanagari', 'Plus Jakarta Sans', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+  margin-top: 1px;
+}
 
 .nav-links { display: flex; gap: 2.2rem; }
 .nav-links a { 
@@ -387,6 +397,7 @@ body {
 }
 
 .brand-header { display: flex; align-items: center; gap: 0.75rem; }
+.brand-header .brand-sub { color: var(--current-accent); opacity: 0.85; }
 
 .brand-logo { 
   width: 44px; 
