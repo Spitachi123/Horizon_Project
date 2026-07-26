@@ -181,10 +181,24 @@ service cloud.firestore {
     match /questions/{qId} {
       allow create: if signedIn() && request.resource.data.studentId == request.auth.uid
                     && request.resource.data.status == 'pending';
+      // NOTE: the read rule must include an unconditional `isTeacher()`
+      // branch (not ANDed with a subject check). Firestore rejects an
+      // entire collection query up front unless it can prove every
+      // possible match satisfies the rule using ONLY the query's own
+      // filters — it does not filter results down document-by-document.
+      // The account-deletion cascade queries `questions` filtered only
+      // by `studentId` (it must remove a removed student's questions
+      // across every subject, not just one teacher's own subject), so
+      // a subject-scoped OR-branch here made that whole query get
+      // rejected with "Missing or insufficient permissions" the moment
+      // a deleted student had asked a question outside the deleting
+      // teacher's own subject — which is exactly the error from the
+      // "Delete" button on the ID Cards tab. Any signed-in teacher is
+      // allowed to read here; the app's own UI still only ever *shows*
+      // a teacher their own subject's inbox via listQuestionsForMySubject.
       allow read: if signedIn() && (
                     resource.data.studentId == request.auth.uid
-                    || isTeacherOfSubject(resource.data.subject)
-                    || (isTeacher() && resource.data.subject == 'General')
+                    || isTeacher()
                   );
       allow update: if (isTeacherOfSubject(resource.data.subject) || (isTeacher() && resource.data.subject == 'General'))
                     && request.resource.data.studentId == resource.data.studentId

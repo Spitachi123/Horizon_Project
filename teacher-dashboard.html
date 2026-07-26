@@ -221,7 +221,7 @@
 
   <section id="tab-attendance" class="d-card hidden">
     <div class="d-section-head">
-      <div><h2>Attendance Register</h2><p>Mark today's roll call — students see it instantly on their own dashboard. Anyone you don't mark is automatically counted as present.</p></div>
+      <div><h2>Attendance Register</h2><p>Mark today's roll call, or go back and correct an earlier day — students see it instantly on their own dashboard. Anyone you don't mark is automatically counted as present. Future dates can't be marked in advance.</p></div>
       <div class="d-field" style="margin:0;">
         <input type="date" id="attDate" style="min-width:170px;">
       </div>
@@ -230,6 +230,11 @@
     <div class="stat-grid" style="margin-bottom:20px;">
       <div class="stat-tile"><div class="icon"><i class="fa-solid fa-calendar-days"></i></div><div><div class="num" id="attWorkingDays">—</div><div class="label">Working days so far (AI-calculated)</div></div></div>
       <div class="stat-tile"><div class="icon"><i class="fa-solid fa-umbrella-beach"></i></div><div><div class="num" id="attHolidayCount">—</div><div class="label">Holidays marked</div></div></div>
+    </div>
+
+    <div style="margin-bottom:20px;">
+      <h3 style="font-size:13px; margin-bottom:8px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.03em;"><i class="fa-solid fa-calendar-week"></i> Working days by month</h3>
+      <div id="attMonthlyWrap"></div>
     </div>
 
     <div class="d-field" style="max-width:260px;">
@@ -418,19 +423,12 @@
   <!-- ID CARDS -->
   <section id="tab-idcards" class="d-card hidden">
     <div class="d-section-head">
-      <div><h2>Student &amp; Teacher ID Cards</h2><p>Every account that has ever signed up, with its own permanent ID number, plus a full sign-in history.</p></div>
+      <div><h2>Student &amp; Teacher ID Cards</h2><p>Every account that has ever signed up, with its own permanent ID number.</p></div>
     </div>
-    <div class="d-grid-2" style="align-items:start;">
-      <div>
-        <h3 style="font-size:14px; margin-bottom:12px;">Registered accounts</h3>
-        <div id="idcardList"></div>
-        <div class="empty-state hidden" id="idcardEmpty">No accounts yet.</div>
-      </div>
-      <div>
-        <h3 style="font-size:14px; margin-bottom:12px;">Recent sign-ins (every login, every user)</h3>
-        <div id="loginHistoryList" class="login-history-panel"></div>
-        <div class="empty-state hidden" id="loginHistoryEmpty">No sign-ins recorded yet.</div>
-      </div>
+    <div>
+      <h3 style="font-size:14px; margin-bottom:12px;">Registered accounts</h3>
+      <div id="idcardList"></div>
+      <div class="empty-state hidden" id="idcardEmpty">No accounts yet.</div>
     </div>
   </section>
 
@@ -610,13 +608,22 @@ async function removeQuiz(id) {
 }
 
 document.getElementById('attDate').value = AppData.todayStr();
+document.getElementById('attDate').max = AppData.todayStr(); // can't pick a future date at all
 let rosterStudents = [];
 let rosterAttendanceById = {};
 let rosterHolidays = [];
 let rosterAllAttendance = [];
 
 async function loadRoster() {
-  const dateStr = document.getElementById('attDate').value || AppData.todayStr();
+  const attDateInput = document.getElementById('attDate');
+  if (attDateInput.value && attDateInput.value > AppData.todayStr()) {
+    // Defensive fallback in case a future date ever gets in (e.g. an
+    // old bookmark/URL) — same-day marking only, past days stay
+    // editable for corrections.
+    attDateInput.value = AppData.todayStr();
+    toast("You can't mark attendance for a future date — showing today instead.", 'error');
+  }
+  const dateStr = attDateInput.value || AppData.todayStr();
   const [students, existing, holidays, allAtt] = await Promise.all([
     AppData.listStudents(), AppData.attendanceForDate(dateStr), AppData.listHolidays(), AppData.allAttendance()
   ]);
@@ -645,10 +652,24 @@ function renderRoster() {
   for (const s of filtered) {
     const row = rosterAttendanceById[s.uid];
     const status = row ? row.status : null;
+
+    // Running total (all-time, carries month to month automatically
+    // since it's every working day since the student joined) — so a
+    // teacher can see each student's overall present/absent count
+    // right on their roster card, not just today's mark.
+    const joinDate = AppData.tsToDate(s.createdAt) ? AppData.tsToDate(s.createdAt).toISOString().slice(0, 10) : AppData.todayStr();
+    const myRows = rosterAllAttendance.filter(r => r.studentId === s.uid);
+    const stats = AppData.computeAttendanceStats(joinDate, myRows, holidaySet());
+
     const div = document.createElement('div');
     div.className = 'roster-card';
     div.innerHTML = `
-      <div><div class="roster-name">${AppData.escapeHtml(s.name || s.email)}</div><div class="roster-email">${AppData.escapeHtml(s.email)}${!status ? ' · defaults to present' : ''}</div></div>
+      <div><div class="roster-name">${AppData.escapeHtml(s.name || s.email)}</div>
+        <div class="roster-email">${AppData.escapeHtml(s.email)}${!status ? ' · defaults to present' : ''}</div>
+        <div style="font-size:11px; color:var(--text-muted); margin-top:3px; font-weight:700;">
+          <span style="color:var(--success);">${stats.present} present</span> · <span style="color:var(--danger);">${stats.absent} absent</span> · ${stats.rate}% rate all-time
+        </div>
+      </div>
       <div class="att-toggle">
         <button class="att-btn present ${status==='present'?'active':''}" onclick="markAtt('${s.uid}','${AppData.escapeHtml(s.name||s.email)}','present', this)">Present</button>
         <button class="att-btn absent ${status==='absent'?'active':''}" onclick="markAtt('${s.uid}','${AppData.escapeHtml(s.name||s.email)}','absent', this)">Absent</button>
@@ -660,6 +681,10 @@ document.getElementById('attDate').addEventListener('change', loadRoster);
 
 async function markAtt(studentId, studentName, status, btn) {
   const dateStr = document.getElementById('attDate').value || AppData.todayStr();
+  if (dateStr > AppData.todayStr()) {
+    toast("You can't mark attendance for a future date.", 'error');
+    return;
+  }
   const subject = document.getElementById('attSubject').value;
   await AppData.setAttendance({ dateStr, studentId, studentName, subject, status });
   rosterAttendanceById[studentId] = { studentId, status };
@@ -794,6 +819,32 @@ function renderWorkingDaysStat() {
   const start = joinDates.length ? joinDates.reduce((a, b) => a < b ? a : b) : AppData.todayStr();
   const total = AppData.workingDaysBetween(start, holidaySet());
   document.getElementById('attWorkingDays').textContent = total;
+  renderMonthlyWorkingDays(start);
+}
+
+/** Breaks the same working-day count down month by month, with a
+ *  running cumulative total — so a new month always continues
+ *  adding onto the term's total instead of resetting to zero. */
+function renderMonthlyWorkingDays(startDateStr) {
+  const wrap = document.getElementById('attMonthlyWrap');
+  const end = AppData.todayStr();
+  if (!startDateStr || startDateStr > end) { wrap.innerHTML = '<div class="empty-state">No working days yet.</div>'; return; }
+  const hset = holidaySet();
+  const byMonth = {};
+  AppData.dateRange(startDateStr, end).forEach(d => {
+    if (AppData.isNonWorkingDay(d, hset)) return;
+    const mk = d.slice(0, 7);
+    byMonth[mk] = (byMonth[mk] || 0) + 1;
+  });
+  const months = Object.keys(byMonth).sort();
+  if (!months.length) { wrap.innerHTML = '<div class="empty-state">No working days yet.</div>'; return; }
+  let cumulative = 0;
+  const rows = months.map(mk => {
+    cumulative += byMonth[mk];
+    const label = new Date(mk + '-01T00:00:00').toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+    return `<tr><td>${label}</td><td>${byMonth[mk]}</td><td><strong>${cumulative}</strong></td></tr>`;
+  }).join('');
+  wrap.innerHTML = `<table class="d-table"><thead><tr><th>Month</th><th>Working days that month</th><th>Cumulative total</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
 async function loadResults() {
@@ -956,6 +1007,9 @@ async function loadQna() {
              <textarea id="ans-${q.id}" placeholder="Type your answer — the student will see it, but you'll never see who asked."></textarea>
              <button class="btn-primary" onclick="submitAnswer('${q.id}')"><i class="fa-solid fa-reply"></i> Send Answer</button>
            </div>`}
+      <div style="margin-top:10px; text-align:right;">
+        <button class="btn-danger" onclick="removeQuestion('${q.id}')"><i class="fa-solid fa-trash"></i> Delete question</button>
+      </div>
     </div>`).join('');
 }
 async function submitAnswer(id) {
@@ -965,6 +1019,14 @@ async function submitAnswer(id) {
   try {
     await AppData.answerQuestion(id, text);
     toast('Answer sent.', 'success');
+    loadQna();
+  } catch (err) { toast(err.message, 'error'); }
+}
+async function removeQuestion(id) {
+  if (!confirm('Delete this anonymous question? This cannot be undone.')) return;
+  try {
+    await AppData.deleteQuestion(id);
+    toast('Question deleted.', 'success');
     loadQna();
   } catch (err) { toast(err.message, 'error'); }
 }
@@ -985,7 +1047,10 @@ function renderLeaderboard() {
   const pointsField = leaderboardRange === 'month' ? 'monthPoints' : 'points';
   const completedField = leaderboardRange === 'month' ? 'monthCompleted' : 'completed';
   const sorted = [...lastLeaderboard].sort((a, b) => b[pointsField] - a[pointsField]);
-  const ranked = sorted.filter(r => r[completedField] > 0);
+  // Rank by points earned, not just milestone completions — a student
+  // who only did quizzes or homework still shows up. All-time is the
+  // default view and stays available forever (points are never wiped).
+  const ranked = sorted.filter(r => r[pointsField] > 0);
   document.getElementById('leaderboardEmpty').classList.toggle('hidden', ranked.length > 0);
   lwrap.innerHTML = ranked.slice(0, 20).map((r, i) => `
     <div class="leader-row">
@@ -1086,7 +1151,7 @@ async function removeMilestone(id) {
 
 /* ---------------- ID Cards ---------------- */
 async function loadIdCardsTab() {
-  const [users, logs] = await Promise.all([AppData.listAllUsers(), AppData.loginHistory(60)]);
+  const users = await AppData.listAllUsers();
   const wrap = document.getElementById('idcardList');
   document.getElementById('idcardEmpty').classList.toggle('hidden', users.length > 0);
   wrap.innerHTML = users.map(u => `
@@ -1104,14 +1169,6 @@ async function loadIdCardsTab() {
       ${u.uid === auth.currentUser.uid
         ? '<span style="font-size:11px; color:var(--text-muted); font-weight:700;">(you)</span>'
         : `<button class="btn-danger" onclick="removeUserAccount('${u.uid}', '${u.role}', '${AppData.escapeHtml(u.name || u.email).replace(/'/g, "\\'")}')">Delete</button>`}
-    </div>`).join('');
-
-  const lwrap = document.getElementById('loginHistoryList');
-  document.getElementById('loginHistoryEmpty').classList.toggle('hidden', logs.length > 0);
-  lwrap.innerHTML = logs.map(l => `
-    <div class="login-row">
-      <span><span class="lr-role-dot ${l.role === 'teacher' ? 'teacher' : 'student'}"></span><strong>${AppData.escapeHtml(l.name)}</strong> <span style="color:var(--text-muted);">(${AppData.escapeHtml(l.role)})</span></span>
-      <span style="color:var(--text-muted);">${AppData.fmtDateTime(l.at)}${l.remembered ? ' · kept signed in' : ''}</span>
     </div>`).join('');
 }
 
