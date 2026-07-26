@@ -18,11 +18,11 @@
    ============================================================ */
 
 const LLMEngine = (() => {
-  const WORKER_URL = 'https://divedu-ai-proxy.pandusujan123.workers.dev'; // Cloudflare Worker proxy
+  const WORKER_URL = 'https://divedu-ai-proxy.pandusujan123.workers.dev'; // <-- set this after deploying the worker
   const TIMEOUT_MS = 20000;
 
   function isConfigured() {
-    return WORKER_URL && !WORKER_URL.includes('REPLACE-ME');
+    return WORKER_URL && WORKER_URL.startsWith('http') && !WORKER_URL.includes('REPLACE-ME');
   }
 
   async function callWorker(task, text, extra) {
@@ -38,7 +38,12 @@ const LLMEngine = (() => {
         signal: controller.signal
       });
       clearTimeout(timer);
-      const data = await resp.json();
+      let data;
+      try {
+        data = await resp.json();
+      } catch (parseErr) {
+        throw new Error('AI service returned an unexpected response (' + resp.status + ')');
+      }
       if (!resp.ok || data.error) throw new Error(data.error || ('AI service error (' + resp.status + ')'));
       return data.result;
     } catch (err) {

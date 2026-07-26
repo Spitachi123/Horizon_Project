@@ -24,7 +24,7 @@
      wrangler deploy
    ============================================================ */
 
-const GEMINI_MODEL = 'gemini-2.0-flash';
+const GEMINI_MODEL = 'gemini-2.5-flash';
 const MAX_INPUT_CHARS = 30000;
 
 export default {
@@ -93,7 +93,8 @@ export default {
 
       let parsed;
       try {
-        parsed = JSON.parse(raw);
+        const cleaned = raw.trim().replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```\s*$/, '');
+        parsed = JSON.parse(cleaned);
       } catch (e) {
         console.error('Could not parse Gemini output as JSON:', raw);
         return json({ error: 'The AI returned something unexpected — please try again.' }, 502);
