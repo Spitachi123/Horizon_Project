@@ -79,7 +79,7 @@ function toggleAuthMode(e) {
   if (isRegisterMode) {
     formTitle.textContent = 'Create Portal Account';
     formSub.textContent = 'Set up your smart classroom access';
-    brandTitle.textContent = 'Join NexusEdu Today';
+    brandTitle.textContent = 'Join GyanSetu Today';
     brandDesc.textContent = 'Create your account to unlock personalized learning modules, analytics, and instant collaboration.';
     submitBtnText.textContent = 'Register & Create Account';
     modePrompt.textContent = 'Already have an account?';

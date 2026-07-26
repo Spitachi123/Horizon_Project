@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DIVEDU | Teacher Dashboard</title>
+<title>GyanSetu | Teacher Dashboard</title>
 <link rel="stylesheet" href="theme.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
@@ -36,6 +36,7 @@
   .ms-card { border:1px solid var(--panel-border); border-radius: var(--radius); padding:16px 18px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; gap:14px; flex-wrap:wrap; }
   .ms-card .pts-badge { background: var(--current-accent); color:#fff; font-weight:800; font-size:12px; padding:6px 14px; border-radius:20px; white-space:nowrap; }
   .leader-row { display:flex; align-items:center; gap:14px; padding:12px 16px; border:1px solid var(--panel-border); border-radius: var(--radius-sm); margin-bottom:8px; }
+  .leader-row.me { border-color: var(--current-accent); background: var(--teacher-bg); }
   .leader-rank { width:28px; height:28px; border-radius:50%; background:var(--bg-main); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:12.5px; flex-shrink:0; }
   .leader-rank.top1 { background:#fef3e2; color:#f0a93a; }
   .leader-rank.top2 { background:#f1f5f9; color:#64748b; }
@@ -115,7 +116,7 @@
 <header class="d-navbar">
   <div class="d-brand" onclick="location.href='index.html'">
     <div class="d-brand-icon"><i class="fa-solid fa-atom"></i></div>
-    DIV<span>EDU</span>
+    GYAN<span>SETU</span>
   </div>
   <div class="d-navbar-right">
     <span class="role-pill"><span class="pulse-dot"></span> Teacher Workspace</span>
@@ -162,9 +163,12 @@
       <div style="display:flex; align-items:center; gap:8px;">
         <select id="mySubjectSelect">
           <option value="Science">Science</option>
-          <option value="Maths">Maths</option>
-          <option value="Opt Maths">Opt Maths</option>
+          <option value="Math">Math</option>
+          <option value="Opt Math">Opt Math</option>
           <option value="Computer">Computer</option>
+          <option value="English">English</option>
+          <option value="Nepali">Nepali</option>
+          <option value="Social">Social</option>
           <option value="General">General</option>
         </select>
         <button class="btn-secondary" style="padding:8px 16px; font-size:12.5px;" onclick="saveMySubject()"><i class="fa-solid fa-floppy-disk"></i> Save</button>
@@ -186,6 +190,19 @@
       </table>
       <div class="empty-state hidden" id="recentAttemptsEmpty">No submissions yet — publish a quiz to get started.</div>
     </div>
+
+    <div class="d-grid-2" style="margin-top:28px; padding-top:22px; border-top:1.5px dashed var(--panel-border);">
+      <div>
+        <h3 style="font-size:15px; margin-bottom:12px;"><i class="fa-solid fa-ranking-star"></i> Top 3 Students</h3>
+        <div id="ovTopStudents"></div>
+        <div class="empty-state hidden" id="ovTopStudentsEmpty">No points earned yet.</div>
+      </div>
+      <div>
+        <h3 style="font-size:15px; margin-bottom:12px;"><i class="fa-solid fa-chalkboard-user"></i> Top 3 Teachers</h3>
+        <div id="ovTopTeachers"></div>
+        <div class="empty-state hidden" id="ovTopTeachersEmpty">No teacher activity recorded yet.</div>
+      </div>
+    </div>
   </section>
 
   <section id="tab-quiz" class="d-card hidden">
@@ -196,9 +213,7 @@
     <form id="quizForm">
       <div class="d-grid-2">
         <div class="d-field"><label>Subject</label>
-          <select id="qSubject" required>
-            <option>Science</option><option>Maths</option><option>Opt Maths</option><option>Computer</option>
-          </select>
+          <select id="qSubject" required><option>Science</option><option>Math</option><option>Opt Math</option><option>Computer</option><option>English</option><option>Nepali</option><option>Social</option></select>
         </div>
         <div class="d-field"><label>Quiz Title</label>
           <input type="text" id="qTitle" placeholder="e.g. Logic Gates & Circuit Design" required>
@@ -239,7 +254,7 @@
 
     <div class="d-field" style="max-width:260px;">
       <label>Subject / Module</label>
-      <select id="attSubject"><option>Science</option><option>Maths</option><option>Opt Maths</option><option>Computer</option></select>
+      <select id="attSubject"><option>Science</option><option>Math</option><option>Opt Math</option><option>Computer</option><option>English</option><option>Nepali</option><option>Social</option></select>
     </div>
 
     <div class="d-field" style="max-width:340px;">
@@ -305,7 +320,7 @@
           <select id="rStudent" required></select>
         </div>
         <div class="d-field"><label>Subject</label>
-          <select id="rSubject" required><option>Science</option><option>Maths</option><option>Opt Maths</option><option>Computer</option></select>
+          <select id="rSubject" required><option>Science</option><option>Math</option><option>Opt Math</option><option>Computer</option><option>English</option><option>Nepali</option><option>Social</option></select>
         </div>
         <div class="d-field"><label>Full Marks</label><input type="number" id="rFull" value="100" required></div>
         <div class="d-field"><label>Pass Marks</label><input type="number" id="rPass" value="40" required></div>
@@ -324,7 +339,7 @@
     <div class="d-section-head"><div><h2>Reading Materials</h2><p>Publish notes and references — visible on every student's dashboard.</p></div></div>
     <form id="materialForm">
       <div class="d-grid-2">
-        <div class="d-field"><label>Subject</label><select id="mSubject"><option>Science</option><option>Maths</option><option>Opt Maths</option><option>Computer</option></select></div>
+        <div class="d-field"><label>Subject</label><select id="mSubject"><option>Science</option><option>Math</option><option>Opt Math</option><option>Computer</option><option>English</option><option>Nepali</option><option>Social</option></select></div>
         <div class="d-field"><label>Subtopic</label><input type="text" id="mSubtopic" placeholder="e.g. Wave Optics & Refraction" required></div>
         <div class="d-field d-full"><label>Description / Link</label><textarea id="mDesc" rows="3" required></textarea></div>
         <div class="d-field d-full"><label>Attach a PDF (optional)</label><input type="file" id="mFile" accept="application/pdf"></div>
@@ -339,7 +354,7 @@
     <div class="d-section-head"><div><h2>Homework</h2><p>Assign work with a due date — students see a countdown automatically.</p></div></div>
     <form id="hwForm">
       <div class="d-grid-2">
-        <div class="d-field"><label>Subject</label><select id="hwSubject"><option>Science</option><option>Maths</option><option>Opt Maths</option><option>Computer</option></select></div>
+        <div class="d-field"><label>Subject</label><select id="hwSubject"><option>Science</option><option>Math</option><option>Opt Math</option><option>Computer</option><option>English</option><option>Nepali</option><option>Social</option></select></div>
         <div class="d-field"><label>Due Date</label><input type="date" id="hwDue" required></div>
         <div class="d-field"><label>Estimated time needed (hours)</label><input type="number" id="hwHours" min="0" step="0.5" placeholder="e.g. 4 — leave blank to skip"></div>
         <div class="d-field d-full"><label>Instructions</label><textarea id="hwInstr" rows="3" required></textarea></div>
@@ -375,7 +390,7 @@
       <div class="d-grid-2">
         <div class="d-field"><label>Milestone title</label><input type="text" id="msTitle" placeholder="e.g. Finish 5 practice problems" required></div>
         <div class="d-field"><label>Subject</label>
-          <select id="msSubject"><option>Science</option><option>Maths</option><option>Opt Maths</option><option>Computer</option><option>General</option></select>
+          <select id="msSubject"><option>Science</option><option>Math</option><option>Opt Math</option><option>Computer</option><option>English</option><option>Nepali</option><option>Social</option><option>General</option></select>
         </div>
         <div class="d-field"><label>Points</label><input type="number" id="msPoints" value="20" min="1" max="200" required></div>
         <div class="d-field d-full"><label>Description (optional)</label><textarea id="msDesc" rows="2" placeholder="Any extra instructions for students"></textarea></div>
@@ -451,7 +466,7 @@
 <script>
 AppAuth.protectPage('teacher');
 
-const SUBJECT_LIST = ['Science', 'Maths', 'Opt Maths', 'Computer', 'General'];
+const SUBJECT_LIST = ['Science', 'Math', 'Opt Math', 'Computer', 'English', 'Nepali', 'Social', 'General'];
 
 document.addEventListener('profileReady', () => {
   const subject = (window.currentUserProfile && window.currentUserProfile.subjectFocus) || '';
@@ -657,7 +672,7 @@ function renderRoster() {
     // since it's every working day since the student joined) — so a
     // teacher can see each student's overall present/absent count
     // right on their roster card, not just today's mark.
-    const joinDate = AppData.tsToDate(s.createdAt) ? AppData.tsToDate(s.createdAt).toISOString().slice(0, 10) : AppData.todayStr();
+    const joinDate = AppData.tsToDate(s.createdAt) ? AppData.localDateStr(AppData.tsToDate(s.createdAt)) : AppData.todayStr();
     const myRows = rosterAllAttendance.filter(r => r.studentId === s.uid);
     const stats = AppData.computeAttendanceStats(joinDate, myRows, holidaySet());
 
@@ -815,7 +830,7 @@ function renderWorkingDaysStat() {
   // "Term start" = the earliest student sign-up date on record, so
   // the AI works out the real number of working days the class has
   // actually been running, instead of a teacher counting by hand.
-  const joinDates = rosterStudents.map(s => AppData.tsToDate(s.createdAt)).filter(Boolean).map(d => d.toISOString().slice(0, 10));
+  const joinDates = rosterStudents.map(s => AppData.tsToDate(s.createdAt)).filter(Boolean).map(d => AppData.localDateStr(d));
   const start = joinDates.length ? joinDates.reduce((a, b) => a < b ? a : b) : AppData.todayStr();
   const total = AppData.workingDaysBetween(start, holidaySet());
   document.getElementById('attWorkingDays').textContent = total;
@@ -959,8 +974,9 @@ document.getElementById('hwForm').addEventListener('submit', async (e) => {
 });
 
 async function loadOverview() {
-  const [students, quizzes, attempts, attToday, holidays] = await Promise.all([
-    AppData.listStudents(), AppData.listQuizzes(), AppData.allAttempts(), AppData.attendanceForDate(AppData.todayStr()), AppData.listHolidays()
+  const [students, quizzes, attempts, attToday, holidays, studentBoard, teacherBoard] = await Promise.all([
+    AppData.listStudents(), AppData.listQuizzes(), AppData.allAttempts(), AppData.attendanceForDate(AppData.todayStr()), AppData.listHolidays(),
+    AppData.leaderboard(), AppData.teacherLeaderboard()
   ]);
   document.getElementById('stuCount').textContent = students.length;
   document.getElementById('quizCount').textContent = quizzes.filter(q => q.createdBy === auth.currentUser.uid).length;
@@ -979,6 +995,27 @@ async function loadOverview() {
   tbody.innerHTML = recent.map(a => `
     <tr><td>${AppData.escapeHtml(a.studentName)}</td><td>${AppData.escapeHtml(a.quizTitle)}</td>
     <td>${a.score}/${a.total} (${a.percent}%)</td><td>${AppData.fmtDate(a.submittedAt)}</td></tr>`).join('');
+
+  renderTopThree('ovTopStudents', 'ovTopStudentsEmpty',
+    [...studentBoard].filter(r => r.points > 0).sort((a, b) => b.points - a.points).slice(0, 3),
+    r => `${r.points} pts`, null);
+  renderTopThree('ovTopTeachers', 'ovTopTeachersEmpty',
+    [...teacherBoard].filter(r => r.score > 0).sort((a, b) => b.score - a.score).slice(0, 3),
+    r => `${r.score} pts`, auth.currentUser.uid);
+}
+
+/** Compact top-3 rank list shared by the Overview tab's student and
+ *  teacher leaderboard previews (full leaderboards live on the
+ *  Milestones tab — this is just a quick glance). */
+function renderTopThree(wrapId, emptyId, rows, pointsLabel, meUid) {
+  const wrap = document.getElementById(wrapId);
+  document.getElementById(emptyId).classList.toggle('hidden', rows.length > 0);
+  wrap.innerHTML = rows.map((r, i) => `
+    <div class="leader-row ${meUid && r.uid === meUid ? 'me' : ''}">
+      <div class="leader-rank ${i===0?'top1':i===1?'top2':'top3'}">${i + 1}</div>
+      <div style="flex:1;"><strong style="font-size:13.5px;">${AppData.escapeHtml(r.name)}${meUid && r.uid === meUid ? ' (you)' : ''}</strong></div>
+      <strong style="font-size:14px;">${pointsLabel(r)}</strong>
+    </div>`).join('');
 }
 
 auth.onAuthStateChanged(user => {

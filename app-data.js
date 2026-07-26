@@ -292,7 +292,7 @@ const AppData = {
     const start = new Date(startDateStr + 'T00:00:00');
     const end = new Date(endDateStr + 'T00:00:00');
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-      out.push(d.toISOString().slice(0, 10));
+      out.push(this.localDateStr(d));
     }
     return out;
   },
@@ -452,7 +452,7 @@ const AppData = {
         // checkbox until that actual date arrives, so a student can't
         // check off a future day and claim its points early. It stays
         // locked until that date arrives, then unlocks automatically.
-        date: d.toISOString().slice(0, 10),
+        date: this.localDateStr(d),
         dateLabel: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
         hours: Math.round(perDay * 10) / 10
       });
@@ -517,21 +517,36 @@ const AppData = {
     let completed = snap.exists ? (snap.data().completed || []) : [];
     if (done) { if (!completed.includes(taskIndex)) completed.push(taskIndex); }
     else { completed = completed.filter(i => i !== taskIndex); }
-    await ref.set({
-      homeworkId, studentId: user.uid, completed,
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
 
     // Every task a student completes earns points — checking off a
     // planned homework day banks points too; unchecking it removes
     // them again (the deterministic id means re-checking never lets
-    // the same day pay out twice).
+    // the same day pay out twice). The checklist tick and its points
+    // are written in a single atomic batch, so a day can never end up
+    // marked "done" on screen while its points silently fail to land
+    // (or the reverse) — the two always move together.
     const pointId = `hw__${homeworkId}__${user.uid}__day${taskIndex}`;
+    const pointRef = db.collection('pointsLedger').doc(pointId);
+    const batch = db.batch();
+    batch.set(ref, {
+      homeworkId, studentId: user.uid, completed,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+
     if (done) {
-      await this.awardPoints({ id: pointId, source: 'homework', title: 'Homework day completed', points: 10 });
+      const pointSnap = await pointRef.get();
+      if (!pointSnap.exists) {
+        batch.set(pointRef, {
+          source: 'homework', title: 'Homework day completed', points: 10,
+          studentId: user.uid,
+          studentName: user.displayName || user.email || 'Student',
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      }
     } else {
-      await this.revokePoints(pointId);
+      batch.delete(pointRef);
     }
+    await batch.commit();
     return completed;
   },
 
@@ -719,7 +734,17 @@ const AppData = {
     const ref = db.collection('milestoneCompletions').doc(id);
     const existing = await ref.get();
     if (existing.exists) return existing; // already claimed — no double points
-    await ref.set({
+
+    // The completion doc and its points-ledger entry are written in one
+    // atomic batch. Previously these were two separate writes, so if the
+    // second one ever failed (a dropped connection, a rules hiccup) a
+    // student could end up with a milestone marked "Done" whose points
+    // never actually landed in their total or on the leaderboard. A
+    // batch guarantees both happen together, or neither does.
+    const pointId = 'milestone__' + id;
+    const pointRef = db.collection('pointsLedger').doc(pointId);
+    const batch = db.batch();
+    batch.set(ref, {
       milestoneId: milestone.id,
       milestoneTitle: milestone.title,
       subject: milestone.subject,
@@ -728,15 +753,14 @@ const AppData = {
       studentName: user.displayName || user.email || 'Student',
       completedAt: firebase.firestore.FieldValue.serverTimestamp()
     });
-    // Also banks the points in the unified points ledger, the same
-    // system every other task (quizzes, homework days) pays into, so
-    // every task a student completes is counted the same way.
-    await this.awardPoints({
-      id: 'milestone__' + id,
-      source: 'milestone',
-      title: milestone.title,
-      points: milestone.points
+    batch.set(pointRef, {
+      source: 'milestone', title: milestone.title,
+      points: Math.max(0, Math.round(milestone.points)),
+      studentId: user.uid,
+      studentName: user.displayName || user.email || 'Student',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
+    await batch.commit();
     return ref;
   },
 
@@ -904,8 +928,27 @@ const AppData = {
 
   /* ---------------- Small utils ---------------- */
 
+  /** Formats a Date as "YYYY-MM-DD" using the *browser's local*
+   *  calendar day, never UTC. `Date#toISOString()` always converts to
+   *  UTC first, so anyone ahead of UTC (e.g. Nepal is UTC+5:45) would
+   *  see "today" reported as the previous day for the first ~5h45m
+   *  after their local midnight. That mismatch was the root cause of
+   *  homework day-plan entries unlocking a full calendar day early —
+   *  a task correctly labelled "tomorrow" locally could still compare
+   *  as "today or earlier" once converted to UTC. Every date-only
+   *  string in the app (today's date, homework day-plan dates,
+   *  attendance date ranges) must be built through this one helper so
+   *  "today" always means the same real calendar day everywhere. */
+  localDateStr(date) {
+    const d = date || new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  },
+
   todayStr() {
-    return new Date().toISOString().slice(0, 10);
+    return this.localDateStr(new Date());
   },
 
   fmtDate(ts) {

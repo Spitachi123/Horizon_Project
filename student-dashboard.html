@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DIVEDU | Student Dashboard</title>
+<title>GyanSetu | Student Dashboard</title>
 <link rel="stylesheet" href="theme.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
@@ -92,7 +92,7 @@
 <header class="d-navbar">
   <div class="d-brand" onclick="location.href='index.html'">
     <div class="d-brand-icon"><i class="fa-solid fa-atom"></i></div>
-    DIV<span>EDU</span>
+    GYAN<span>SETU</span>
   </div>
   <div class="d-navbar-right">
     <span class="role-pill"><span class="pulse-dot"></span> Student Workspace</span>
@@ -141,6 +141,19 @@
       <h3 style="font-size:15px; margin-bottom:12px;">Homework due</h3>
       <div id="ovHomework"></div>
       <div class="empty-state hidden" id="ovHomeworkEmpty">No homework assigned yet — enjoy the breather.</div>
+    </div>
+
+    <div class="d-grid-2" style="margin-top:28px; padding-top:22px; border-top:1.5px dashed var(--panel-border);">
+      <div>
+        <h3 style="font-size:15px; margin-bottom:12px;"><i class="fa-solid fa-ranking-star"></i> Top 3 Students</h3>
+        <div id="ovTopStudents"></div>
+        <div class="empty-state hidden" id="ovTopStudentsEmpty">No points earned yet — complete a milestone, quiz or homework day to appear here.</div>
+      </div>
+      <div>
+        <h3 style="font-size:15px; margin-bottom:12px;"><i class="fa-solid fa-chalkboard-user"></i> Top 3 Teachers</h3>
+        <div id="ovTopTeachers"></div>
+        <div class="empty-state hidden" id="ovTopTeachersEmpty">No teacher activity recorded yet.</div>
+      </div>
     </div>
   </section>
 
@@ -257,7 +270,7 @@
     <form id="qnaForm" class="qna-form">
       <div class="d-grid-2" style="margin-bottom:10px;">
         <div class="d-field" style="margin-bottom:0;"><label>Subject</label>
-          <select id="qnaSubject"><option>Science</option><option>Maths</option><option>Opt Maths</option><option>Computer</option><option>General</option></select>
+          <select id="qnaSubject"><option>Science</option><option>Math</option><option>Opt Math</option><option>Computer</option><option>English</option><option>Nepali</option><option>Social</option><option>General</option></select>
         </div>
       </div>
       <textarea id="qnaText" placeholder="Type your question here — no one will know it's you..." required></textarea>
@@ -272,7 +285,7 @@
 
   <!-- MY ID CARD -->
   <section id="tab-idcard" class="d-card hidden">
-    <div class="d-section-head"><div><h2>My ID Card</h2><p>Your permanent record on DIVEDU.</p></div></div>
+    <div class="d-section-head"><div><h2>My ID Card</h2><p>Your permanent record on GyanSetu.</p></div></div>
     <div class="idcard-hero">
       <div class="idc-top">
         <div class="idc-avatar" id="idcAvatar">S</div>
@@ -419,7 +432,7 @@ async function loadAttendance() {
   const [rows, holidays] = await Promise.all([AppData.myAttendance(), AppData.listHolidays()]);
   const holidaySet = new Set(holidays.map(h => h.date));
   const joinDate = window.currentUserProfile && window.currentUserProfile.createdAt
-    ? AppData.tsToDate(window.currentUserProfile.createdAt).toISOString().slice(0, 10)
+    ? AppData.localDateStr(AppData.tsToDate(window.currentUserProfile.createdAt))
     : AppData.todayStr();
 
   // AI-calculated: total real working days since joining (weekends +
@@ -569,15 +582,16 @@ function summarizeMaterial(fileURL, name) {
 
 /* ---------------- Overview ---------------- */
 async function loadOverview() {
-  const [quizzes, attempts, attendance, materials, hw, myLedger, holidays] = await Promise.all([
-    AppData.listQuizzes(), AppData.myAttempts(), AppData.myAttendance(), AppData.listMaterials(), AppData.listHomework(), AppData.myPointsLedger(), AppData.listHolidays()
+  const [quizzes, attempts, attendance, materials, hw, myLedger, holidays, studentBoard, teacherBoard] = await Promise.all([
+    AppData.listQuizzes(), AppData.myAttempts(), AppData.myAttendance(), AppData.listMaterials(), AppData.listHomework(), AppData.myPointsLedger(), AppData.listHolidays(),
+    AppData.leaderboard(), AppData.teacherLeaderboard()
   ]);
   document.getElementById('ovQuizzes').textContent = quizzes.length;
   const avg = attempts.length ? Math.round(attempts.reduce((s, a) => s + a.percent, 0) / attempts.length) : 0;
   document.getElementById('ovAvgScore').textContent = attempts.length ? avg + '%' : '—';
 
   const joinDate = window.currentUserProfile && window.currentUserProfile.createdAt
-    ? AppData.tsToDate(window.currentUserProfile.createdAt).toISOString().slice(0, 10)
+    ? AppData.localDateStr(AppData.tsToDate(window.currentUserProfile.createdAt))
     : AppData.todayStr();
   const stats = AppData.computeAttendanceStats(joinDate, attendance, new Set(holidays.map(h => h.date)));
   document.getElementById('ovAttendance').textContent = stats.totalWorkingDays ? stats.rate + '%' : '—';
@@ -587,6 +601,27 @@ async function loadOverview() {
   document.getElementById('ovHomeworkEmpty').classList.toggle('hidden', hw.length > 0);
   document.getElementById('ovHomework').innerHTML = hw.slice(0, 4).map(h => `
     <div class="quiz-card"><div><h4>${AppData.escapeHtml(h.subject)}</h4><div class="meta">Due ${h.dueDate}</div></div></div>`).join('');
+
+  renderTopThree('ovTopStudents', 'ovTopStudentsEmpty',
+    [...studentBoard].filter(r => r.points > 0).sort((a, b) => b.points - a.points).slice(0, 3),
+    r => `${r.points} pts`, auth.currentUser.uid);
+  renderTopThree('ovTopTeachers', 'ovTopTeachersEmpty',
+    [...teacherBoard].filter(r => r.score > 0).sort((a, b) => b.score - a.score).slice(0, 3),
+    r => `${r.score} pts`, null);
+}
+
+/** Compact top-3 rank list shared by the Overview tab's student and
+ *  teacher leaderboard previews (full leaderboards live on the
+ *  Milestones tab — this is just a quick glance). */
+function renderTopThree(wrapId, emptyId, rows, pointsLabel, meUid) {
+  const wrap = document.getElementById(wrapId);
+  document.getElementById(emptyId).classList.toggle('hidden', rows.length > 0);
+  wrap.innerHTML = rows.map((r, i) => `
+    <div class="leader-row ${meUid && r.uid === meUid ? 'me' : ''}">
+      <div class="leader-rank ${i===0?'top1':i===1?'top2':'top3'}">${i + 1}</div>
+      <div style="flex:1;"><strong style="font-size:13.5px;">${AppData.escapeHtml(r.name)}${meUid && r.uid === meUid ? ' (you)' : ''}</strong></div>
+      <strong style="font-size:14px;">${pointsLabel(r)}</strong>
+    </div>`).join('');
 }
 
 auth.onAuthStateChanged(user => {
