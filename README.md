@@ -9,6 +9,36 @@ on every student's dashboard, and vice versa.
 
 ## Latest round of fixes
 
+- **Fixed: the whole Milestones/Overview tab could throw "Missing or
+  insufficient permissions" for students.** The `users` collection
+  rule only let a student read their *own* profile (or a teacher read
+  everyone's). But the leaderboard needs `AppData.listStudents()` and
+  `listTeachers()` — collection queries across every student/teacher
+  profile — and Firestore rejects an entire query the moment it hits
+  even one document the rule doesn't allow, not just that one row.
+  So a student loading their dashboard would hit another student's or
+  teacher's profile in that query and the whole `Promise.all(...)`
+  chained after it would fail silently — which is exactly what made
+  milestones, points, and the leaderboard all appear broken at once.
+  Fixed by letting any signed-in user read a profile whose `role` is
+  `student` or `teacher` (names/points are already shown to the whole
+  class on the leaderboard by design, so this exposes nothing new).
+  **Re-publish `firestore.rules` for this fix to take effect.**
+- **Student Attendance tab now shows the same "working days by
+  month" breakdown as the teacher's register** — total working days
+  since you joined, broken down month by month with a running
+  cumulative total (weekends + marked holidays excluded
+  automatically). Previously this table only existed on the teacher
+  dashboard; students only saw the four summary pills.
+- **README brought back in sync with the code.** The old setup docs
+  still described PDFs going through Firebase Storage (step 3b) —
+  the app actually moved to Cloudinary a while ago (see
+  `cloudinary-config.js`), so `storage.rules` and the Storage setup
+  step were stale and pointed anyone debugging a failed PDF upload
+  at the wrong dashboard. Step 3b now describes the real Cloudinary
+  setup, including the Cloudinary "Security → allow PDF/ZIP delivery"
+  setting, which is the most common reason a PDF *uploads* fine but
+  then won't open.
 - **Fixed: the homework checklist wouldn't load.** The Firestore rule
   for `homeworkProgress` checked `resource.data.studentId` without
   first guarding for "this document doesn't exist yet" — which is
@@ -109,7 +139,8 @@ on every student's dashboard, and vice versa.
   (via pdf.js, loaded on demand) and extract its text automatically —
   no more copy-pasting out of a PDF reader.
 - **PDF reading materials.** Teachers can attach a PDF when publishing
-  a resource (stored in Firebase Storage). Students see an "Open PDF"
+  a resource (stored on Cloudinary — see `cloudinary-config.js`).
+  Students see an "Open PDF"
   link and a **Summarize with AI** button that sends the file straight
   to the AI Study Desk, which downloads it, extracts the text, and
   runs a summary automatically.
@@ -232,8 +263,9 @@ to hold your API key — happy to help build that next if you want it.
 | `homeworkProgress`      | student (own docs, one per homework)  | owning student + all teachers |
 
 `materials` docs may also carry `fileURL`, `fileName`, `filePath` when
-a teacher attaches a PDF (stored in **Firebase Storage**, not
-Firestore). `homework` docs may carry `hours` and an AI-generated
+a teacher attaches a PDF (stored on **Cloudinary**, not Firebase
+Storage or Firestore — see `cloudinary-config.js` and step 3b below).
+`homework` docs may carry `hours` and an AI-generated
 `taskPlan` array (day label, date, hours) when a teacher gives an
 estimated duration.
 
@@ -265,16 +297,33 @@ dashboard instead.
    the contents of `firestore.rules` from this project. Click
    **Publish**.
 
-## 3b. Turn on Storage (only needed for PDF materials)
+## 3b. Set up Cloudinary (only needed for PDF materials)
 
-1. Left sidebar: **Build → Storage → Get started**. Accept the
-   default production-mode rules, pick the same region as Firestore.
-2. Go to the **Rules** tab, delete the default rules, and paste in
-   the contents of `storage.rules` from this project. Click
-   **Publish**.
-3. If you skip this step, everything else still works — teachers just
-   won't be able to attach a PDF to a reading material (the app shows
-   a clear error instead of silently failing).
+PDF reading materials are hosted on **Cloudinary**, not Firebase
+Storage — `storage.rules` and the `storageBucket` field in
+`firebase-config.js` are both unused leftovers and can be ignored.
+Cloudinary's free tier needs no billing plan, unlike Firebase Storage
+(which now requires the Blaze pay-as-you-go plan).
+
+1. Sign up free at <https://cloudinary.com> and open the **Dashboard**
+   — your **Cloud name** is shown at the top. Paste it into
+   `cloudName` in `cloudinary-config.js`.
+2. **Settings (gear icon) → Upload → Upload presets → Add upload
+   preset**. Set **Signing Mode** to **Unsigned**, save, then paste
+   that preset's name into `uploadPreset` in `cloudinary-config.js`.
+3. **Settings → Security**, and make sure **"Restrict delivery of
+   media types"** (sometimes shown as "Allow delivery of PDF and ZIP
+   files") is switched so PDF/raw delivery is **allowed**. Cloudinary
+   ships this locked by default on newer accounts — if it's off, a
+   PDF will upload successfully (the teacher sees "Resource
+   published") but the student's **Open PDF** link will come back
+   with an error, which looks exactly like "the PDF never uploaded."
+4. If you skip this step entirely, everything else still works —
+   teachers just won't be able to attach a PDF to a reading material
+   (the app shows a clear, specific error instead of silently
+   failing — e.g. if `cloudName`/`uploadPreset` are still the
+   placeholder values, or if the preset name doesn't match one set to
+   "Unsigned" in your account).
 
 ## 4. Get your web app config
 

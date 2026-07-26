@@ -874,7 +874,21 @@ const AppData = {
    *  alongside the student one. */
   async teacherLeaderboard() {
     const [teachers, quizzes, materials, homework, milestones, results] = await Promise.all([
-      this.listTeachers(), this.listQuizzes(), this.listMaterials(), this.listHomework(), this.listAllMilestones(), this.allResults()
+      this.listTeachers(), this.listQuizzes(), this.listMaterials(), this.listHomework(), this.listAllMilestones(),
+      // allResults() reads every result doc unfiltered. firestore.rules
+      // only lets a STUDENT read their own graded results (correctly —
+      // grades are private between students), so Firestore rejects
+      // that whole query the moment a student runs it, since there's
+      // no filter it can use to prove every row is allowed. Without
+      // this .catch, that rejection would blow up this entire
+      // Promise.all — which is exactly what broke the Overview tab's
+      // "Top 3 Teachers" widget for students while Milestones (which
+      // never calls allResults()) kept working fine. A teacher still
+      // gets the real, accurate count when they load this themselves;
+      // a student's view of a teacher's score just slightly
+      // undercounts the "results graded" component instead of
+      // crashing the page.
+      this.allResults().catch(() => [])
     ]);
     const thisMonth = this.monthKey();
     const totals = {};

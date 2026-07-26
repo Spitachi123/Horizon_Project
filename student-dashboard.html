@@ -243,6 +243,13 @@
       <span class="att-pill" style="background:var(--danger-bg); color:var(--danger);" id="attAbsentPill">0 absent</span>
       <span class="att-pill" style="background:var(--warn-bg); color:var(--warn);" id="attRatePill">0% rate</span>
     </div>
+
+    <div style="margin:20px 0;">
+      <h3 style="font-size:13px; margin-bottom:8px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.03em;"><i class="fa-solid fa-calendar-week"></i> Working days by month</h3>
+      <p style="font-size:12px; color:var(--text-muted); margin:-4px 0 10px;">Weekends and school holidays are excluded automatically — the same calculation your teacher's register uses. "Cumulative total" is your running total of working days since you joined.</p>
+      <div id="myAttMonthlyWrap"></div>
+    </div>
+
     <h3 style="font-size:13.5px; margin:10px 0;">Days you were explicitly marked absent</h3>
     <table class="d-table"><thead><tr><th>Date</th><th>Subject</th><th>Status</th></tr></thead>
       <tbody id="myAttendanceBody"></tbody></table>
@@ -445,10 +452,38 @@ async function loadAttendance() {
   document.getElementById('attAbsentPill').textContent = `${stats.absent} absent`;
   document.getElementById('attRatePill').textContent = `${stats.rate}% rate`;
 
+  renderMyMonthlyWorkingDays(joinDate, holidaySet);
+
   const absentRows = rows.filter(r => r.status === 'absent');
   document.getElementById('myAttendanceEmpty').classList.toggle('hidden', absentRows.length > 0);
   document.querySelector('#myAttendanceBody').innerHTML = absentRows.map(r => `
     <tr><td>${r.date}</td><td>${AppData.escapeHtml(r.subject)}</td><td><span class="status-badge ${r.status}">${r.status.toUpperCase()}</span></td></tr>`).join('');
+}
+
+/** Breaks the student's own working-day count down month by month,
+ *  with a running cumulative total — the same calculation and layout
+ *  the teacher's register uses (AppData.dateRange + isNonWorkingDay),
+ *  just scoped to this one student's own join date instead of the
+ *  whole class's earliest sign-up. */
+function renderMyMonthlyWorkingDays(startDateStr, holidaySet) {
+  const wrap = document.getElementById('myAttMonthlyWrap');
+  const end = AppData.todayStr();
+  if (!startDateStr || startDateStr > end) { wrap.innerHTML = '<div class="empty-state">No working days yet.</div>'; return; }
+  const byMonth = {};
+  AppData.dateRange(startDateStr, end).forEach(d => {
+    if (AppData.isNonWorkingDay(d, holidaySet)) return;
+    const mk = d.slice(0, 7);
+    byMonth[mk] = (byMonth[mk] || 0) + 1;
+  });
+  const months = Object.keys(byMonth).sort();
+  if (!months.length) { wrap.innerHTML = '<div class="empty-state">No working days yet.</div>'; return; }
+  let cumulative = 0;
+  const rows = months.map(mk => {
+    cumulative += byMonth[mk];
+    const label = new Date(mk + '-01T00:00:00').toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+    return `<tr><td>${label}</td><td>${byMonth[mk]}</td><td><strong>${cumulative}</strong></td></tr>`;
+  }).join('');
+  wrap.innerHTML = `<table class="d-table"><thead><tr><th>Month</th><th>Working days that month</th><th>Cumulative total</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
 /* ---------------- Materials & Homework ---------------- */
