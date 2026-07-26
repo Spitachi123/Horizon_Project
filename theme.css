@@ -258,8 +258,23 @@ body.divedu {
 }
 .d-tab svg { width: 16px; height: 16px; flex-shrink: 0; }
 
+/* Layout + cards */
+.d-container {
+  max-width: 1280px;
+  margin-top: 28px;
+  margin-right: auto;
+  margin-bottom: 60px;
+  margin-left: auto;
+  padding: 0 24px;
+  transition: margin-left .2s ease;
+}
+
 /* Desktop / tablet: rail stays open and docked, no overlay, content
-   shifts right so the fixed rail never covers anything. */
+   shifts right so the fixed rail never covers anything. This must
+   come AFTER the base .d-container rule above so `margin-left` here
+   actually wins the cascade instead of being reset back to `auto` —
+   two rules of equal specificity, so source order decides, and this
+   one needs to be last. */
 @media (min-width: 901px) {
   .d-sidenav { transform: translateX(0); box-shadow: none; }
   .sidenav-overlay { display: none; }
@@ -267,12 +282,6 @@ body.divedu {
   .d-container { margin-left: 264px; }
 }
 
-/* Layout + cards */
-.d-container {
-  max-width: 1280px;
-  margin: 28px auto 60px;
-  padding: 0 24px;
-}
 @media (max-width: 900px) {
   .d-container { margin-top: 20px; padding: 0 16px; }
   .d-navbar { padding: 0.85rem 1.1rem; flex-wrap: wrap; gap: 10px; }

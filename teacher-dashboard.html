@@ -58,6 +58,35 @@
   /* Homework day plan */
   .hw-plan { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
   .hw-plan-chip { background:var(--bg-main); border:1px solid var(--panel-border); border-radius:10px; padding:6px 10px; font-size:11px; font-weight:700; color:var(--text-muted); }
+
+  /* Holiday calendar */
+  .holiday-cal { max-width: 420px; border:1px solid var(--panel-border); border-radius: var(--radius); padding:16px 18px; background:var(--bg-main); }
+  .cal-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; font-size:13.5px; font-weight:800; }
+  .cal-weekdays { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; margin-bottom:6px; }
+  .cal-weekdays span { text-align:center; font-size:10.5px; font-weight:800; color:var(--text-muted); text-transform:uppercase; }
+  .cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; }
+  .cal-cell { aspect-ratio:1; display:flex; align-items:center; justify-content:center; border-radius:8px; font-size:12.5px; font-weight:700; cursor:pointer; background:var(--surface-white); border:1.5px solid transparent; color:var(--text-main); transition:all .15s; }
+  .cal-cell:hover { border-color: var(--current-accent); }
+  .cal-cell.empty { visibility:hidden; cursor:default; }
+  .cal-cell.today { border-color: var(--current-accent); color: var(--current-accent); }
+  .cal-cell.holiday { background: var(--danger-bg); color: var(--danger); }
+  .cal-cell.selected { background: var(--current-accent); color:#fff; }
+  .cal-cell.holiday.selected { background: var(--text-muted); color:#fff; text-decoration: line-through; }
+  .cal-legend { display:flex; gap:16px; margin-top:12px; font-size:11px; font-weight:700; color:var(--text-muted); flex-wrap:wrap; }
+  .cal-legend .cal-dot { display:inline-block; width:11px; height:11px; border-radius:4px; margin-right:5px; vertical-align:-1.5px; }
+  .cal-legend .cal-dot.holiday { background: var(--danger-bg); border:1.5px solid var(--danger); }
+  .cal-legend .cal-dot.selected { background: var(--current-accent); }
+  .cal-legend .cal-dot.today { border:1.5px solid var(--current-accent); background:transparent; }
+
+  /* Attendance history matrix */
+  .att-matrix-scroll { overflow-x:auto; border:1px solid var(--panel-border); border-radius: var(--radius); }
+  table.att-matrix { min-width: 560px; }
+  table.att-matrix th:first-child, table.att-matrix td:first-child { position:sticky; left:0; background:var(--surface-white); z-index:1; font-weight:700; }
+  table.att-matrix th { white-space:nowrap; text-align:center; }
+  .att-tick { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:50%; font-size:11px; font-weight:800; margin:0 auto; }
+  .att-tick.present { background: var(--success-bg); color: var(--success); }
+  .att-tick.absent { background: var(--danger-bg); color: var(--danger); }
+  .att-tick.unmarked { color: var(--text-muted); }
 </style>
 </head>
 <body class="divedu">
@@ -165,27 +194,55 @@
       <div class="stat-tile"><div class="icon"><i class="fa-solid fa-umbrella-beach"></i></div><div><div class="num" id="attHolidayCount">—</div><div class="label">Holidays marked</div></div></div>
     </div>
 
-    <div class="d-grid-2" style="align-items:end; margin-bottom:6px;">
-      <div class="d-field" style="max-width:260px; margin-bottom:0;">
-        <label>Subject / Module</label>
-        <select id="attSubject"><option>Science</option><option>Maths</option><option>Opt Maths</option><option>Computer</option></select>
-      </div>
-      <div style="display:flex; gap:10px; align-items:end; justify-content:flex-end; flex-wrap:wrap;">
-        <div class="d-field" style="margin-bottom:0; min-width:200px;">
-          <label>Holiday note (optional)</label>
-          <input type="text" id="holidayNote" placeholder="e.g. Dashain break">
-        </div>
-        <button type="button" class="btn-secondary" id="holidayToggleBtn" onclick="toggleHolidayForSelectedDate()"><i class="fa-solid fa-umbrella-beach"></i> Mark date as holiday</button>
-      </div>
+    <div class="d-field" style="max-width:260px;">
+      <label>Subject / Module</label>
+      <select id="attSubject"><option>Science</option><option>Maths</option><option>Opt Maths</option><option>Computer</option></select>
     </div>
 
-    <div class="d-field" style="max-width:340px; margin-top:14px;">
+    <div class="d-field" style="max-width:340px;">
       <label>Search students by name</label>
       <input type="text" id="rosterSearch" placeholder="Type a name to filter…" oninput="renderRoster()">
     </div>
 
     <div id="rosterWrap" style="margin-top:16px;"></div>
     <div class="empty-state hidden" id="rosterEmpty">No students have signed up yet.</div>
+
+    <div style="margin-top:28px; padding-top:20px; border-top:1.5px dashed var(--panel-border);">
+      <h3 style="font-size:14.5px; margin-bottom:4px;"><i class="fa-solid fa-table"></i> Attendance history</h3>
+      <p style="font-size:12px; color:var(--text-muted); margin-bottom:14px;">Every student down the side, every marked date across the top — a full present/absent record at a glance.</p>
+      <div id="attMatrixWrap"></div>
+    </div>
+
+    <div style="margin-top:28px; padding-top:20px; border-top:1.5px dashed var(--panel-border);">
+      <h3 style="font-size:14.5px; margin-bottom:4px;"><i class="fa-solid fa-umbrella-beach"></i> Mark holidays on the calendar</h3>
+      <p style="font-size:12px; color:var(--text-muted); margin-bottom:14px;">Click any number of days — even across a whole break — then save them all as holidays in one go. Click an already-marked day to queue it for removal instead.</p>
+
+      <div class="holiday-cal">
+        <div class="cal-head">
+          <button type="button" class="btn-secondary" onclick="calShiftMonth(-1)" style="padding:6px 12px;"><i class="fa-solid fa-chevron-left"></i></button>
+          <strong id="calMonthLabel">—</strong>
+          <button type="button" class="btn-secondary" onclick="calShiftMonth(1)" style="padding:6px 12px;"><i class="fa-solid fa-chevron-right"></i></button>
+        </div>
+        <div class="cal-weekdays"><span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span></div>
+        <div class="cal-grid" id="calGrid"></div>
+        <div class="cal-legend">
+          <span><i class="cal-dot holiday"></i> Holiday</span>
+          <span><i class="cal-dot selected"></i> Selected</span>
+          <span><i class="cal-dot today"></i> Today</span>
+        </div>
+      </div>
+
+      <div class="d-grid-2" style="align-items:end; margin-top:14px;">
+        <div class="d-field" style="margin-bottom:0;">
+          <label>Note for selected holiday(s) (optional)</label>
+          <input type="text" id="holidayNote" placeholder="e.g. Dashain break">
+        </div>
+        <div style="display:flex; gap:10px; justify-content:flex-end;">
+          <button type="button" class="btn-secondary" onclick="clearCalendarSelection()">Clear selection</button>
+          <button type="button" class="btn-primary" id="calSaveBtn" onclick="applyCalendarSelection()"><i class="fa-solid fa-floppy-disk"></i> Save changes (<span id="calSelCount">0</span>)</button>
+        </div>
+      </div>
+    </div>
 
     <div style="margin-top:28px; padding-top:20px; border-top:1.5px dashed var(--panel-border);">
       <h3 style="font-size:14.5px; margin-bottom:12px;"><i class="fa-solid fa-umbrella-beach"></i> Marked holidays</h3>
@@ -300,6 +357,17 @@
     </div>
 
     <div style="margin-top:30px; padding-top:22px; border-top:1.5px dashed var(--panel-border);">
+      <h3 style="font-size:15px; margin-bottom:6px;"><i class="fa-solid fa-scale-balanced"></i> This Month: Students vs Teachers</h3>
+      <p style="font-size:12px; color:var(--text-muted); margin-bottom:14px;">A quick end-of-month read on who's been most active — resets naturally as each new month begins.</p>
+      <div class="stat-grid">
+        <div class="stat-tile"><div class="icon"><i class="fa-solid fa-crown"></i></div><div><div class="num" id="cmpTopStudent">—</div><div class="label">Top student this month</div></div></div>
+        <div class="stat-tile"><div class="icon"><i class="fa-solid fa-chalkboard-user"></i></div><div><div class="num" id="cmpTopTeacher">—</div><div class="label">Top teacher this month</div></div></div>
+        <div class="stat-tile"><div class="icon"><i class="fa-solid fa-users"></i></div><div><div class="num" id="cmpStudentTotal">—</div><div class="label">Combined student points</div></div></div>
+        <div class="stat-tile"><div class="icon"><i class="fa-solid fa-people-group"></i></div><div><div class="num" id="cmpTeacherTotal">—</div><div class="label">Combined teacher score</div></div></div>
+      </div>
+    </div>
+
+    <div style="margin-top:30px; padding-top:22px; border-top:1.5px dashed var(--panel-border);">
       <h3 style="font-size:15px; margin-bottom:6px;"><i class="fa-solid fa-chalkboard-user"></i> Teacher Activity Ranking</h3>
       <p style="font-size:12px; color:var(--text-muted); margin-bottom:14px;">Ranked by contribution to the class: quizzes, materials, homework, milestones and graded results.</p>
       <div id="teacherLeaderList"></div>
@@ -338,8 +406,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-storage-compat.js"></script>
 <script src="firebase-config.js"></script>
+<script src="cloudinary-config.js"></script>
 <script src="app-auth.js"></script>
 <script src="app-data.js"></script>
 <script>
@@ -457,19 +525,22 @@ document.getElementById('attDate').value = AppData.todayStr();
 let rosterStudents = [];
 let rosterAttendanceById = {};
 let rosterHolidays = [];
+let rosterAllAttendance = [];
 
 async function loadRoster() {
   const dateStr = document.getElementById('attDate').value || AppData.todayStr();
-  const [students, existing, holidays] = await Promise.all([
-    AppData.listStudents(), AppData.attendanceForDate(dateStr), AppData.listHolidays()
+  const [students, existing, holidays, allAtt] = await Promise.all([
+    AppData.listStudents(), AppData.attendanceForDate(dateStr), AppData.listHolidays(), AppData.allAttendance()
   ]);
   rosterStudents = students;
   rosterAttendanceById = Object.fromEntries(existing.map(r => [r.studentId, r]));
   rosterHolidays = holidays;
-  updateHolidayControls(dateStr);
+  rosterAllAttendance = allAtt;
   renderHolidayList();
   renderWorkingDaysStat();
   renderRoster();
+  renderAttendanceMatrix();
+  renderCalendar();
 }
 
 function renderRoster() {
@@ -507,35 +578,108 @@ async function markAtt(studentId, studentName, status, btn) {
   const row = btn.closest('.roster-card');
   row.querySelectorAll('.att-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
+  // Keep the history matrix in sync with the mark just made, without
+  // a full reload round-trip.
+  const idx = rosterAllAttendance.findIndex(r => r.date === dateStr && r.studentId === studentId);
+  if (idx >= 0) rosterAllAttendance[idx].status = status;
+  else rosterAllAttendance.push({ date: dateStr, studentId, studentName, status });
+  renderAttendanceMatrix();
   toast(`Marked ${status} for ${studentName}.`, 'success');
   loadOverview();
 }
 
-/* ---------------- Holidays & AI working-day calculation ---------------- */
-function holidaySet() { return new Set(rosterHolidays.map(h => h.date)); }
+/* ---------------- Attendance history matrix ---------------- */
+function renderAttendanceMatrix() {
+  const wrap = document.getElementById('attMatrixWrap');
+  if (!rosterAllAttendance.length || !rosterStudents.length) {
+    wrap.innerHTML = '<div class="empty-state">No attendance has been marked yet — mark today\'s roll call above to start building history.</div>';
+    return;
+  }
+  const byDate = {};
+  rosterAllAttendance.forEach(r => { (byDate[r.date] = byDate[r.date] || {})[r.studentId] = r.status; });
+  // Most recent 14 dates that actually have a mark, oldest-to-newest
+  // left-to-right so it reads like a real register.
+  const dates = Object.keys(byDate).sort().slice(-14);
 
-function updateHolidayControls(dateStr) {
-  const btn = document.getElementById('holidayToggleBtn');
-  const already = rosterHolidays.some(h => h.date === dateStr);
-  btn.innerHTML = already
-    ? `<i class="fa-solid fa-xmark"></i> Unmark holiday (${dateStr})`
-    : `<i class="fa-solid fa-umbrella-beach"></i> Mark ${dateStr} as holiday`;
+  let html = '<div class="att-matrix-scroll"><table class="d-table att-matrix"><thead><tr><th>Student</th>' +
+    dates.map(d => `<th>${d.slice(5)}</th>`).join('') + '</tr></thead><tbody>';
+  rosterStudents.forEach(s => {
+    html += `<tr><td>${AppData.escapeHtml(s.name || s.email)}</td>` + dates.map(d => {
+      const st = byDate[d] && byDate[d][s.uid];
+      if (st === 'present') return '<td><span class="att-tick present" title="Present">✓</span></td>';
+      if (st === 'absent') return '<td><span class="att-tick absent" title="Absent">✕</span></td>';
+      return '<td><span class="att-tick unmarked" title="Not marked — counts as present">–</span></td>';
+    }).join('') + '</tr>';
+  });
+  html += '</tbody></table></div>';
+  wrap.innerHTML = html;
 }
 
-async function toggleHolidayForSelectedDate() {
-  const dateStr = document.getElementById('attDate').value || AppData.todayStr();
-  const already = rosterHolidays.some(h => h.date === dateStr);
+/* ---------------- Holidays: bulk calendar selection ---------------- */
+function holidaySet() { return new Set(rosterHolidays.map(h => h.date)); }
+
+let calYear, calMonth; // 0-indexed month, defaults to the REAL current month
+(() => { const now = new Date(); calYear = now.getFullYear(); calMonth = now.getMonth(); })();
+let calSelected = new Set();
+
+function calShiftMonth(delta) {
+  calMonth += delta;
+  if (calMonth < 0) { calMonth = 11; calYear--; }
+  if (calMonth > 11) { calMonth = 0; calYear++; }
+  renderCalendar();
+}
+
+function renderCalendar() {
+  const grid = document.getElementById('calGrid');
+  const label = document.getElementById('calMonthLabel');
+  if (!grid) return;
+  const todayStr = AppData.todayStr();
+  const holidays = holidaySet();
+  const first = new Date(calYear, calMonth, 1);
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  label.textContent = first.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+
+  let html = '';
+  for (let i = 0; i < first.getDay(); i++) html += '<div class="cal-cell empty"></div>';
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dateStr = `${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const classes = ['cal-cell'];
+    if (dateStr === todayStr) classes.push('today');
+    if (holidays.has(dateStr)) classes.push('holiday');
+    if (calSelected.has(dateStr)) classes.push('selected');
+    html += `<div class="${classes.join(' ')}" onclick="toggleCalDay('${dateStr}')">${day}</div>`;
+  }
+  grid.innerHTML = html;
+  document.getElementById('calSelCount').textContent = calSelected.size;
+}
+
+function toggleCalDay(dateStr) {
+  if (calSelected.has(dateStr)) calSelected.delete(dateStr);
+  else calSelected.add(dateStr);
+  renderCalendar();
+}
+
+function clearCalendarSelection() {
+  calSelected.clear();
+  renderCalendar();
+}
+
+async function applyCalendarSelection() {
+  if (calSelected.size === 0) { toast('Click one or more days on the calendar first.', 'error'); return; }
+  const holidays = holidaySet();
+  const toAdd = [...calSelected].filter(d => !holidays.has(d));
+  const toRemove = [...calSelected].filter(d => holidays.has(d));
+  const btn = document.getElementById('calSaveBtn');
+  btn.disabled = true;
   try {
-    if (already) {
-      await AppData.unmarkHoliday(dateStr);
-      toast('Holiday removed — this date counts as a working day again.', 'success');
-    } else {
-      await AppData.markHoliday(dateStr, document.getElementById('holidayNote').value.trim());
-      toast('Marked as a holiday — excluded from working-day totals.', 'success');
-    }
+    if (toAdd.length) await AppData.markHolidaysBulk(toAdd, document.getElementById('holidayNote').value.trim());
+    if (toRemove.length) await AppData.unmarkHolidaysBulk(toRemove);
+    toast(`Saved: ${toAdd.length} holiday${toAdd.length===1?'':'s'} added${toRemove.length ? `, ${toRemove.length} removed` : ''}.`, 'success');
     document.getElementById('holidayNote').value = '';
+    calSelected.clear();
     loadRoster();
   } catch (err) { toast(err.message, 'error'); }
+  btn.disabled = false;
 }
 
 function renderHolidayList() {
@@ -621,14 +765,18 @@ document.getElementById('materialForm').addEventListener('submit', async (e) => 
   const submitBtn = document.querySelector('#materialForm button[type=submit]');
   const file = document.getElementById('mFile').files[0] || null;
   submitBtn.disabled = true;
+  const originalLabel = submitBtn.innerHTML;
   try {
-    if (file) toast('Publishing resource — uploading PDF…', 'success');
-    await AppData.publishMaterial({ subject: document.getElementById('mSubject').value, subtopic: document.getElementById('mSubtopic').value, description: document.getElementById('mDesc').value, file });
+    await AppData.publishMaterial(
+      { subject: document.getElementById('mSubject').value, subtopic: document.getElementById('mSubtopic').value, description: document.getElementById('mDesc').value, file },
+      (pct) => { submitBtn.innerHTML = `<i class="fa-solid fa-upload"></i> Uploading… ${pct}%`; }
+    );
     toast('Resource published.', 'success');
     document.getElementById('materialForm').reset();
     loadMaterials();
   } catch (err) { toast(err.message, 'error'); }
   submitBtn.disabled = false;
+  submitBtn.innerHTML = originalLabel;
 });
 
 async function loadHomework() {
@@ -776,10 +924,17 @@ async function loadMilestonesTab() {
     }
   } catch (e) { /* ignore */ }
 
-  const [milestones, leaderboard, teacherLeaderboard] = await Promise.all([
-    AppData.listAllMilestones(), AppData.leaderboard(), AppData.teacherLeaderboard()
+  const [milestones, leaderboard, teacherLeaderboard, comparison] = await Promise.all([
+    AppData.listAllMilestones(), AppData.leaderboard(), AppData.teacherLeaderboard(), AppData.monthlyComparison()
   ]);
   lastLeaderboard = leaderboard;
+
+  document.getElementById('cmpTopStudent').textContent = comparison.topStudent && comparison.topStudent.monthPoints > 0
+    ? `${comparison.topStudent.name} (${comparison.topStudent.monthPoints})` : '—';
+  document.getElementById('cmpTopTeacher').textContent = comparison.topTeacher && comparison.topTeacher.monthScore > 0
+    ? `${comparison.topTeacher.name} (${comparison.topTeacher.monthScore})` : '—';
+  document.getElementById('cmpStudentTotal').textContent = comparison.studentMonthTotal;
+  document.getElementById('cmpTeacherTotal').textContent = comparison.teacherMonthTotal;
 
   const wrap = document.getElementById('msList');
   document.getElementById('msEmpty').classList.toggle('hidden', milestones.length > 0);

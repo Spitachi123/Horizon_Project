@@ -13,11 +13,9 @@
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
-// Only pages that load firebase-storage-compat.js (teacher/student
-// dashboards, for PDF reading-material uploads) get a working
-// `storage` handle — everything else safely gets null and skips
-// file-upload features.
-window.storage = (firebase.storage && typeof firebase.storage === 'function') ? firebase.storage() : null;
+// File hosting (PDF reading materials) uses Cloudinary instead of
+// Firebase Storage — see cloudinary-config.js and app-data.js. No
+// Firebase Storage SDK/handle is needed any more.
 
 const AppAuth = {
   // Where each role lands after logging in.
