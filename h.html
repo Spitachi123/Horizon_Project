@@ -72,7 +72,7 @@
 
     <div class="desk-panel">
       <div class="toolbar-row">
-        <h3 style="margin-bottom:0;"><i class="fa-solid fa-list-check"></i> Summary</h3>
+        <h3 style="margin-bottom:0;"><i class="fa-solid fa-list-check"></i> Summary <span id="aiSourceBadge" style="display:none; font-size:10.5px; font-weight:800; padding:3px 9px; border-radius:20px; vertical-align:middle; margin-left:6px;"></span></h3>
         <button class="btn-secondary" id="copyBtn" style="display:none; padding:6px 14px; font-size:12px;" onclick="copySummary()"><i class="fa-regular fa-copy"></i> Copy</button>
       </div>
       <div id="summaryOut">
@@ -87,6 +87,7 @@
 <div class="d-toast" id="toast"></div>
 
 <script src="ai-engine.js"></script>
+<script src="llm-engine.js"></script>
 <script>
 /* ============================================================
    AI Study Desk — now backed by AIEngine (TextRank ranking,
@@ -170,12 +171,25 @@ window.addEventListener('message', async (event) => {
 // Let the parent know this iframe is ready to receive a handoff.
 try { window.parent.postMessage({ type: 'divedu-ai-desk-ready' }, '*'); } catch (e) { /* ignore */ }
 
-function runSummary() {
+async function runSummary() {
   const text = document.getElementById('inputText').value.trim();
   if (!text) { toast('Paste some text first.', 'error'); return; }
 
-  const result = AIEngine.summarize(text, currentRatio);
+  const summarizeBtn = document.querySelector('.desk-panel .btn-primary');
+  if (summarizeBtn) { summarizeBtn.disabled = true; summarizeBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Thinking…'; }
+
+  const result = await LLMEngine.summarize(text, currentRatio);
+
+  if (summarizeBtn) { summarizeBtn.disabled = false; summarizeBtn.innerHTML = '<i class="fa-solid fa-sparkles"></i> Summarize'; }
+
   if (!result) { toast('Could not find any sentences in that text.', 'error'); return; }
+
+  const badge = document.getElementById('aiSourceBadge');
+  if (result.source === 'gemini') {
+    badge.textContent = 'AI-generated'; badge.style.background = 'var(--student-bg)'; badge.style.color = 'var(--current-accent)'; badge.style.display = 'inline';
+  } else {
+    badge.textContent = 'Offline mode'; badge.style.background = '#fef3e2'; badge.style.color = '#f0a93a'; badge.style.display = 'inline';
+  }
 
   const headlineHtml = result.headline
     ? `<h4 style="font-size:15px; color:var(--current-accent); margin-bottom:10px;">${escapeHtml(result.headline)}</h4>` : '';
