@@ -408,17 +408,41 @@ body.divedu {
 .stat-tile .label { font-size: 11.5px; color: var(--text-muted); font-weight: 700; }
 
 /* Tables */
-.d-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.d-table th {
-  background: var(--bg-main); color: var(--text-main);
-  padding: 10px 12px; text-align: left; font-weight: 800; font-size: 11.5px;
-  text-transform: uppercase; letter-spacing: .02em;
-  border-bottom: 2px solid var(--panel-border);
+/* ---------------- Tables ----------------
+   Every .d-table across the app (Overview, Results, quiz history,
+   attendance, login history) now shares one polished look: a rounded
+   bordered container, a colored gradient header, zebra striping and
+   hover feedback. Works without any extra wrapper markup — existing
+   `<table class="d-table">` elements pick this up automatically. */
+.d-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13px;
+  background: var(--surface-white);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
 }
-.d-table td { padding: 10px 12px; border-bottom: 1px solid var(--panel-border); font-weight: 500; }
-.d-table tr:hover td { background: var(--bg-main); }
+.d-table th {
+  background: linear-gradient(135deg, var(--current-accent), var(--sky-accent));
+  color: #fff;
+  padding: 13px 16px; text-align: left; font-weight: 800; font-size: 11px;
+  text-transform: uppercase; letter-spacing: .04em;
+  white-space: nowrap;
+}
+.d-table td { padding: 12px 16px; border-bottom: 1px solid var(--panel-border); font-weight: 600; color: var(--text-main); vertical-align: middle; }
+.d-table tbody tr:last-child td { border-bottom: none; }
+.d-table tbody tr:nth-child(even) td { background: var(--bg-main); }
+.d-table tbody tr:hover td { background: color-mix(in srgb, var(--current-accent) 8%, white); }
+.d-table tbody tr { transition: background .15s ease; }
+@media (max-width: 700px) {
+  .d-table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .d-table th, .d-table td { padding: 10px 12px; white-space: nowrap; }
+}
 
-.status-badge { padding: 4px 11px; border-radius: 20px; font-weight: 800; font-size: 11px; display: inline-block; }
+.status-badge { padding: 4px 11px; border-radius: 20px; font-weight: 800; font-size: 11px; display: inline-block; letter-spacing: .02em; }
 .status-badge.pass, .status-badge.present { background: var(--success-bg); color: var(--success); }
 .status-badge.fail, .status-badge.absent { background: var(--danger-bg); color: var(--danger); }
 .status-badge.pending { background: var(--warn-bg); color: var(--warn); }

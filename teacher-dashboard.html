@@ -42,11 +42,29 @@
   .leader-rank.top3 { background:#fdf0e6; color:#b45309; }
   .leader-badge { display:flex; align-items:center; gap:6px; font-size:11px; font-weight:800; padding:4px 10px; border-radius:20px; }
 
+  /* My subject widget */
+  .subject-widget { display:flex; align-items:center; gap:14px; flex-wrap:wrap; background: var(--teacher-bg); border:1px solid var(--panel-border); border-radius: var(--radius); padding:16px 20px; margin-bottom:22px; }
+  .subject-widget .sw-icon { width:42px; height:42px; border-radius:12px; background: var(--current-accent); color:#fff; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:16px; }
+  .subject-widget .sw-text { font-size:12.5px; color:var(--text-muted); font-weight:700; }
+  .subject-widget .sw-current { font-size:16px; font-weight:800; color:var(--text-main); }
+  .subject-widget select { padding:8px 30px 8px 12px; border-radius:10px; border:1.5px solid var(--panel-border); background:var(--surface-white); font-weight:700; font-size:13px; color:var(--text-main); }
+  .locked-subject-note { display:flex; align-items:center; gap:8px; font-size:12px; color: var(--current-accent); background: var(--student-bg); border-radius:10px; padding:9px 14px; margin-bottom:16px; font-weight:700; }
+
   /* ID Cards */
-  .idcard { border:1.5px solid var(--panel-border); border-radius: var(--radius); padding:18px 20px; background: linear-gradient(135deg, var(--surface-white), var(--bg-main)); display:flex; align-items:center; gap:16px; margin-bottom:12px; }
-  .idcard .idc-avatar { width:52px; height:52px; border-radius:14px; background: var(--current-accent); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:18px; flex-shrink:0; }
-  .idcard .idc-no { font-family: monospace; font-weight:800; color: var(--current-accent); font-size:12.5px; }
-  .login-row { display:flex; justify-content:space-between; gap:10px; padding:8px 12px; border-bottom:1px solid var(--panel-border); font-size:12.5px; }
+  .idcard { border:1.5px solid var(--panel-border); border-radius: var(--radius); padding:18px 20px; background: linear-gradient(135deg, var(--surface-white), var(--bg-main)); display:flex; align-items:center; gap:16px; margin-bottom:12px; box-shadow: var(--shadow-sm); transition: transform .15s ease, box-shadow .15s ease; }
+  .idcard:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+  .idcard .idc-avatar { width:52px; height:52px; border-radius:14px; background: linear-gradient(135deg, var(--current-accent), var(--sky-accent)); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:18px; flex-shrink:0; box-shadow: 0 6px 14px var(--current-glow); }
+  .idcard .idc-no { font-family: monospace; font-weight:800; color: var(--current-accent); font-size:12.5px; background: var(--student-bg); padding: 2px 9px; border-radius: 8px; }
+  .idc-subject { font-size:11px; font-weight:700; background: var(--bg-main); color: var(--text-muted); padding:3px 10px; border-radius:20px; }
+  .own-subject-row td { background: var(--teacher-bg); }
+  .mine-tag { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.02em; color: var(--current-accent); background: var(--surface-white); border:1px solid var(--current-accent); padding:2px 7px; border-radius:20px; margin-left:4px; }
+  .login-history-panel { border:1px solid var(--panel-border); border-radius: var(--radius); overflow:hidden; box-shadow: var(--shadow-sm); max-height: 620px; overflow-y: auto; }
+  .login-row { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:11px 16px; border-bottom:1px solid var(--panel-border); font-size:12.5px; }
+  .login-row:last-child { border-bottom: none; }
+  .login-row:nth-child(even) { background: var(--bg-main); }
+  .login-row .lr-role-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; display:inline-block; margin-right:6px; }
+  .login-row .lr-role-dot.teacher { background: var(--teacher-accent); }
+  .login-row .lr-role-dot.student { background: var(--student-accent); }
 
   /* Leaderboard range toggle + teacher ranking rows */
   .mode-tabs { display:flex; gap:8px; }
@@ -134,6 +152,26 @@
       </div>
       <span class="badge-pill"><i class="fa-solid fa-circle-check"></i> Connected class</span>
     </div>
+
+    <div class="subject-widget" id="subjectWidget">
+      <div class="sw-icon"><i class="fa-solid fa-book"></i></div>
+      <div style="flex:1; min-width:180px;">
+        <div class="sw-text">Your subject</div>
+        <div class="sw-current" id="mySubjectDisplay">Not set yet</div>
+      </div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <select id="mySubjectSelect">
+          <option value="Science">Science</option>
+          <option value="Maths">Maths</option>
+          <option value="Opt Maths">Opt Maths</option>
+          <option value="Computer">Computer</option>
+          <option value="General">General</option>
+        </select>
+        <button class="btn-secondary" style="padding:8px 16px; font-size:12.5px;" onclick="saveMySubject()"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+      </div>
+      <p style="width:100%; font-size:11.5px; color:var(--text-muted); margin-top:2px;">Anonymous questions only reach the teacher of the matching subject, and only you can enter/edit results for your own subject.</p>
+    </div>
+
     <div class="stat-grid">
       <div class="stat-tile"><div class="icon"><i class="fa-solid fa-users"></i></div><div><div class="num" id="stuCount">—</div><div class="label">Students enrolled</div></div></div>
       <div class="stat-tile"><div class="icon"><i class="fa-solid fa-list-check"></i></div><div><div class="num" id="quizCount">—</div><div class="label">Quizzes published</div></div></div>
@@ -255,6 +293,7 @@
     <div class="d-section-head">
       <div><h2>Result Management</h2><p>Enter marks — the grade, percentage and pass status are calculated automatically.</p></div>
     </div>
+    <p class="locked-subject-note" id="resultsSubjectHint"><i class="fa-solid fa-lock"></i> Set your subject on the Overview tab first — you can only enter results for your own subject.</p>
     <form id="resultForm">
       <div class="d-grid-2">
         <div class="d-field"><label>Student</label>
@@ -313,6 +352,7 @@
       <div><h2>Anonymous Q&amp;A Inbox</h2><p>Students ask freely without stage fright — their name is never shown to you, only the question.</p></div>
       <span class="badge-pill"><i class="fa-solid fa-shield-halved"></i> Identity hidden</span>
     </div>
+    <p class="locked-subject-note" id="qnaSubjectHint"><i class="fa-solid fa-filter"></i> Set your subject on the Overview tab first to see questions addressed to you.</p>
     <div id="qnaList"></div>
     <div class="empty-state hidden" id="qnaEmpty">No questions yet.</div>
   </section>
@@ -388,7 +428,7 @@
       </div>
       <div>
         <h3 style="font-size:14px; margin-bottom:12px;">Recent sign-ins (every login, every user)</h3>
-        <div id="loginHistoryList" style="border:1px solid var(--panel-border); border-radius: var(--radius); overflow:hidden;"></div>
+        <div id="loginHistoryList" class="login-history-panel"></div>
         <div class="empty-state hidden" id="loginHistoryEmpty">No sign-ins recorded yet.</div>
       </div>
     </div>
@@ -412,6 +452,54 @@
 <script src="app-data.js"></script>
 <script>
 AppAuth.protectPage('teacher');
+
+const SUBJECT_LIST = ['Science', 'Maths', 'Opt Maths', 'Computer', 'General'];
+
+document.addEventListener('profileReady', () => {
+  const subject = (window.currentUserProfile && window.currentUserProfile.subjectFocus) || '';
+  document.getElementById('mySubjectDisplay').textContent = subject || 'Not set yet — pick one below';
+  const sel = document.getElementById('mySubjectSelect');
+  if (subject && SUBJECT_LIST.includes(subject)) sel.value = subject;
+  applySubjectLock(subject);
+});
+
+async function saveMySubject() {
+  const subject = document.getElementById('mySubjectSelect').value;
+  try {
+    await AppData.updateMySubject(subject);
+    document.getElementById('mySubjectDisplay').textContent = subject;
+    applySubjectLock(subject);
+    toast(`Your subject is now set to ${subject}.`, 'success');
+    // Refresh anything already on screen that's scoped by subject.
+    if (!document.getElementById('tab-qna').classList.contains('hidden')) loadQna();
+    if (!document.getElementById('tab-results').classList.contains('hidden')) loadResults();
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+/** Locks the Results tab's Subject dropdown to the teacher's own
+ *  subject (mirrors firestore.rules — writing to any other subject
+ *  is rejected server-side too, this just avoids a confusing failed
+ *  save). Also refreshes the Q&A tab's header hint. */
+function applySubjectLock(subject) {
+  const rSubject = document.getElementById('rSubject');
+  if (rSubject) {
+    if (subject) {
+      rSubject.innerHTML = `<option value="${subject}">${subject}</option>`;
+      rSubject.disabled = true;
+    } else {
+      rSubject.innerHTML = SUBJECT_LIST.map(s => `<option>${s}</option>`).join('');
+      rSubject.disabled = false;
+    }
+  }
+  const hint = document.getElementById('resultsSubjectHint');
+  if (hint) hint.textContent = subject
+    ? `You can only enter and edit results for ${subject}.`
+    : 'Set your subject on the Overview tab first — you can only enter results for your own subject.';
+  const qnaHint = document.getElementById('qnaSubjectHint');
+  if (qnaHint) qnaHint.textContent = subject
+    ? `Showing anonymous questions tagged "${subject}" or "General" — the same as every other teacher's inbox stays private to their own subject.`
+    : 'Set your subject on the Overview tab first to see questions addressed to you.';
+}
 
 function toast(msg, type) {
   const t = document.getElementById('toast');
@@ -717,19 +805,25 @@ async function loadResults() {
   }
   const tbody = document.querySelector('#resultsTable tbody');
   const results = await AppData.allResults();
+  const mySubject = (window.currentUserProfile && window.currentUserProfile.subjectFocus) || '';
   document.getElementById('resultsEmpty').classList.toggle('hidden', results.length > 0);
   tbody.innerHTML = results.map(r => `
-    <tr><td>${AppData.escapeHtml(r.studentName)}</td><td>${AppData.escapeHtml(r.subject)}</td>
-    <td>${r.gainedMarks}/${r.fullMarks} (${r.percent}%)</td><td>${r.grade}</td>
-    <td><span class="status-badge ${r.status}">${r.status.toUpperCase()}</span></td></tr>`).join('');
+    <tr class="${r.subject === mySubject ? 'own-subject-row' : ''}">
+      <td>${AppData.escapeHtml(r.studentName)}</td>
+      <td>${AppData.escapeHtml(r.subject)}${r.subject === mySubject ? ' <span class="mine-tag">yours</span>' : ''}</td>
+      <td>${r.gainedMarks}/${r.fullMarks} (${r.percent}%)</td><td>${r.grade}</td>
+      <td><span class="status-badge ${r.status}">${r.status.toUpperCase()}</span></td>
+    </tr>`).join('');
 }
 document.getElementById('resultForm').addEventListener('submit', async (e) => {
   e.preventDefault();
+  const mySubject = (window.currentUserProfile && window.currentUserProfile.subjectFocus) || '';
+  if (!mySubject) { toast('Set your subject on the Overview tab before entering results.', 'error'); return; }
   const sel = document.getElementById('rStudent');
   const opt = sel.options[sel.selectedIndex];
   try {
     await AppData.publishResult({
-      studentId: sel.value, studentName: opt.dataset.name, subject: document.getElementById('rSubject').value,
+      studentId: sel.value, studentName: opt.dataset.name, subject: mySubject,
       fullMarks: parseFloat(document.getElementById('rFull').value), passMarks: parseFloat(document.getElementById('rPass').value),
       gainedMarks: parseFloat(document.getElementById('rGained').value)
     });
@@ -845,7 +939,7 @@ auth.onAuthStateChanged(user => {
 /* ---------------- Anonymous Q&A ---------------- */
 async function loadQna() {
   const wrap = document.getElementById('qnaList');
-  const questions = await AppData.listAllQuestions();
+  const questions = await AppData.listQuestionsForMySubject();
   document.getElementById('qnaEmpty').classList.toggle('hidden', questions.length > 0);
   // IMPORTANT: never render q.studentName here — that's the whole point
   // of the anonymous inbox. Only subject, question text, and answer.
@@ -1001,7 +1095,10 @@ async function loadIdCardsTab() {
       <div style="flex:1;">
         <div style="font-weight:700; font-size:14px;">${AppData.escapeHtml(u.name || u.email)}</div>
         <div style="font-size:11.5px; color:var(--text-muted);">${AppData.escapeHtml(u.email)}</div>
-        <div class="idc-no" style="margin-top:4px;">${AppData.escapeHtml(u.idCardNo || '—')}</div>
+        <div style="display:flex; align-items:center; gap:8px; margin-top:4px; flex-wrap:wrap;">
+          <span class="idc-no">${AppData.escapeHtml(u.idCardNo || '—')}</span>
+          ${u.role === 'teacher' ? `<span class="idc-subject">${AppData.escapeHtml(u.subjectFocus || 'No subject set')}</span>` : (u.grade ? `<span class="idc-subject">${AppData.escapeHtml(u.grade)}</span>` : '')}
+        </div>
       </div>
       <span class="status-badge ${u.role === 'teacher' ? 'pass' : 'pending'}">${(u.role || '').toUpperCase()}</span>
       ${u.uid === auth.currentUser.uid
@@ -1013,7 +1110,7 @@ async function loadIdCardsTab() {
   document.getElementById('loginHistoryEmpty').classList.toggle('hidden', logs.length > 0);
   lwrap.innerHTML = logs.map(l => `
     <div class="login-row">
-      <span><strong>${AppData.escapeHtml(l.name)}</strong> <span style="color:var(--text-muted);">(${AppData.escapeHtml(l.role)})</span></span>
+      <span><span class="lr-role-dot ${l.role === 'teacher' ? 'teacher' : 'student'}"></span><strong>${AppData.escapeHtml(l.name)}</strong> <span style="color:var(--text-muted);">(${AppData.escapeHtml(l.role)})</span></span>
       <span style="color:var(--text-muted);">${AppData.fmtDateTime(l.at)}${l.remembered ? ' · kept signed in' : ''}</span>
     </div>`).join('');
 }

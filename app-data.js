@@ -121,6 +121,18 @@ const AppData = {
       }
     };
 
+    // NOTE: loginLogs is intentionally NOT deleted here. It's an
+    // append-only sign-in history log (see firestore.rules — every
+    // role there is `allow update, delete: if false`, on purpose, so
+    // the history can never be tampered with, not even by a teacher).
+    // Earlier this cascade also tried to delete a removed user's own
+    // log entries, which Firestore always rejected with "Missing or
+    // insufficient permissions" — that failure aborted this whole
+    // Promise.all *before* the account doc itself got deleted, which
+    // is exactly the error that showed up after deleting an account.
+    // Fix: leave old sign-in records in place (they're a historical
+    // fact, not live data tied to the account) and never try to
+    // delete them.
     await Promise.all([
       batchDelete(db.collection('attendance').where('studentId', '==', uid)),
       batchDelete(db.collection('quizAttempts').where('studentId', '==', uid)),
@@ -128,8 +140,7 @@ const AppData = {
       batchDelete(db.collection('questions').where('studentId', '==', uid)),
       batchDelete(db.collection('milestoneCompletions').where('studentId', '==', uid)),
       batchDelete(db.collection('homeworkProgress').where('studentId', '==', uid)),
-      batchDelete(db.collection('pointsLedger').where('studentId', '==', uid)),
-      batchDelete(db.collection('loginLogs').where('uid', '==', uid))
+      batchDelete(db.collection('pointsLedger').where('studentId', '==', uid))
     ]);
 
     if (role === 'teacher') {
@@ -570,13 +581,35 @@ const AppData = {
     });
   },
 
-  /** All questions, for the teacher-side anonymous inbox. Caller
-   *  must not surface `studentName` in the UI. */
-  async listAllQuestions() {
-    const snap = await db.collection('questions').get();
+  /** Anonymous inbox, scoped to the signed-in teacher's own subject
+   *  (plus anything tagged "General", so nobody's untargeted question
+   *  falls through the cracks). A Physics teacher never sees a Maths
+   *  question and vice-versa. Requires the teacher's profile to have
+   *  `subjectFocus` set — see AppData.updateMySubject().
+   *  This mirrors firestore.rules exactly: the rule only allows
+   *  reading a question doc when its `subject` field equals the
+   *  caller's own subjectFocus (or is "General"), so this query's
+   *  `where('subject','in', [...])` clause is required — Firestore
+   *  rejects unfiltered list queries it can't prove are safe. */
+  async listQuestionsForMySubject() {
+    const profile = window.currentUserProfile || {};
+    const mySubject = profile.subjectFocus || '';
+    if (!mySubject) return []; // teacher hasn't set a subject yet
+    const subjects = mySubject === 'General' ? ['General'] : [mySubject, 'General'];
+    const snap = await db.collection('questions').where('subject', 'in', subjects).get();
     const rows = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     rows.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
     return rows;
+  },
+
+  /** Lets a teacher set/change which subject they teach. This is
+   *  what the "respective subject teacher" scoping (anonymous
+   *  questions + result entry) is keyed off of. Does not touch
+   *  `role`, so it's always allowed by firestore.rules. */
+  async updateMySubject(subject) {
+    const user = auth.currentUser;
+    await db.collection('users').doc(user.uid).update({ subjectFocus: subject });
+    if (window.currentUserProfile) window.currentUserProfile.subjectFocus = subject;
   },
 
   async myQuestions() {

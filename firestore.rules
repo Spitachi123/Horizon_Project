@@ -21,6 +21,18 @@ service cloud.firestore {
       return signedIn() && myRole() == 'teacher';
     }
 
+    // The caller's own subject (set at sign-up / editable later from
+    // the teacher dashboard). Used to scope the anonymous Q&A inbox
+    // and result entry so a Maths teacher can't read/answer a Physics
+    // question, or enter/change a mark for a subject they don't teach.
+    function mySubject() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.subjectFocus;
+    }
+    // True only for a teacher whose own subjectFocus matches `subj`.
+    function isTeacherOfSubject(subj) {
+      return isTeacher() && mySubject() == subj;
+    }
+
     // Each signed-in user may read and update only their OWN profile
     // document (users/{their-uid}), and may create it once at sign-up.
     // The "role" field can only be set at creation — not changed
@@ -134,30 +146,50 @@ service cloud.firestore {
       allow delete: if isTeacher();
     }
 
-    // Manually-entered results: teachers write, the owning student
-    // (and any teacher) can read.
+    // Manually-entered results: any teacher may read the class's full
+    // results (report-card style visibility), but only the teacher
+    // whose own subject matches a result's `subject` may create it or
+    // edit its marks — a Maths teacher cannot touch a Science result.
+    // The owning student can always read only their own row (never
+    // another student's), which is what keeps a result private to the
+    // student it belongs to.
+    // `delete` stays broad (any teacher) because it's also used by the
+    // account-deletion cascade to clean up every result belonging to
+    // a removed student, across every subject at once.
     match /results/{docId} {
       allow read: if signedIn() && (resource.data.studentId == request.auth.uid || isTeacher());
-      allow create, update, delete: if isTeacher();
+      allow create: if isTeacherOfSubject(request.resource.data.subject);
+      allow update: if isTeacherOfSubject(resource.data.subject)
+                    && request.resource.data.subject == resource.data.subject
+                    && request.resource.data.studentId == resource.data.studentId;
+      allow delete: if isTeacher();
     }
 
     // Anonymous Q&A: a student creates a question tagged with their
     // own uid (needed so *they* can see their own answer later) and
-    // can read only their own. Teachers can read every question and
-    // answer it (update) — the app's UI is responsible for never
+    // their chosen subject, and can read only their own question.
+    // A teacher may only read/answer a question whose subject matches
+    // their own subjectFocus (or is tagged "General") — so a question
+    // reaches the *respective subject teacher* only, never every
+    // teacher in the school. The app's UI is responsible for never
     // displaying the student's name to a teacher, since the data
     // itself must still carry an owner for delivery/security.
-    // Nobody may delete a question, and nobody but a teacher may
-    // set/change its answer.
+    // Nobody may delete a question except a teacher cleaning up a
+    // removed student's account (cascade — left broad, not
+    // subject-scoped, so a leaving student's questions are always
+    // fully removed regardless of which subjects they asked about).
     match /questions/{qId} {
       allow create: if signedIn() && request.resource.data.studentId == request.auth.uid
                     && request.resource.data.status == 'pending';
-      allow read: if signedIn() && (resource.data.studentId == request.auth.uid || isTeacher());
-      allow update: if isTeacher()
+      allow read: if signedIn() && (
+                    resource.data.studentId == request.auth.uid
+                    || isTeacherOfSubject(resource.data.subject)
+                    || (isTeacher() && resource.data.subject == 'General')
+                  );
+      allow update: if (isTeacherOfSubject(resource.data.subject) || (isTeacher() && resource.data.subject == 'General'))
                     && request.resource.data.studentId == resource.data.studentId
-                    && request.resource.data.text == resource.data.text;
-      // Used only by the account-deletion cascade, to remove a
-      // removed student's own anonymous questions.
+                    && request.resource.data.text == resource.data.text
+                    && request.resource.data.subject == resource.data.subject;
       allow delete: if isTeacher();
     }
 
