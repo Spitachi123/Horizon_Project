@@ -167,12 +167,12 @@ body {
 .landing-wrapper { display: flex; flex-direction: column; }
 
 .landing-hero {
-  min-height: 85vh;
+  min-height: 82vh;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 4rem 2rem;
+  padding: 5rem 2rem 4rem;
   text-align: center;
   position: relative;
 }
@@ -188,15 +188,16 @@ body {
   color: var(--primary-indigo);
   font-size: 0.88rem;
   font-weight: 700;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.75rem;
 }
 
 .hero-title {
-  font-size: 3.5rem;
+  font-size: clamp(2.4rem, 4.5vw, 3.75rem);
   font-weight: 800;
-  line-height: 1.2;
-  max-width: 900px;
-  margin-bottom: 1.25rem;
+  line-height: 1.18;
+  letter-spacing: -0.01em;
+  max-width: 880px;
+  margin-bottom: 1.4rem;
   color: var(--text-main);
 }
 
@@ -209,47 +210,38 @@ body {
 .hero-sub {
   font-size: 1.15rem;
   color: var(--text-muted);
-  max-width: 650px;
-  line-height: 1.6;
+  max-width: 620px;
+  line-height: 1.65;
   margin-bottom: 2.5rem;
 }
 
-.hero-cta { display: flex; gap: 1rem; justify-content: center; margin-bottom: 3.5rem; }
+.hero-cta { display: flex; gap: 1rem; justify-content: center; margin-bottom: 2.75rem; }
 
-.stats-bar {
+/* Quiet, non-intrusive capability strip — replaces the old floating
+   tooltip-style cards, which crowded the hero and repeated content
+   the feature section below already covers in depth. */
+.hero-capabilities {
   display: flex;
-  gap: 3rem;
-  padding: 1.75rem 3.5rem;
-  background: var(--surface-white);
-  border: 1px solid rgba(255, 255, 255, 0.8);
-  border-radius: 24px;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.05);
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: center;
 }
 
-.stat-item h4 { font-size: 1.6rem; color: var(--primary-indigo); font-weight: 800; }
-.stat-item p { font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-top: 0.25rem; }
-
-/* Floating Gamified Cards */
-.floating-card {
-  position: absolute;
+.cap-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.55rem 1.1rem;
+  border-radius: 30px;
   background: var(--surface-white);
   border: 1px solid rgba(120, 134, 250, 0.15);
-  padding: 1rem 1.4rem;
-  border-radius: 18px;
-  display: flex;
-  align-items: center;
-  gap: 0.85rem;
-  font-size: 0.85rem;
-  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.07);
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.03);
 }
 
-.card-left { top: 20%; left: 5%; animation: floatY 6s ease-in-out infinite; }
-.card-right { bottom: 25%; right: 5%; animation: floatY 8s ease-in-out infinite reverse; }
-
-@keyframes floatY {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-15px); }
-}
+.cap-chip i { color: var(--primary-indigo); font-size: 0.8rem; }
 
 /* ================= 2. FEATURES GRID ================= */
 .features-section { padding: 6rem 4rem; max-width: 1200px; margin: 0 auto; }
@@ -625,9 +617,7 @@ input:focus {
 @media (max-width: 768px) {
   .navbar { padding: 1rem 1.5rem; }
   .nav-links { display: none; }
-  .hero-title { font-size: 2.2rem; }
-  .stats-bar { flex-direction: column; gap: 1rem; padding: 1.5rem; }
-  .floating-card { display: none; }
+  .hero-capabilities { gap: 0.5rem; }
   .steps-container { flex-direction: column; }
   .step-arrow { transform: rotate(90deg); }
   .milestone-banner-box { grid-template-columns: 1fr; padding: 2rem; }
