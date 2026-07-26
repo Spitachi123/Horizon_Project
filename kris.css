@@ -58,6 +58,15 @@ header.top-bar h1 {
     letter-spacing: -.01em;
 }
 
+.brand-text { display: flex; flex-direction: column; line-height: 1.15; }
+.brand-sub {
+    font-family: 'Noto Sans Devanagari', 'Plus Jakarta Sans', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--blue-700);
+    margin-top: 2px;
+}
+
 /* ---------- NAV ---------- */
 
 nav.main-nav {
