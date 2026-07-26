@@ -73,6 +73,9 @@
   .hw-task-row:hover { transform: translateX(3px); }
   .hw-task-row input { width:19px; height:19px; accent-color: var(--current-accent); cursor:pointer; }
   .hw-task-row.done { background: var(--success-bg); color: var(--success); font-weight:800; text-decoration: line-through; text-decoration-thickness:2px; }
+  .hw-task-row.locked { opacity:.55; }
+  .hw-task-row.locked input { cursor:not-allowed; }
+  .hw-task-row.locked:hover { transform:none; }
   .hw-task-row .day-emoji { font-size:15px; }
   .hw-confetti-piece { position:fixed; top:-20px; font-size:18px; pointer-events:none; z-index:9999; animation: hwConfettiFall linear forwards; }
   @keyframes hwConfettiFall {
@@ -502,12 +505,19 @@ function renderHwChecklist(h, completed) {
         <div class="hw-fun-sub">${completed.length}/${total} days checked off · ${pct}%</div>
       </div>
     </div>
-    ${h.taskPlan.map((t, i) => `
-      <label class="hw-task-row ${completed.includes(i) ? 'done' : ''}">
-        <input type="checkbox" ${completed.includes(i) ? 'checked' : ''} onchange="toggleHwTask('${h.id}', ${i}, this.checked)">
-        <span class="day-emoji">${completed.includes(i) ? '✅' : '📅'}</span>
-        <span>${t.label} (${t.dateLabel}) — ${t.hours}h planned</span>
-      </label>`).join('')}`;
+    ${h.taskPlan.map((t, i) => {
+      const today = AppData.todayStr();
+      const isDone = completed.includes(i);
+      // A day is locked until its own real calendar date arrives —
+      // it unlocks automatically that day, no teacher action needed.
+      const locked = !isDone && t.date && t.date > today;
+      return `
+      <label class="hw-task-row ${isDone ? 'done' : ''} ${locked ? 'locked' : ''}" title="${locked ? `Unlocks on ${AppData.escapeHtml(t.dateLabel)}` : ''}">
+        <input type="checkbox" ${isDone ? 'checked' : ''} ${locked ? 'disabled' : ''} onchange="toggleHwTask('${h.id}', ${i}, this.checked)">
+        <span class="day-emoji">${isDone ? '✅' : (locked ? '🔒' : '📅')}</span>
+        <span>${AppData.escapeHtml(t.label)} (${AppData.escapeHtml(t.dateLabel)}) — ${t.hours}h planned${locked ? ` <em style="color:var(--text-muted); font-style:normal; font-size:11.5px;">· unlocks ${AppData.escapeHtml(t.dateLabel)}</em>` : ''}</span>
+      </label>`;
+    }).join('')}`;
 }
 
 /** A quick, silly confetti burst — a handful of emoji drifting down
@@ -601,7 +611,12 @@ function renderLeaderboard() {
   const pointsField = leaderboardRange === 'month' ? 'monthPoints' : 'points';
   const completedField = leaderboardRange === 'month' ? 'monthCompleted' : 'completed';
   const sorted = [...lastLeaderboard].sort((a, b) => b[pointsField] - a[pointsField]);
-  const ranked = sorted.filter(r => r[completedField] > 0);
+  // Rank by points earned, not just milestone completions — a student
+  // who only did quizzes or homework (and never a teacher milestone)
+  // still shows up here, since they've genuinely earned points too.
+  // "All-time" is the default view and always available (never wiped),
+  // so the leaderboard stays visible forever, not just for this month.
+  const ranked = sorted.filter(r => r[pointsField] > 0);
   document.getElementById('msLeaderboardEmpty').classList.toggle('hidden', ranked.length > 0);
   const me = auth.currentUser.uid;
   lwrap.innerHTML = ranked.slice(0, 20).map((r, i) => `

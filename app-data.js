@@ -447,6 +447,12 @@ const AppData = {
       d.setDate(d.getDate() + i);
       tasks.push({
         label: `Day ${i + 1}`,
+        // "date" (YYYY-MM-DD) is the real calendar day this task plan
+        // entry belongs to — lets the student dashboard lock a day's
+        // checkbox until that actual date arrives, so a student can't
+        // check off a future day and claim its points early. It stays
+        // locked until that date arrives, then unlocks automatically.
+        date: d.toISOString().slice(0, 10),
         dateLabel: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
         hours: Math.round(perDay * 10) / 10
       });
@@ -492,6 +498,19 @@ const AppData = {
 
   async toggleHomeworkTask(homeworkId, taskIndex, done) {
     const user = auth.currentUser;
+
+    // A day can only be checked off once its own calendar date has
+    // actually arrived — never in advance. (Unchecking a day, or
+    // catching up on a past day, is always allowed.)
+    if (done) {
+      const hwSnap = await db.collection('homework').doc(homeworkId).get();
+      const plan = hwSnap.exists ? (hwSnap.data().taskPlan || []) : [];
+      const task = plan[taskIndex];
+      if (task && task.date && task.date > this.todayStr()) {
+        throw new Error(`This day unlocks on ${task.dateLabel} — you can't check it off early.`);
+      }
+    }
+
     const id = this.homeworkProgressId(homeworkId, user.uid);
     const ref = db.collection('homeworkProgress').doc(id);
     const snap = await ref.get();
@@ -627,6 +646,14 @@ const AppData = {
       answeredBy: user.uid,
       answeredAt: firebase.firestore.FieldValue.serverTimestamp()
     });
+  },
+
+  /** Removes an anonymous question from the inbox entirely (e.g. spam,
+   *  a duplicate, or something answered privately in class already).
+   *  Any signed-in teacher may do this — same broad "moderation"
+   *  permission the milestone feed's delete already uses. */
+  async deleteQuestion(questionId) {
+    return db.collection('questions').doc(questionId).delete();
   },
 
   /* ---------------- Milestones & Points ----------------
