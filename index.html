@@ -259,13 +259,34 @@
             </div>
           </div>
 
-          <!-- Grade (students) / Subject Specialization (teachers) — register mode only -->
+          <!-- Grade — students, register mode only -->
           <div class="input-group hidden" id="extraFieldGroup">
             <label for="extraField" id="extraFieldLabel">Class / Grade</label>
             <div class="input-wrapper">
               <i class="fa-solid fa-graduation-cap input-icon"></i>
               <input type="text" id="extraField" placeholder="e.g. Grade 10" />
             </div>
+          </div>
+
+          <!-- Subject specialization — teachers, register mode only.
+               A fixed dropdown (not free text) so the value exactly
+               matches the subject options used everywhere else in the
+               app (quizzes, results, homework, Q&A) — this is what
+               lets anonymous questions and result entry be routed to
+               the *respective subject teacher* only. -->
+          <div class="input-group hidden" id="teacherSubjectGroup">
+            <label for="teacherSubject">Subject You Teach</label>
+            <div class="input-wrapper">
+              <i class="fa-solid fa-book input-icon"></i>
+              <select id="teacherSubject">
+                <option value="Science">Science</option>
+                <option value="Maths">Maths</option>
+                <option value="Opt Maths">Opt Maths</option>
+                <option value="Computer">Computer</option>
+                <option value="General">General</option>
+              </select>
+            </div>
+            <p style="font-size:11px; color:var(--text-muted); margin-top:6px;">You'll only see anonymous questions and enter results for this subject. You can change it later from your dashboard.</p>
           </div>
 
           <!-- Email -->
