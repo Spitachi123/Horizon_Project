@@ -18,7 +18,7 @@
    ============================================================ */
 
 const LLMEngine = (() => {
-  const WORKER_URL = 'https://REPLACE-ME.workers.dev'; // <-- set this after deploying the worker
+  const WORKER_URL = 'https://divedu-ai-proxy.pandusujan123.workers.dev'; // Cloudflare Worker proxy
   const TIMEOUT_MS = 20000;
 
   function isConfigured() {
