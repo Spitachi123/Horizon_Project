@@ -22,6 +22,14 @@
      wrangler login
      wrangler secret put GEMINI_API_KEY   (paste your key)
      wrangler deploy
+
+   ---- DEBUG MODE (temporary) ----
+   Your worker was returning a generic "temporarily unavailable"
+   502 with no way to see the real cause. This version puts
+   Google's actual error text into the JSON response (in a
+   `debug` field) so you can see exactly what's wrong. Once
+   things are working, search for "REMOVE DEBUG" below and
+   delete that block to stop exposing error details.
    ============================================================ */
 
 const GEMINI_MODEL = 'gemini-2.5-flash';
@@ -81,9 +89,15 @@ export default {
         const errText = await geminiResp.text();
         console.error('Gemini API error:', geminiResp.status, errText);
         const status = geminiResp.status === 429 ? 429 : 502;
-        return json({ error: status === 429
-          ? 'The free AI quota is temporarily exhausted — please try again in a minute.'
-          : 'The AI service is temporarily unavailable.' }, status);
+
+        // ---- REMOVE DEBUG: delete the `debug` line below once fixed ----
+        return json({
+          error: status === 429
+            ? 'The free AI quota is temporarily exhausted — please try again in a minute.'
+            : 'The AI service is temporarily unavailable.',
+          debug: `Gemini responded ${geminiResp.status}: ${errText.slice(0, 500)}`
+        }, status);
+        // ---- end REMOVE DEBUG ----
       }
 
       const data = await geminiResp.json();
@@ -97,13 +111,13 @@ export default {
         parsed = JSON.parse(cleaned);
       } catch (e) {
         console.error('Could not parse Gemini output as JSON:', raw);
-        return json({ error: 'The AI returned something unexpected — please try again.' }, 502);
+        return json({ error: 'The AI returned something unexpected — please try again.', debug: raw.slice(0, 500) }, 502);
       }
 
       return json({ ok: true, task, result: parsed });
     } catch (err) {
       console.error('Worker error:', err);
-      return json({ error: 'Something went wrong contacting the AI service.' }, 500);
+      return json({ error: 'Something went wrong contacting the AI service.', debug: String(err && err.message || err) }, 500);
     }
   }
 };

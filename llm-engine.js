@@ -44,7 +44,11 @@ const LLMEngine = (() => {
       } catch (parseErr) {
         throw new Error('AI service returned an unexpected response (' + resp.status + ')');
       }
-      if (!resp.ok || data.error) throw new Error(data.error || ('AI service error (' + resp.status + ')'));
+      if (!resp.ok || data.error) {
+        const msg = (data.error || ('AI service error (' + resp.status + ')')) +
+          (data.debug ? ' | DEBUG: ' + data.debug : '');
+        throw new Error(msg);
+      }
       return data.result;
     } catch (err) {
       clearTimeout(timer);
