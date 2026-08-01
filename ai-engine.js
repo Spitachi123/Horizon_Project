@@ -292,8 +292,38 @@ const AIEngine = (() => {
     return extractPdfText(blob, onProgress);
   }
 
+  /** Builds a structural mind map (no LLM) by clustering the passage's
+   *  top-ranked sentences under its top key terms, so each branch is a
+   *  distinct concept and each sub-point is a real sentence from the
+   *  text that mentions it. Used as the offline fallback when the
+   *  Gemini worker is unreachable. */
+  function buildMindmap(rawText) {
+    const { sentences, ranked, terms, headings } = analyze(rawText);
+    if (sentences.length === 0) return { title: 'No content found', children: [] };
+
+    const title = headings[0] || (terms[0] ? terms[0][0].toUpperCase() + terms[0].slice(1) : 'Main topic');
+    const sortedByScore = [...ranked].sort((a, b) => b.score - a.score);
+    const branchTerms = terms.slice(0, 6);
+    const used = new Set();
+
+    const children = branchTerms.map(term => {
+      const matches = sortedByScore.filter(s => !used.has(s.idx) && s.words.includes(term)).slice(0, 3);
+      matches.forEach(m => used.add(m.idx));
+      const label = term[0].toUpperCase() + term.slice(1);
+      if (matches.length === 0) return { label };
+      return {
+        label,
+        children: matches.map(m => ({
+          label: m.text.length > 70 ? m.text.slice(0, 67) + '…' : m.text
+        }))
+      };
+    }).filter(b => b.label && b.label.toLowerCase() !== title.toLowerCase());
+
+    return { title, children };
+  }
+
   return {
     tokenize, significantWords, splitSentences, analyze, summarize,
-    draftQuestions, draftMilestones, extractPdfText, extractPdfTextFromUrl
+    draftQuestions, draftMilestones, buildMindmap, extractPdfText, extractPdfTextFromUrl
   };
 })();
