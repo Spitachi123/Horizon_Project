@@ -21,6 +21,31 @@
   .nep-toggle .knob { position:absolute; top:2px; left:2px; width:13px; height:13px; border-radius:50%; background:#fff; transition: transform .2s; box-shadow:0 1px 3px rgba(0,0,0,.3); }
   .nep-toggle.active .knob { transform: translateX(13px); }
 
+  /* Voice replies toggle — same look as the Nepali toggle above */
+  .voice-toggle { display:flex; align-items:center; gap:8px; background:var(--surface-white); border:1.5px solid var(--panel-border); border-radius:20px; padding:6px 12px; font-size:12px; font-weight:700; color:var(--text-muted); cursor:pointer; user-select:none; }
+  .voice-toggle.active { color:var(--current-accent); border-color:var(--current-accent); background:var(--student-bg); }
+  .voice-toggle .switch { width:30px; height:17px; border-radius:20px; background:var(--panel-border); position:relative; transition: background .2s; flex-shrink:0; }
+  .voice-toggle.active .switch { background: var(--current-accent); }
+  .voice-toggle .knob { position:absolute; top:2px; left:2px; width:13px; height:13px; border-radius:50%; background:#fff; transition: transform .2s; box-shadow:0 1px 3px rgba(0,0,0,.3); }
+  .voice-toggle.active .knob { transform: translateX(13px); }
+
+  /* Mic button — pulses red while actively listening */
+  .mic-btn.listening { border-color: var(--danger, #ef4444); color: var(--danger, #ef4444); animation: micPulse 1.4s ease-in-out infinite; }
+  @keyframes micPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.35); } 50% { box-shadow: 0 0 0 8px rgba(239,68,68,0); } }
+  .mic-unsupported { display: none; }
+
+  /* Basic markdown rendering inside assistant bubbles */
+  .msg-bubble h1, .msg-bubble h2, .msg-bubble h3 { margin: 6px 0 6px; font-weight: 800; line-height:1.3; }
+  .msg-bubble h1 { font-size: 17px; } .msg-bubble h2 { font-size: 15.5px; } .msg-bubble h3 { font-size: 14.5px; }
+  .msg-bubble ol { margin: 4px 0 8px 20px; }
+  .msg-bubble blockquote { margin: 6px 0; padding: 4px 12px; border-left: 3px solid var(--current-accent); color: var(--text-muted); }
+  .msg-bubble code { background: rgba(0,0,0,0.08); padding: 1px 5px; border-radius: 5px; font-size: 12.5px; font-family: 'SFMono-Regular', Consolas, monospace; }
+  .msg-bubble pre { background: rgba(0,0,0,0.06); padding: 10px 12px; border-radius: 10px; overflow-x: auto; margin: 6px 0; }
+  .msg-bubble pre code { background: none; padding: 0; }
+  .msg-bubble a { color: var(--current-accent); }
+  .msg-bubble hr { border: none; border-top: 1px solid var(--panel-border); margin: 8px 0; }
+  .msg-bubble strong { font-weight: 800; }
+
   .chat-panel { flex:1; background: var(--surface-white); border:1px solid var(--panel-border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); display:flex; flex-direction:column; overflow:hidden; min-height: 0; }
   .chat-scroll { flex:1; overflow-y:auto; padding: 22px 24px; display:flex; flex-direction:column; gap:16px; }
 
@@ -84,6 +109,10 @@
       <p>Ask a question, paste your notes, or attach a photo / PDF / Word doc — real AI, not just word-matching.</p>
     </div>
     <div class="chat-head-actions">
+      <button class="voice-toggle" id="voiceToggle" title="Read replies aloud">
+        <span class="switch"><span class="knob"></span></span>
+        <span><i class="fa-solid fa-volume-high"></i> Voice replies</span>
+      </button>
       <button class="nep-toggle" id="nepToggle" title="Reply in Nepali">
         <span class="switch"><span class="knob"></span></span>
         <span>नेपाली Reply</span>
@@ -111,6 +140,7 @@
     <div class="composer">
       <input type="file" id="fileInput" class="hidden" accept="image/png,image/jpeg,image/webp,application/pdf,.docx,.txt" multiple>
       <button class="icon-btn" id="attachBtn" title="Attach image / PDF / DOCX"><i class="fa-solid fa-paperclip"></i></button>
+      <button class="icon-btn mic-btn" id="micBtn" title="Speak your message"><i class="fa-solid fa-microphone"></i></button>
       <textarea id="chatInput" placeholder="Type your message... (Shift+Enter for a new line)" data-i18n-placeholder="typeMessage" rows="1"></textarea>
       <button class="send-btn" id="sendBtn" title="Send"><i class="fa-solid fa-paper-plane"></i></button>
     </div>
@@ -146,19 +176,72 @@ function toast(msg, type) {
 }
 function escapeHtml(str) { const div = document.createElement('div'); div.textContent = str; return div.innerHTML; }
 
-/** Very small markdown-lite renderer for assistant replies: bold,
- *  bullet lists, and paragraph breaks. Everything is escaped first,
- *  so this never introduces HTML injection risk. */
+/** Small markdown-lite renderer for assistant replies: headers,
+ *  bold/italic, bulleted + numbered lists, blockquotes, inline code
+ *  and code blocks, links, and paragraph breaks. Everything is
+ *  escaped first, so this never introduces HTML injection risk —
+ *  formatting is applied by pattern-matching the *escaped* text, not
+ *  by trusting raw HTML from the model.
+ *
+ *  Also normalizes a few LaTeX-ish tokens (\rightarrow, \times, bare
+ *  $...$ math delimiters) into plain Unicode symbols, since the model
+ *  is asked not to use LaTeX but occasionally still slips into it —
+ *  this is what was showing up as literal "$\rightarrow$" text. */
+function cleanupMathTokens(text) {
+  return text
+    .replace(/\\rightarrow|\\to/g, '→')
+    .replace(/\\leftarrow/g, '←')
+    .replace(/\\times/g, '×')
+    .replace(/\\div/g, '÷')
+    .replace(/\\pm/g, '±')
+    .replace(/\\approx/g, '≈')
+    .replace(/\\neq/g, '≠')
+    .replace(/\\leq/g, '≤')
+    .replace(/\\geq/g, '≥')
+    .replace(/\$\$?(.+?)\$\$?/g, '$1'); // strip leftover $...$ / $$...$$ delimiters, keep the content
+}
+
 function renderAssistantText(raw) {
-  const escaped = escapeHtml(raw);
-  const withBold = escaped.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-  const blocks = withBold.split(/\n{2,}/);
+  const cleaned = cleanupMathTokens(raw);
+  const escaped = escapeHtml(cleaned);
+
+  let html = escaped
+    // Fenced code blocks first (```...```), so nothing inside them gets
+    // further markdown-processed.
+    .replace(/```[a-z]*\n([\s\S]*?)```/g, (m, code) => `\u0000PRE${btoa(unescape(encodeURIComponent(code.trim())))}PRE\u0000`)
+    // Headers
+    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+    .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+    // Bold, then italic (bold first so **_x_** doesn't get mangled)
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/(?<!\*)\*(?!\*)(.+?)\*(?!\*)/g, '<em>$1</em>')
+    // Inline code
+    .replace(/`([^`]+?)`/g, '<code>$1</code>')
+    // Links [text](url)
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+    // Blockquotes
+    .replace(/^&gt; ?(.+)$/gm, '<blockquote>$1</blockquote>');
+
+  // Restore fenced code blocks as real <pre><code>.
+  html = html.replace(/\u0000PRE([A-Za-z0-9+/=]+)PRE\u0000/g, (m, b64) =>
+    `<pre><code>${decodeURIComponent(escape(atob(b64)))}</code></pre>`);
+
+  const blocks = html.split(/\n{2,}/);
   return blocks.map(block => {
     const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
-    const isList = lines.length > 1 && lines.every(l => /^[-*•]\s+/.test(l));
-    if (isList) {
-      return '<ul>' + lines.map(l => '<li>' + l.replace(/^[-*•]\s+/, '') + '</li>').join('') + '</ul>';
-    }
+    if (lines.length === 0) return '';
+    if (/^<h[123]>|^<pre>|^<blockquote>/.test(lines[0]) && lines.length === 1) return lines[0];
+    if (lines.length === 1 && /^(-{3,}|\*{3,}|_{3,})$/.test(lines[0])) return '<hr>';
+
+    const isBulletList = lines.length >= 1 && lines.every(l => /^[-*•]\s+/.test(l));
+    if (isBulletList) return '<ul>' + lines.map(l => '<li>' + l.replace(/^[-*•]\s+/, '') + '</li>').join('') + '</ul>';
+
+    const isNumberedList = lines.length >= 1 && lines.every(l => /^\d+[.)]\s+/.test(l));
+    if (isNumberedList) return '<ol>' + lines.map(l => '<li>' + l.replace(/^\d+[.)]\s+/, '') + '</li>').join('') + '</ol>';
+
+    if (lines.every(l => /^<h[123]>|^<blockquote>/.test(l))) return lines.join('');
+
     return '<p>' + lines.join('<br>') + '</p>';
   }).join('');
 }
@@ -176,6 +259,94 @@ nepToggle.addEventListener('click', () => {
   nepaliMode = !nepaliMode;
   nepToggle.classList.toggle('active', nepaliMode);
 });
+
+/* ---------------- Voice replies (text-to-speech) ---------------- */
+let voiceRepliesOn = false;
+const voiceToggle = document.getElementById('voiceToggle');
+try { voiceRepliesOn = localStorage.getItem('divedu_chat_voice_replies') === '1'; } catch (e) { /* ignore */ }
+voiceToggle.classList.toggle('active', voiceRepliesOn);
+voiceToggle.addEventListener('click', () => {
+  voiceRepliesOn = !voiceRepliesOn;
+  voiceToggle.classList.toggle('active', voiceRepliesOn);
+  try { localStorage.setItem('divedu_chat_voice_replies', voiceRepliesOn ? '1' : '0'); } catch (e) { /* ignore */ }
+  if (!voiceRepliesOn && 'speechSynthesis' in window) speechSynthesis.cancel();
+});
+
+/** Speaks the assistant's reply aloud when "Voice replies" is on.
+ *  Strips markdown symbols first so it doesn't read out asterisks,
+ *  hashes, etc. Picks a Nepali voice when replying in Nepali mode if
+ *  the browser/OS has one installed; otherwise falls back to the
+ *  default voice (still fine for mixed-script text in most engines). */
+function speakReply(rawText) {
+  if (!voiceRepliesOn || !('speechSynthesis' in window)) return;
+  const plain = rawText
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/[#*_`>]/g, '')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .trim();
+  if (!plain) return;
+  speechSynthesis.cancel();
+  const utter = new SpeechSynthesisUtterance(plain);
+  utter.lang = nepaliMode ? 'ne-NP' : 'en-US';
+  const voices = speechSynthesis.getVoices();
+  const match = voices.find(v => v.lang === utter.lang) || voices.find(v => v.lang.startsWith(nepaliMode ? 'ne' : 'en'));
+  if (match) utter.voice = match;
+  utter.rate = 1;
+  speechSynthesis.speak(utter);
+}
+
+/* ---------------- Voice input (speech-to-text) ---------------- */
+const micBtn = document.getElementById('micBtn');
+const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recognizer = null;
+let isListening = false;
+
+if (!SpeechRecognitionCtor) {
+  micBtn.classList.add('mic-unsupported');
+  micBtn.title = 'Voice input is not supported in this browser';
+} else {
+  recognizer = new SpeechRecognitionCtor();
+  recognizer.continuous = false;
+  recognizer.interimResults = true;
+
+  recognizer.addEventListener('result', (e) => {
+    let transcript = '';
+    for (let i = 0; i < e.results.length; i++) transcript += e.results[i][0].transcript;
+    chatInput.value = transcript;
+    autoGrow();
+  });
+  recognizer.addEventListener('end', () => {
+    isListening = false;
+    micBtn.classList.remove('listening');
+    // Auto-send once speech recognition finishes, same as pressing Enter
+    // — if the field is empty (e.g. recognition caught nothing usable)
+    // this just does nothing, per sendMessage()'s own empty-input guard.
+    if (chatInput.value.trim()) sendMessage();
+  });
+  recognizer.addEventListener('error', (e) => {
+    isListening = false;
+    micBtn.classList.remove('listening');
+    if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+      toast('Microphone access was blocked — allow it in your browser settings to use voice input.', 'error');
+    } else if (e.error !== 'no-speech' && e.error !== 'aborted') {
+      toast('Voice input error — please try again.', 'error');
+    }
+  });
+
+  micBtn.addEventListener('click', () => {
+    if (isListening) { recognizer.stop(); return; }
+    try {
+      recognizer.lang = nepaliMode ? 'ne-NP' : 'en-US';
+      recognizer.start();
+      isListening = true;
+      micBtn.classList.add('listening');
+    } catch (err) {
+      // start() throws if called again before the previous session
+      // fully tore down — safe to just ignore, the button state
+      // already reflects "not listening" in that case.
+    }
+  });
+}
 
 attachBtn.addEventListener('click', () => fileInput.click());
 fileInput.addEventListener('change', async (e) => {
@@ -288,6 +459,7 @@ async function sendMessage() {
     const reply = await ChatEngine.send({ message: text, history, attachments, nepali: nepaliMode });
     removeThinking();
     appendMessage('assistant', renderAssistantText(reply));
+    speakReply(reply);
     history.push({ role: 'user', text: text || '(sent an attachment)' });
     history.push({ role: 'assistant', text: reply });
   } catch (err) {
@@ -301,6 +473,7 @@ async function sendMessage() {
 sendBtn.addEventListener('click', sendMessage);
 
 function startNewChat() {
+  if ('speechSynthesis' in window) speechSynthesis.cancel();
   history = [];
   pendingAttachments = [];
   attachPreviewRow.innerHTML = '';

@@ -21,7 +21,7 @@ const ChatEngine = (() => {
   // Same worker as llm-engine.js — keep both URLs in sync if you
   // redeploy the worker somewhere else.
   const WORKER_URL = 'https://divedu-ai-proxy.pandusujan123.workers.dev';
-  const TIMEOUT_MS = 30000;
+  const TIMEOUT_MS = 45000;
   const MAX_IMAGE_DIM = 1600; // downscale huge photos before sending, worker has a payload cap
 
   function isConfigured() {
@@ -119,8 +119,7 @@ const ChatEngine = (() => {
     return { kind: att.kind, mimeType: att.mimeType, data: att.data, text: att.text, name: att.name };
   }
 
-  async function callWorker(body) {
-    if (!isConfigured()) throw new Error('AI worker not configured yet — see cloudflare-worker.js setup instructions.');
+  async function callWorkerOnce(body) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
     try {
@@ -138,13 +137,42 @@ const ChatEngine = (() => {
         throw new Error('AI service returned an unexpected response (' + resp.status + ')');
       }
       if (!resp.ok || data.error) {
-        throw new Error(data.error || ('AI service error (' + resp.status + ')'));
+        const err = new Error(data.error || ('AI service error (' + resp.status + ')'));
+        err.isWorkerError = true; // the worker responded — don't retry, it has a real answer (e.g. rate limit, safety block)
+        throw err;
       }
       return data.result;
     } catch (err) {
       clearTimeout(timer);
-      if (err.name === 'AbortError') throw new Error('The AI took too long to respond — please try again.');
+      if (err.name === 'AbortError') {
+        const e = new Error('The AI took too long to respond.');
+        e.isTimeout = true;
+        throw e;
+      }
       throw err;
+    }
+  }
+
+  /** Retries once on a timeout or network hiccup (fetch throwing
+   *  TypeError, e.g. a dropped connection) — those are transient by
+   *  nature. Does NOT retry when the worker itself responded with an
+   *  error (rate limit, safety block, bad request), since retrying an
+   *  answer that already came back wastes another 45s for the same
+   *  result. */
+  async function callWorker(body) {
+    if (!isConfigured()) throw new Error('AI worker not configured yet — see cloudflare-worker.js setup instructions.');
+    try {
+      return await callWorkerOnce(body);
+    } catch (err) {
+      if (err.isWorkerError) throw err;
+      const transient = err.isTimeout || err instanceof TypeError;
+      if (!transient) throw err;
+      try {
+        return await callWorkerOnce(body);
+      } catch (err2) {
+        if (err2.isTimeout) throw new Error('The AI is taking unusually long to respond — please try again in a moment.');
+        throw err2;
+      }
     }
   }
 

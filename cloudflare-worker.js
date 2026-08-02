@@ -137,7 +137,16 @@ const CHAT_SYSTEM_PROMPT =
   'and generally being a supportive study companion. Keep answers clear and ' +
   'well-organized (short paragraphs or bullet points), and keep a warm, ' +
   'encouraging tone suited to students. If the user writes in Nepali, reply in ' +
-  'Nepali (Devanagari script); otherwise reply in whatever language they wrote in.';
+  'Nepali (Devanagari script); otherwise reply in whatever language they wrote in.\n\n' +
+  'Formatting rules — the chat window renders only a small subset of markdown ' +
+  '(headers, **bold**, *italic*, bullet/numbered lists, `code`, blockquotes) as ' +
+  'real HTML, nothing else:\n' +
+  '- NEVER use LaTeX or math-mode syntax (no $...$, $$...$$, \\(...\\), \\frac, ' +
+  '\\rightarrow, \\times, etc.). Use plain Unicode symbols instead (→ × ÷ ± ≈ ≠ ≤ ≥ ² ³ √) ' +
+  'or just spell it out in words.\n' +
+  '- Prefer plain prose and short paragraphs; use headers (#, ##, ###) sparingly, ' +
+  'only for genuinely long, multi-section answers.\n' +
+  '- Use fenced code blocks (```) only for actual code, never for math or plain text.';
 
 const MAX_CHAT_ATTACHMENTS = 4;
 const MAX_CHAT_HISTORY = 20;
