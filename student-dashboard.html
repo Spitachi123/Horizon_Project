@@ -114,6 +114,8 @@
     100% { transform: translateY(100vh) rotate(360deg); opacity:0; }
   }
 </style>
+<link rel="stylesheet" href="theme-modes.css">
+<link rel="stylesheet" href="nepali-theme.css">
 </head>
 <body class="divedu">
 <div class="bg-glow blob-1"></div>
@@ -141,16 +143,17 @@
 
 <div class="sidenav-overlay" id="sidenavOverlay" onclick="closeSidenav()"></div>
 <nav class="d-sidenav" id="sidenav">
-  <button class="d-tab active" onclick="switchTab('overview', this)"><i class="fa-solid fa-table-columns"></i> Overview</button>
-  <button class="d-tab" onclick="switchTab('milestones', this)"><i class="fa-solid fa-flag-checkered"></i> Milestones</button>
-  <button class="d-tab" onclick="switchTab('aidesk', this)"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Study Desk</button>
-  <button class="d-tab" onclick="switchTab('mindmap', this)"><i class="fa-solid fa-diagram-project"></i> AI Mind Map</button>
-  <button class="d-tab" onclick="switchTab('quiz', this)"><i class="fa-solid fa-list-check"></i> Quizzes</button>
-  <button class="d-tab" onclick="switchTab('results', this)"><i class="fa-solid fa-chart-simple"></i> My Results</button>
-  <button class="d-tab" onclick="switchTab('attendance', this)"><i class="fa-solid fa-user-check"></i> Attendance</button>
-  <button class="d-tab" onclick="switchTab('materials', this)"><i class="fa-solid fa-book"></i> Materials</button>
-  <button class="d-tab" onclick="switchTab('qna', this)"><i class="fa-solid fa-user-secret"></i> Ask a Question</button>
-  <button class="d-tab" onclick="switchTab('idcard', this)"><i class="fa-solid fa-id-card"></i> My ID Card</button>
+  <button class="d-tab active" onclick="switchTab('overview', this)"><i class="fa-solid fa-table-columns"></i> <span data-i18n="navOverview">Overview</span></button>
+  <button class="d-tab" onclick="switchTab('milestones', this)"><i class="fa-solid fa-flag-checkered"></i> <span data-i18n="navMilestones">Milestones</span></button>
+  <button class="d-tab" onclick="switchTab('aidesk', this)"><i class="fa-solid fa-wand-magic-sparkles"></i> <span data-i18n="navAiStudyDesk">AI Study Desk</span></button>
+  <button class="d-tab" onclick="switchTab('aichat', this)"><i class="fa-solid fa-comments"></i> <span data-i18n="navAiChatbot">AI Chatbot</span></button>
+  <button class="d-tab" onclick="switchTab('mindmap', this)"><i class="fa-solid fa-diagram-project"></i> <span data-i18n="navAiMindmap">AI Mind Map</span></button>
+  <button class="d-tab" onclick="switchTab('quiz', this)"><i class="fa-solid fa-list-check"></i> <span data-i18n="navQuizStudent">Quizzes</span></button>
+  <button class="d-tab" onclick="switchTab('results', this)"><i class="fa-solid fa-chart-simple"></i> <span data-i18n="navResultsStudent">My Results</span></button>
+  <button class="d-tab" onclick="switchTab('attendance', this)"><i class="fa-solid fa-user-check"></i> <span data-i18n="navAttendance">Attendance</span></button>
+  <button class="d-tab" onclick="switchTab('materials', this)"><i class="fa-solid fa-book"></i> <span data-i18n="navMaterials">Materials</span></button>
+  <button class="d-tab" onclick="switchTab('qna', this)"><i class="fa-solid fa-user-secret"></i> <span data-i18n="navAskQuestion">Ask a Question</span></button>
+  <button class="d-tab" onclick="switchTab('idcard', this)"><i class="fa-solid fa-id-card"></i> <span data-i18n="navIdCardStudent">My ID Card</span></button>
 </nav>
 
 <div class="d-container">
@@ -228,6 +231,11 @@
   <!-- AI STUDY DESK (h.html embedded) -->
   <section id="tab-aidesk" class="d-card hidden" style="padding:0; overflow:hidden;">
     <iframe class="embed-frame" src="h.html" title="AI Study Desk"></iframe>
+  </section>
+
+  <!-- AI CHATBOT (ai-chat.html embedded) -->
+  <section id="tab-aichat" class="d-card hidden" style="padding:0; overflow:hidden;">
+    <iframe class="embed-frame" src="ai-chat.html" title="AI Chatbot" style="min-height:88vh;"></iframe>
   </section>
 
   <!-- AI MIND MAP (mindmap.html embedded) -->
@@ -941,5 +949,7 @@ async function loadIdCardTab() {
     </div>`).join('');
 }
 </script>
+<script src="lang-engine.js"></script>
+<script src="theme-engine.js"></script>
 </body>
 </html>

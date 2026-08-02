@@ -1,0 +1,76 @@
+/* ============================================================
+   NEPALI-THEME.CSS — the "Nepali" cultural theme mode.
+   Adds a 4th mode alongside Light/Dark/Fun: crimson-and-blue
+   (Nepal flag inspired) palette, pagoda-style layered borders,
+   and illustrated characters in topi + daura-suruwal doing
+   namaste, drawn as inline SVG so no external image hosting is
+   needed. Devanagari (Nepali) type only — no separate script.
+   Load AFTER theme-modes.css.
+   ============================================================ */
+
+:root[data-theme-mode="nepali"] {
+  --bg-main: #fdf6ec;
+  --surface-white: #fffaf3;
+  --primary-indigo: #b3262e;
+  --primary-indigo-hover: #931f26;
+  --sky-accent: #003893;
+  --panel-border: rgba(179, 38, 46, 0.22);
+  --text-main: #2b1a12;
+  --text-muted: #8a6a4f;
+
+  --student-accent: #b3262e;
+  --student-glow: rgba(179, 38, 46, 0.25);
+  --student-bg: #fbe6df;
+
+  --teacher-accent: #003893;
+  --teacher-glow: rgba(0, 56, 147, 0.22);
+  --teacher-bg: #e4ecf9;
+
+  --current-accent: var(--student-accent);
+  --current-glow: var(--student-glow);
+
+  --radius-sm: 10px;
+  --radius: 14px;
+  --radius-lg: 18px;
+}
+
+:root[data-theme-mode="nepali"] body {
+  background-color: var(--bg-main);
+  background-image:
+    linear-gradient(rgba(179,38,46,0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,56,147,0.05) 1px, transparent 1px);
+  background-size: 26px 26px;
+}
+
+/* Pagoda-tier border flourish on top-level cards/panels */
+:root[data-theme-mode="nepali"] .d-card,
+:root[data-theme-mode="nepali"] .desk-panel,
+:root[data-theme-mode="nepali"] .card {
+  border-width: 1.5px !important;
+  border-image: linear-gradient(90deg, var(--primary-indigo), var(--sky-accent), var(--primary-indigo)) 1;
+  position: relative;
+}
+:root[data-theme-mode="nepali"] .d-card::before,
+:root[data-theme-mode="nepali"] .desk-panel::before {
+  content: '';
+  position: absolute;
+  top: -1px; left: 18px; right: 18px;
+  height: 4px;
+  background: repeating-linear-gradient(90deg, var(--primary-indigo) 0 10px, var(--sky-accent) 10px 20px);
+  border-radius: 0 0 4px 4px;
+  opacity: 0.85;
+}
+
+:root[data-theme-mode="nepali"] .d-navbar,
+:root[data-theme-mode="nepali"] .navbar {
+  background: linear-gradient(90deg, rgba(179,38,46,0.06), rgba(0,56,147,0.06));
+}
+
+/* ---------------- Namaste character stickers ----------------
+   The floating boy/girl/marigold/diya decorations and the top
+   greeting banner now ship their own complete, self-contained CSS
+   from theme-engine.js (see injectRuntimeStyles() there) so their
+   positioning, z-index, and responsive sizing can never silently
+   conflict with this stylesheet or go missing if this file changes.
+   Nothing to do here anymore — kept this note so nobody re-adds a
+   second, competing copy of those rules in the future. */

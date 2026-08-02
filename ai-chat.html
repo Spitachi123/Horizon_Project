@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ज्ञानSetu | AI Chatbot</title>
+<link rel="stylesheet" href="theme.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+  body.divedu { background: var(--bg-main); }
+  .chat-wrap { max-width: 900px; margin: 0 auto; padding: 24px 20px 20px; display:flex; flex-direction:column; height: 100vh; box-sizing:border-box; }
+  .chat-head { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
+  .chat-head h1 { font-size: 20px; font-weight: 800; display:flex; align-items:center; gap:10px; }
+  .chat-head p { font-size:12.5px; color:var(--text-muted); margin-top:2px; }
+  .chat-head-actions { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+
+  .nep-toggle { display:flex; align-items:center; gap:8px; background:var(--surface-white); border:1.5px solid var(--panel-border); border-radius:20px; padding:6px 12px; font-size:12px; font-weight:700; color:var(--text-muted); cursor:pointer; user-select:none; }
+  .nep-toggle.active { color:var(--current-accent); border-color:var(--current-accent); background:var(--student-bg); }
+  .nep-toggle .switch { width:30px; height:17px; border-radius:20px; background:var(--panel-border); position:relative; transition: background .2s; flex-shrink:0; }
+  .nep-toggle.active .switch { background: var(--current-accent); }
+  .nep-toggle .knob { position:absolute; top:2px; left:2px; width:13px; height:13px; border-radius:50%; background:#fff; transition: transform .2s; box-shadow:0 1px 3px rgba(0,0,0,.3); }
+  .nep-toggle.active .knob { transform: translateX(13px); }
+
+  .chat-panel { flex:1; background: var(--surface-white); border:1px solid var(--panel-border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); display:flex; flex-direction:column; overflow:hidden; min-height: 0; }
+  .chat-scroll { flex:1; overflow-y:auto; padding: 22px 24px; display:flex; flex-direction:column; gap:16px; }
+
+  .msg-row { display:flex; gap:10px; max-width: 88%; }
+  .msg-row.user { align-self:flex-end; flex-direction:row-reverse; }
+  .msg-avatar { width:30px; height:30px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:13px; color:#fff; }
+  .msg-row.user .msg-avatar { background: var(--current-accent); }
+  .msg-row.bot .msg-avatar { background: linear-gradient(135deg, var(--current-accent), var(--sky-accent)); }
+  .msg-bubble { padding: 12px 16px; border-radius: 16px; font-size:14px; line-height:1.65; }
+  .msg-row.user .msg-bubble { background: var(--current-accent); color:#fff; border-bottom-right-radius:4px; }
+  .msg-row.bot .msg-bubble { background: var(--bg-main); color:var(--text-main); border-bottom-left-radius:4px; }
+  .msg-bubble p { margin-bottom:8px; }
+  .msg-bubble p:last-child { margin-bottom:0; }
+  .msg-bubble ul { margin: 4px 0 8px 18px; }
+  .msg-attach-thumb { max-width: 220px; border-radius:10px; margin-top:8px; display:block; }
+  .msg-attach-chip { display:inline-flex; align-items:center; gap:6px; background: rgba(255,255,255,0.25); padding:5px 10px; border-radius:20px; font-size:11.5px; font-weight:700; margin-top:8px; }
+  .msg-row.bot .msg-attach-chip { background: var(--surface-white); border:1px solid var(--panel-border); color:var(--text-muted); }
+
+  .thinking-row .msg-bubble { display:flex; align-items:center; gap:8px; color:var(--text-muted); font-weight:600; font-size:13px; }
+  .dot-flash { display:flex; gap:3px; }
+  .dot-flash span { width:6px; height:6px; border-radius:50%; background: var(--current-accent); animation: dotFlash 1.2s infinite ease-in-out; }
+  .dot-flash span:nth-child(2) { animation-delay: .2s; }
+  .dot-flash span:nth-child(3) { animation-delay: .4s; }
+  @keyframes dotFlash { 0%, 80%, 100% { opacity:.25; } 40% { opacity:1; } }
+
+  .empty-chat { margin:auto; text-align:center; color:var(--text-muted); padding: 40px 20px; }
+  .empty-chat i { font-size: 34px; color: var(--current-accent); opacity:.6; margin-bottom:14px; }
+  .empty-chat h3 { font-size:16px; color:var(--text-main); margin-bottom:6px; }
+  .suggestion-chips { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:14px; }
+  .sugg-chip { background: var(--bg-main); border:1px solid var(--panel-border); color:var(--text-main); padding:8px 14px; border-radius:20px; font-size:12.5px; font-weight:700; cursor:pointer; }
+  .sugg-chip:hover { border-color: var(--current-accent); color: var(--current-accent); }
+
+  .attach-preview-row { display:flex; gap:8px; flex-wrap:wrap; padding: 0 20px; }
+  .attach-chip { display:flex; align-items:center; gap:8px; background: var(--bg-main); border:1.5px solid var(--panel-border); border-radius:12px; padding:6px 10px; font-size:12px; font-weight:700; color:var(--text-main); }
+  .attach-chip img { width:26px; height:26px; border-radius:6px; object-fit:cover; }
+  .attach-chip i.fa-file-pdf { color:#ef4444; }
+  .attach-chip i.fa-file-word { color:#2563eb; }
+  .attach-chip i.fa-file-lines { color:#64748b; }
+  .attach-chip .rm { cursor:pointer; color:var(--text-muted); font-size:11px; }
+  .attach-chip .rm:hover { color: var(--danger); }
+
+  .composer { display:flex; align-items:flex-end; gap:10px; padding: 14px 20px 18px; border-top:1px solid var(--panel-border); }
+  .composer textarea { flex:1; resize:none; max-height: 140px; min-height: 44px; padding: 11px 14px; border:1.5px solid var(--panel-border); border-radius: 16px; background: var(--bg-main); font-size:14px; font-family:inherit; color:var(--text-main); line-height:1.5; }
+  .composer textarea:focus { outline:none; border-color:var(--current-accent); background:var(--surface-white); }
+  .icon-btn { width:44px; height:44px; border-radius:50%; border:1.5px solid var(--panel-border); background:var(--surface-white); color:var(--text-muted); font-size:15px; cursor:pointer; flex-shrink:0; display:flex; align-items:center; justify-content:center; transition:all .15s; }
+  .icon-btn:hover { border-color:var(--current-accent); color:var(--current-accent); }
+  .send-btn { width:44px; height:44px; border-radius:50%; border:none; background: var(--current-accent); color:#fff; font-size:16px; cursor:pointer; flex-shrink:0; display:flex; align-items:center; justify-content:center; box-shadow:0 6px 16px var(--current-glow); }
+  .send-btn:disabled { opacity:.5; cursor:not-allowed; }
+
+  .trust-note { font-size:11px; color:var(--text-muted); text-align:center; padding: 0 20px 4px; }
+</style>
+<link rel="stylesheet" href="theme-modes.css">
+<link rel="stylesheet" href="nepali-theme.css">
+</head>
+<body class="divedu">
+
+<div class="chat-wrap">
+  <div class="chat-head">
+    <div>
+      <h1><i class="fa-solid fa-robot" style="color:var(--current-accent);"></i> AI Chatbot</h1>
+      <p>Ask a question, paste your notes, or attach a photo / PDF / Word doc — real AI, not just word-matching.</p>
+    </div>
+    <div class="chat-head-actions">
+      <button class="nep-toggle" id="nepToggle" title="Reply in Nepali">
+        <span class="switch"><span class="knob"></span></span>
+        <span>नेपाली Reply</span>
+      </button>
+      <button class="btn-secondary" style="padding:8px 16px; font-size:12.5px;" onclick="startNewChat()"><i class="fa-solid fa-rotate-left"></i> <span data-i18n="newChat">New chat</span></button>
+    </div>
+  </div>
+
+  <div class="chat-panel">
+    <div class="chat-scroll" id="chatScroll">
+      <div class="empty-chat" id="emptyChat">
+        <i class="fa-solid fa-wand-magic-sparkles"></i>
+        <h3>Ask me anything about your studies</h3>
+        <p>I can read attached photos, PDFs and Word docs, and reply in English or Nepali.</p>
+        <div class="suggestion-chips">
+          <button class="sugg-chip" onclick="useSuggestion(this)">Explain photosynthesis simply</button>
+          <button class="sugg-chip" onclick="useSuggestion(this)">Help me solve this math problem (attach a photo)</button>
+          <button class="sugg-chip" onclick="useSuggestion(this)">यो हरफको अर्थ के हो?</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="attach-preview-row" id="attachPreviewRow"></div>
+
+    <div class="composer">
+      <input type="file" id="fileInput" class="hidden" accept="image/png,image/jpeg,image/webp,application/pdf,.docx,.txt" multiple>
+      <button class="icon-btn" id="attachBtn" title="Attach image / PDF / DOCX"><i class="fa-solid fa-paperclip"></i></button>
+      <textarea id="chatInput" placeholder="Type your message... (Shift+Enter for a new line)" data-i18n-placeholder="typeMessage" rows="1"></textarea>
+      <button class="send-btn" id="sendBtn" title="Send"><i class="fa-solid fa-paper-plane"></i></button>
+    </div>
+    <div class="trust-note">Attachments are sent only to generate this reply — nothing is stored on a server.</div>
+  </div>
+</div>
+
+<div class="d-toast" id="toast"></div>
+
+<script src="ai-engine.js"></script>
+<script src="llm-engine.js"></script>
+<script src="chat-engine.js"></script>
+<script>
+let history = [];       // [{role:'user'|'assistant', text}]
+let pendingAttachments = []; // prepared attachment objects (image or text kind), for the NEXT message
+let nepaliMode = false;
+let isSending = false;
+
+const chatScroll = document.getElementById('chatScroll');
+const emptyChat = document.getElementById('emptyChat');
+const chatInput = document.getElementById('chatInput');
+const sendBtn = document.getElementById('sendBtn');
+const attachBtn = document.getElementById('attachBtn');
+const fileInput = document.getElementById('fileInput');
+const attachPreviewRow = document.getElementById('attachPreviewRow');
+const nepToggle = document.getElementById('nepToggle');
+
+function toast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'd-toast show' + (type ? ' ' + type : '');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+function escapeHtml(str) { const div = document.createElement('div'); div.textContent = str; return div.innerHTML; }
+
+/** Very small markdown-lite renderer for assistant replies: bold,
+ *  bullet lists, and paragraph breaks. Everything is escaped first,
+ *  so this never introduces HTML injection risk. */
+function renderAssistantText(raw) {
+  const escaped = escapeHtml(raw);
+  const withBold = escaped.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  const blocks = withBold.split(/\n{2,}/);
+  return blocks.map(block => {
+    const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
+    const isList = lines.length > 1 && lines.every(l => /^[-*•]\s+/.test(l));
+    if (isList) {
+      return '<ul>' + lines.map(l => '<li>' + l.replace(/^[-*•]\s+/, '') + '</li>').join('') + '</ul>';
+    }
+    return '<p>' + lines.join('<br>') + '</p>';
+  }).join('');
+}
+
+function autoGrow() {
+  chatInput.style.height = 'auto';
+  chatInput.style.height = Math.min(chatInput.scrollHeight, 140) + 'px';
+}
+chatInput.addEventListener('input', autoGrow);
+chatInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+});
+
+nepToggle.addEventListener('click', () => {
+  nepaliMode = !nepaliMode;
+  nepToggle.classList.toggle('active', nepaliMode);
+});
+
+attachBtn.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', async (e) => {
+  const files = Array.from(e.target.files || []);
+  fileInput.value = '';
+  for (const file of files) {
+    if (pendingAttachments.length >= 4) { toast('You can attach up to 4 files per message.', 'error'); break; }
+    const chipId = 'att' + Date.now() + Math.random().toString(36).slice(2, 6);
+    addAttachPreviewChip(chipId, file, true);
+    try {
+      const prepared = await ChatEngine.prepareAttachment(file, (p, total) => {
+        updateAttachPreviewChip(chipId, `Reading page ${p}/${total}…`);
+      });
+      prepared._chipId = chipId;
+      pendingAttachments.push(prepared);
+      updateAttachPreviewChip(chipId, null, prepared);
+    } catch (err) {
+      toast(err.message || 'Could not read that file.', 'error');
+      removeAttachPreviewChip(chipId);
+    }
+  }
+});
+
+function addAttachPreviewChip(chipId, file, loading) {
+  const chip = document.createElement('div');
+  chip.className = 'attach-chip';
+  chip.id = chipId;
+  const isImg = file.type.startsWith('image/');
+  chip.innerHTML = `${isImg ? `<img src="${URL.createObjectURL(file)}">` : `<i class="fa-solid ${iconForFile(file)}"></i>`}
+    <span class="chip-label">${escapeHtml(file.name.length > 22 ? file.name.slice(0, 19) + '…' : file.name)}${loading ? ' <i class="fa-solid fa-spinner fa-spin"></i>' : ''}</span>
+    <span class="rm" onclick="removeAttachment('${chipId}')"><i class="fa-solid fa-xmark"></i></span>`;
+  attachPreviewRow.appendChild(chip);
+}
+function updateAttachPreviewChip(chipId, loadingLabel) {
+  const chip = document.getElementById(chipId);
+  if (!chip) return;
+  const label = chip.querySelector('.chip-label');
+  if (loadingLabel) { label.innerHTML = escapeHtml(loadingLabel); return; }
+  const text = label.textContent.replace(/\s*$/, '');
+  label.innerHTML = escapeHtml(text.replace(/\.\.\.$|…$/, '').trim());
+}
+function removeAttachPreviewChip(chipId) {
+  const chip = document.getElementById(chipId);
+  if (chip) chip.remove();
+}
+function iconForFile(file) {
+  if (file.type === 'application/pdf' || /\.pdf$/i.test(file.name)) return 'fa-file-pdf';
+  if (/\.docx$/i.test(file.name)) return 'fa-file-word';
+  return 'fa-file-lines';
+}
+window.removeAttachment = function (chipId) {
+  pendingAttachments = pendingAttachments.filter(a => a._chipId !== chipId);
+  removeAttachPreviewChip(chipId);
+};
+
+window.useSuggestion = function (btn) {
+  chatInput.value = btn.textContent;
+  autoGrow();
+  chatInput.focus();
+};
+
+function appendMessage(role, html, extraHtml) {
+  emptyChat.style.display = 'none';
+  const row = document.createElement('div');
+  row.className = 'msg-row ' + (role === 'user' ? 'user' : 'bot');
+  row.innerHTML = `
+    <div class="msg-avatar">${role === 'user' ? '<i class="fa-solid fa-user"></i>' : '<i class="fa-solid fa-robot"></i>'}</div>
+    <div class="msg-bubble">${html}${extraHtml || ''}</div>`;
+  chatScroll.appendChild(row);
+  chatScroll.scrollTop = chatScroll.scrollHeight;
+  return row;
+}
+
+function appendThinking() {
+  const row = document.createElement('div');
+  row.className = 'msg-row bot thinking-row';
+  row.id = 'thinkingRow';
+  row.innerHTML = `<div class="msg-avatar"><i class="fa-solid fa-robot"></i></div>
+    <div class="msg-bubble">Thinking <span class="dot-flash"><span></span><span></span><span></span></span></div>`;
+  chatScroll.appendChild(row);
+  chatScroll.scrollTop = chatScroll.scrollHeight;
+}
+function removeThinking() {
+  const el = document.getElementById('thinkingRow');
+  if (el) el.remove();
+}
+
+async function sendMessage() {
+  if (isSending) return;
+  const text = chatInput.value.trim();
+  const attachments = pendingAttachments.slice();
+  if (!text && attachments.length === 0) return;
+
+  // Render the user's turn immediately, including any attachment previews.
+  const attachThumbs = attachments.map(a => {
+    if (a.kind === 'image') return `<img class="msg-attach-thumb" src="data:${a.mimeType};base64,${a.data}">`;
+    return `<span class="msg-attach-chip"><i class="fa-solid ${/\.pdf$/i.test(a.name) ? 'fa-file-pdf' : /\.docx$/i.test(a.name) ? 'fa-file-word' : 'fa-file-lines'}"></i> ${escapeHtml(a.name)}</span>`;
+  }).join('');
+  appendMessage('user', text ? `<p>${escapeHtml(text)}</p>` : '', attachThumbs);
+
+  chatInput.value = ''; autoGrow();
+  attachPreviewRow.innerHTML = '';
+  pendingAttachments = [];
+
+  isSending = true;
+  sendBtn.disabled = true;
+  appendThinking();
+
+  try {
+    const reply = await ChatEngine.send({ message: text, history, attachments, nepali: nepaliMode });
+    removeThinking();
+    appendMessage('assistant', renderAssistantText(reply));
+    history.push({ role: 'user', text: text || '(sent an attachment)' });
+    history.push({ role: 'assistant', text: reply });
+  } catch (err) {
+    removeThinking();
+    appendMessage('assistant', `<p style="color:var(--danger);">${escapeHtml(err.message || 'Something went wrong. Please try again.')}</p>`);
+  } finally {
+    isSending = false;
+    sendBtn.disabled = false;
+  }
+}
+sendBtn.addEventListener('click', sendMessage);
+
+function startNewChat() {
+  history = [];
+  pendingAttachments = [];
+  attachPreviewRow.innerHTML = '';
+  chatScroll.innerHTML = '';
+  chatScroll.appendChild(emptyChat);
+  emptyChat.style.display = 'block';
+  toast('Started a new conversation.', 'success');
+}
+
+if (!LLMEngine.isConfigured()) {
+  toast('AI worker not configured yet — see cloudflare-worker.js setup instructions.', 'error');
+}
+</script>
+<script src="lang-engine.js"></script>
+<script src="theme-engine.js"></script>
+</body>
+</html>

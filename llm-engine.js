@@ -119,20 +119,5 @@ const LLMEngine = (() => {
     }
   }
 
-  /** Real AI-generated hierarchical mind map (central topic -> main
-   *  branches -> sub-points), NotebookLM-style. Falls back to a
-   *  structural mind map built from AIEngine's TextRank + key-term
-   *  extraction (no LLM) if the worker is unreachable. */
-  async function draftMindmap(text) {
-    try {
-      const result = await callWorker('mindmap', text, {});
-      if (!result || !result.title) throw new Error('AI returned an incomplete mind map');
-      return { mindmap: result, source: 'gemini' };
-    } catch (err) {
-      console.warn('Gemini mindmap unavailable, using local engine:', err.message);
-      return { mindmap: AIEngine.buildMindmap(text), source: 'local' };
-    }
-  }
-
-  return { summarize, draftQuestions, draftMilestones, draftMindmap, isConfigured };
+  return { summarize, draftQuestions, draftMilestones, isConfigured };
 })();

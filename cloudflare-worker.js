@@ -32,7 +32,7 @@
    delete that block to stop exposing error details.
    ============================================================ */
 
-const GEMINI_MODEL = 'gemini-2.5-flash';
+const GEMINI_MODEL = 'gemini-3.6-flash'; // latest GA Gemini Flash model (faster + cheaper than 3.5/2.5 Flash)
 const MAX_INPUT_CHARS = 30000;
 
 export default {
@@ -156,20 +156,6 @@ function buildPrompt(task, text, count, ratio) {
       `Respond ONLY with valid JSON (no markdown fences, no commentary) in exactly this shape:\n` +
       `{"milestones": [{"title": "short activity title", ` +
       `"hint": "one sentence describing what the student should do or understand", "points": 15}]}\n\n` +
-      `Passage:\n"""${safeText}"""`;
-  }
-
-  if (task === 'mindmap') {
-    return `You are building a mind map from the passage below, the same way a study tool like ` +
-      `NotebookLM would: find the single central topic, then organize the passage's main ideas into ` +
-      `a clear hierarchical tree (central topic -> main branches -> sub-points). Use short phrases ` +
-      `(3-6 words), never full sentences. Use 4-7 main branches, each with 2-5 sub-points that are ` +
-      `genuinely distinct ideas from the passage (not restatements of the branch). Sub-points may have ` +
-      `their own short "children" array (max 2 more levels deep) only if the passage clearly supports ` +
-      `a finer breakdown — otherwise omit "children" entirely on a leaf node. ` +
-      `Respond ONLY with valid JSON (no markdown fences, no commentary) in exactly this shape:\n` +
-      `{"title": "central topic, 2-6 words", "children": [{"label": "branch phrase", "children": ` +
-      `[{"label": "sub-point phrase"}, {"label": "sub-point phrase", "children": [{"label": "..."}]}]}]}\n\n` +
       `Passage:\n"""${safeText}"""`;
   }
 

@@ -51,6 +51,8 @@
   .empty-hint { color: var(--text-muted); font-size: 13.5px; text-align:center; padding: 80px 20px; }
   .ai-source-badge { font-size:10.5px; font-weight:800; padding:3px 9px; border-radius:20px; }
 </style>
+<link rel="stylesheet" href="theme-modes.css">
+<link rel="stylesheet" href="nepali-theme.css">
 </head>
 <body class="divedu">
 <div class="bg-glow blob-1"></div>
@@ -350,5 +352,7 @@ function escapeHtml(str) {
 }
 function escapeAttr(str) { return escapeHtml(str).replace(/"/g, '&quot;'); }
 </script>
+<script src="lang-engine.js"></script>
+<script src="theme-engine.js"></script>
 </body>
 </html>

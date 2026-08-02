@@ -107,6 +107,8 @@
   .att-tick.absent { background: var(--danger-bg); color: var(--danger); }
   .att-tick.unmarked { color: var(--text-muted); }
 </style>
+<link rel="stylesheet" href="theme-modes.css">
+<link rel="stylesheet" href="nepali-theme.css">
 </head>
 <body class="divedu">
 <div class="bg-glow blob-1"></div>
@@ -134,17 +136,18 @@
 
 <div class="sidenav-overlay" id="sidenavOverlay" onclick="closeSidenav()"></div>
 <nav class="d-sidenav" id="sidenav">
-  <button class="d-tab active" data-tab="overview" onclick="switchTab('overview', this)"><i class="fa-solid fa-table-columns"></i> Overview</button>
-  <button class="d-tab" data-tab="quiz" onclick="switchTab('quiz', this)"><i class="fa-solid fa-list-check"></i> Quizzes</button>
-  <button class="d-tab" data-tab="attendance" onclick="switchTab('attendance', this)"><i class="fa-solid fa-user-check"></i> Attendance</button>
-  <button class="d-tab" data-tab="results" onclick="switchTab('results', this)"><i class="fa-solid fa-chart-simple"></i> Results</button>
-  <button class="d-tab" data-tab="materials" onclick="switchTab('materials', this)"><i class="fa-solid fa-book"></i> Materials</button>
-  <button class="d-tab" data-tab="homework" onclick="switchTab('homework', this)"><i class="fa-solid fa-pen-ruler"></i> Homework</button>
-  <button class="d-tab" data-tab="qna" onclick="switchTab('qna', this)"><i class="fa-solid fa-user-secret"></i> Anonymous Q&amp;A</button>
-  <button class="d-tab" data-tab="milestones" onclick="switchTab('milestones', this)"><i class="fa-solid fa-flag-checkered"></i> Milestones</button>
-  <button class="d-tab" data-tab="idcards" onclick="switchTab('idcards', this)"><i class="fa-solid fa-id-card"></i> ID Cards</button>
-  <button class="d-tab" data-tab="ai" onclick="switchTab('ai', this)"><i class="fa-solid fa-robot"></i> AI Assistant</button>
-  <button class="d-tab" data-tab="mindmap" onclick="switchTab('mindmap', this)"><i class="fa-solid fa-diagram-project"></i> AI Mind Map</button>
+  <button class="d-tab active" data-tab="overview" onclick="switchTab('overview', this)"><i class="fa-solid fa-table-columns"></i> <span data-i18n="navOverview">Overview</span></button>
+  <button class="d-tab" data-tab="quiz" onclick="switchTab('quiz', this)"><i class="fa-solid fa-list-check"></i> <span data-i18n="navQuizzes">Quizzes</span></button>
+  <button class="d-tab" data-tab="attendance" onclick="switchTab('attendance', this)"><i class="fa-solid fa-user-check"></i> <span data-i18n="navAttendance">Attendance</span></button>
+  <button class="d-tab" data-tab="results" onclick="switchTab('results', this)"><i class="fa-solid fa-chart-simple"></i> <span data-i18n="navResults">Results</span></button>
+  <button class="d-tab" data-tab="materials" onclick="switchTab('materials', this)"><i class="fa-solid fa-book"></i> <span data-i18n="navMaterials">Materials</span></button>
+  <button class="d-tab" data-tab="homework" onclick="switchTab('homework', this)"><i class="fa-solid fa-pen-ruler"></i> <span data-i18n="navHomework">Homework</span></button>
+  <button class="d-tab" data-tab="qna" onclick="switchTab('qna', this)"><i class="fa-solid fa-user-secret"></i> <span data-i18n="navQna">Anonymous Q&amp;A</span></button>
+  <button class="d-tab" data-tab="milestones" onclick="switchTab('milestones', this)"><i class="fa-solid fa-flag-checkered"></i> <span data-i18n="navMilestones">Milestones</span></button>
+  <button class="d-tab" data-tab="idcards" onclick="switchTab('idcards', this)"><i class="fa-solid fa-id-card"></i> <span data-i18n="navIdCards">ID Cards</span></button>
+  <button class="d-tab" data-tab="ai" onclick="switchTab('ai', this)"><i class="fa-solid fa-robot"></i> <span data-i18n="navAiAssistant">AI Assistant</span></button>
+  <button class="d-tab" data-tab="aichat" onclick="switchTab('aichat', this)"><i class="fa-solid fa-comments"></i> <span data-i18n="navAiChatbot">AI Chatbot</span></button>
+  <button class="d-tab" data-tab="mindmap" onclick="switchTab('mindmap', this)"><i class="fa-solid fa-diagram-project"></i> <span data-i18n="navAiMindmap">AI Mind Map</span></button>
 </nav>
 
 <div class="d-container">
@@ -454,6 +457,11 @@
   <!-- AI ASSISTANT -->
   <section id="tab-ai" class="d-card hidden" style="padding:0; overflow:hidden;">
     <iframe class="embed-frame" src="teacher-ai.html" title="AI Teaching Assistant" style="min-height:88vh;"></iframe>
+  </section>
+
+  <!-- AI CHATBOT -->
+  <section id="tab-aichat" class="d-card hidden" style="padding:0; overflow:hidden;">
+    <iframe class="embed-frame" src="ai-chat.html" title="AI Chatbot" style="min-height:88vh;"></iframe>
   </section>
 
   <!-- AI MIND MAP -->
@@ -1228,5 +1236,7 @@ async function removeUserAccount(uid, role, name) {
   } catch (err) { toast(err.message, 'error'); }
 }
 </script>
+<script src="lang-engine.js"></script>
+<script src="theme-engine.js"></script>
 </body>
 </html>
