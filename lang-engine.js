@@ -132,6 +132,14 @@ const LangEngine = (() => {
     const boot = () => apply(lang);
     if (document.body) boot();
     else document.addEventListener('DOMContentLoaded', boot);
+
+    // Fires in every other same-origin document (dashboard <-> its
+    // embedded iframes, other tabs) the instant the language changes
+    // anywhere, so nothing needs a manual reload to catch up.
+    window.addEventListener('storage', (e) => {
+      if (e.key !== STORAGE_KEY) return;
+      apply(loadPref());
+    });
   }
 
   init();

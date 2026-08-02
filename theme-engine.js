@@ -27,6 +27,19 @@ const ThemeEngine = (() => {
   const PRESET_COLORS = ['#7886fa', '#10b981', '#f43f5e', '#f59e0b', '#0ea5e9', '#a855f7'];
   const STICKER_EMOJI = ['⭐', '✨', '🎈', '🌈', '☁️', '🚀', '🎨', '💡'];
 
+  /* A dashboard page (student-dashboard.html, teacher-dashboard.html)
+     embeds pages like h.html / teacher-ai.html / mindmap.html in an
+     <iframe>. Each of those pages loads this same script, so without
+     this check every embedded page would build its OWN floating
+     toggle button + panel on top of the dashboard's — which is
+     exactly the "two circles stacked in the corner" overlap. Only the
+     outermost window gets the visible widget; embedded pages still
+     apply the theme and stay in sync (see the storage listener in
+     init()), they just don't duplicate the button. */
+  function isTopFrame() {
+    try { return window.self === window.top; } catch (e) { return true; }
+  }
+
   function loadPrefs() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -209,6 +222,30 @@ const ThemeEngine = (() => {
       <path d="M6 26 Q20 32 34 26 Q20 22 6 26Z" fill="#e8ab4a"/>
       <path d="M18 22 Q20 12 22 22 Q24 17 20 8 Q16 17 18 22Z" fill="url(#teFlame)"/>
     </symbol>
+
+    <!-- The actual Nepal flag: the world's only non-quadrilateral
+         national flag — a crimson double pennant with a blue border,
+         a moon in the upper triangle and a sun in the lower one. -->
+    <symbol id="te-nepal-flag" viewBox="0 0 34 46">
+      <path d="M3 2 L27 15 L14 24 L27 33 L3 44 Z" fill="#003893"/>
+      <path d="M5 5 L23.5 15.3 L12.3 23.5 L5 27.6 Z" fill="#b3262e"/>
+      <path d="M5 27.6 L23.5 33.5 L5 41 Z" fill="#b3262e"/>
+      <circle cx="11" cy="12.5" r="3.1" fill="#fff"/>
+      <circle cx="12.6" cy="11" r="2.5" fill="#003893"/>
+      <g stroke="#fff" stroke-width="0.8" stroke-linecap="round">
+        <path d="M11 7.3 L11 6"/><path d="M14.2 9 L15.3 8.1"/><path d="M15.5 12.5 L16.8 12.5"/>
+        <path d="M14.2 16 L15.3 16.9"/><path d="M7.8 9 L6.7 8.1"/><path d="M6.5 12.5 L5.2 12.5"/>
+      </g>
+      <g fill="#fff">
+        <circle cx="12" cy="34.5" r="3.6"/>
+        <g stroke="#fff" stroke-width="1" stroke-linecap="round">
+          <path d="M12 29.2 L12 27.6"/><path d="M12 41.8 L12 40.2"/>
+          <path d="M17.3 34.5 L18.9 34.5"/><path d="M5.1 34.5 L6.7 34.5"/>
+          <path d="M15.7 30.8 L16.8 29.7"/><path d="M7.2 39.3 L8.3 38.2"/>
+          <path d="M15.7 38.2 L16.8 39.3"/><path d="M7.2 29.7 L8.3 30.8"/>
+        </g>
+      </g>
+    </symbol>
   </svg>`;
 
   function injectSprite() {
@@ -282,6 +319,7 @@ const ThemeEngine = (() => {
         transition: background .15s ease, border-color .15s ease, color .15s ease;
       }
       .te-mode-btn i { font-size: 12px; }
+      .te-flag-icon { width: 15px; height: 15px; flex-shrink: 0; }
       .te-mode-btn.active { background: var(--current-accent, #7886fa); border-color: var(--current-accent, #7886fa); color: #fff; }
       .te-mode-btn:not(.active):hover { border-color: var(--current-accent, #7886fa); }
 
@@ -319,10 +357,11 @@ const ThemeEngine = (() => {
     wrap.className = 'te-namaste-wrap';
     // Alternates the boy, the girl, a marigold bloom, and a diya so the
     // page reads as a little festival scene instead of one icon cloned.
-    const motifs = ['te-char-boy', 'te-marigold', 'te-char-girl', 'te-diya', 'te-char-boy', 'te-char-girl'];
+    const motifs = ['te-char-boy', 'te-marigold', 'te-char-girl', 'te-nepal-flag', 'te-diya', 'te-char-boy', 'te-nepal-flag', 'te-char-girl'];
     const positions = [
-      { left: '3vw', top: '12vh' }, { left: '95vw', top: '10vh', transform: 'translateX(-100%)' },
-      { left: '92vw', top: '30vh', transform: 'translateX(-100%)' }, { left: '5vw', top: '48vh' },
+      { left: '3vw', top: '10vh' }, { left: '95vw', top: '8vh', transform: 'translateX(-100%)' },
+      { left: '92vw', top: '28vh', transform: 'translateX(-100%)' }, { left: '4vw', top: '30vh' },
+      { left: '5vw', top: '50vh' }, { left: '91vw', top: '52vh', transform: 'translateX(-100%)' },
       { left: '6vw', top: '80vh' }, { left: '90vw', top: '78vh', transform: 'translateX(-100%)' }
     ];
     positions.forEach((pos, i) => {
@@ -368,12 +407,12 @@ const ThemeEngine = (() => {
         <button class="te-mode-btn" data-mode="light"><i class="fa-solid fa-sun"></i>Light</button>
         <button class="te-mode-btn" data-mode="dark"><i class="fa-solid fa-moon"></i>Dark</button>
         <button class="te-mode-btn" data-mode="fun"><i class="fa-solid fa-face-grin-stars"></i>Fun</button>
-        <button class="te-mode-btn" data-mode="nepali"><i class="fa-solid fa-hands-praying"></i>नेपाली</button>
+        <button class="te-mode-btn" data-mode="nepali">${useIcon('te-nepal-flag', 'te-flag-icon')}नेपाली</button>
       </div>
       <h5>Site language</h5>
       <div class="te-modes">
         <button class="te-mode-btn te-lang-btn" data-lang="en"><i class="fa-solid fa-globe"></i>English</button>
-        <button class="te-mode-btn te-lang-btn" data-lang="ne"><i class="fa-solid fa-language"></i>नेपाली</button>
+        <button class="te-mode-btn te-lang-btn" data-lang="ne">${useIcon('te-nepal-flag', 'te-flag-icon')}नेपाली</button>
       </div>
       <h5>Accent color</h5>
       <div class="te-swatches">
@@ -449,18 +488,49 @@ const ThemeEngine = (() => {
     refreshActiveStates();
   }
 
+  /* Re-applies whatever is currently in localStorage to THIS
+     document. Used both on first load and whenever another
+     same-origin window/frame changes the shared prefs, so a page
+     embedding h.html / teacher-ai.html / mindmap.html in an <iframe>
+     (the dashboards do this) and the dashboard itself always show
+     the same mode + accent + language without needing a refresh. */
+  function syncFromStorage(prefs) {
+    applyMode(prefs.mode || 'light');
+    applyAccent(prefs.accent || null);
+    if (prefs.mode === 'nepali') { buildNamasteStickers(); buildNamasteBanner(); }
+    const panel = document.querySelector('.te-panel');
+    if (panel) {
+      panel.querySelectorAll('.te-mode-btn[data-mode]').forEach(b => b.classList.toggle('active', b.dataset.mode === prefs.mode));
+      panel.querySelectorAll('.te-swatch').forEach(s => s.classList.toggle('active', prefs.accent === s.dataset.color));
+      const customColor = panel.querySelector('#teCustomColor');
+      if (customColor && prefs.accent) customColor.value = prefs.accent;
+    }
+  }
+
   function init() {
     const prefs = loadPrefs();
     applyMode(prefs.mode || 'light');
     applyAccent(prefs.accent || null);
     const boot = () => {
       injectRuntimeStyles();
+      injectSprite();
       buildStickers();
       if (prefs.mode === 'nepali') { buildNamasteStickers(); buildNamasteBanner(); }
-      buildWidget(prefs);
+      // Only the outermost window gets the floating button + panel —
+      // see isTopFrame() above for why.
+      if (isTopFrame()) buildWidget(prefs);
     };
     if (document.body) boot();
     else document.addEventListener('DOMContentLoaded', boot);
+
+    // Live sync: fires in every OTHER same-origin document (parent
+    // page, sibling tabs, embedded iframes) the instant one of them
+    // changes theme prefs — this is what makes "change it in one,
+    // all of them change" actually true instead of needing a reload.
+    window.addEventListener('storage', (e) => {
+      if (e.key !== STORAGE_KEY) return;
+      syncFromStorage(loadPrefs());
+    });
   }
 
   init();
