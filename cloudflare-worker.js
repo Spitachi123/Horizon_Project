@@ -55,6 +55,14 @@ export default {
     }
 
     const task = body.task;
+
+    // Chatbot turns have a different shape (message + history +
+    // attachments, no single `text` field) and can legitimately be
+    // attachment-only with no text, so it gets its own path entirely.
+    if (task === 'chat') {
+      return handleChat(body, env);
+    }
+
     const text = (body.text || '').toString();
 
     if (!text || text.trim().length < 10) {
@@ -121,6 +129,106 @@ export default {
     }
   }
 };
+
+const CHAT_SYSTEM_PROMPT =
+  'You are Sathi, the friendly built-in AI study assistant inside the ज्ञानSetु ' +
+  '(DiveEdu) classroom platform. You help students and teachers with homework ' +
+  'questions, explaining concepts simply, reading attached photos/PDFs/notes, ' +
+  'and generally being a supportive study companion. Keep answers clear and ' +
+  'well-organized (short paragraphs or bullet points), and keep a warm, ' +
+  'encouraging tone suited to students. If the user writes in Nepali, reply in ' +
+  'Nepali (Devanagari script); otherwise reply in whatever language they wrote in.';
+
+const MAX_CHAT_ATTACHMENTS = 4;
+const MAX_CHAT_HISTORY = 20;
+const MAX_ATTACHMENT_TEXT_CHARS = 12000;
+
+/** Handles the chatbot's "chat" task: builds a full multi-turn,
+ *  multimodal Gemini request (conversation history + this turn's
+ *  text + any image/PDF attachments as inline base64 data, with
+ *  DOCX/TXT attachments already converted to plain text client-side)
+ *  and returns the assistant's reply as plain conversational text —
+ *  no JSON-shape enforcement here, unlike the other tasks. */
+async function handleChat(body, env) {
+  const message = (body.message || '').toString().slice(0, 8000);
+  const history = Array.isArray(body.history) ? body.history.slice(-MAX_CHAT_HISTORY) : [];
+  const attachments = Array.isArray(body.attachments) ? body.attachments.slice(0, MAX_CHAT_ATTACHMENTS) : [];
+  const nepali = !!body.nepali;
+
+  if (!message && attachments.length === 0) {
+    return json({ error: 'Please type a message or attach a file.' }, 400);
+  }
+
+  const contents = [];
+  history.forEach(turn => {
+    const turnText = (turn && turn.text ? String(turn.text) : '').slice(0, 8000);
+    if (!turnText) return;
+    contents.push({ role: turn.role === 'user' ? 'user' : 'model', parts: [{ text: turnText }] });
+  });
+
+  const currentParts = [];
+  if (message) currentParts.push({ text: message });
+  for (const att of attachments) {
+    if (att && att.data && att.mimeType) {
+      currentParts.push({ inline_data: { mime_type: att.mimeType, data: String(att.data).slice(0, 12_000_000) } });
+    } else if (att && att.text) {
+      const label = att.name ? `[Attached file: ${att.name}]` : '[Attached file]';
+      currentParts.push({ text: `${label}\n${String(att.text).slice(0, MAX_ATTACHMENT_TEXT_CHARS)}` });
+    }
+  }
+  if (currentParts.length === 0) currentParts.push({ text: '(The user sent an attachment that could not be read.)' });
+  contents.push({ role: 'user', parts: currentParts });
+
+  const systemText = CHAT_SYSTEM_PROMPT + (nepali ? ' The user has requested Nepali replies — respond in Nepali (Devanagari script) regardless of what script they type in.' : '');
+
+  try {
+    const geminiResp = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${env.GEMINI_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents,
+          systemInstruction: { parts: [{ text: systemText }] },
+          generationConfig: { temperature: 0.6 }
+        })
+      }
+    );
+
+    if (!geminiResp.ok) {
+      const errText = await geminiResp.text();
+      console.error('Gemini chat error:', geminiResp.status, errText);
+      const status = geminiResp.status === 429 ? 429 : 502;
+      return json({
+        error: status === 429
+          ? 'The free AI quota is temporarily exhausted — please try again in a minute.'
+          : 'The AI service is temporarily unavailable.',
+        debug: `Gemini responded ${geminiResp.status}: ${errText.slice(0, 500)}`
+      }, status);
+    }
+
+    const data = await geminiResp.json();
+    const candidate = data && data.candidates && data.candidates[0];
+    const finishReason = candidate && candidate.finishReason;
+    const reply = candidate && candidate.content && candidate.content.parts
+      ? candidate.content.parts.map(p => p.text || '').join('').trim()
+      : '';
+
+    if (!reply) {
+      const blocked = finishReason === 'SAFETY' || finishReason === 'PROHIBITED_CONTENT';
+      return json({
+        error: blocked
+          ? "I can't help with that request."
+          : 'The AI returned an empty response — please try rephrasing.'
+      }, 502);
+    }
+
+    return json({ ok: true, task: 'chat', result: { reply } });
+  } catch (err) {
+    console.error('Worker chat error:', err);
+    return json({ error: 'Something went wrong contacting the AI service.', debug: String(err && err.message || err) }, 500);
+  }
+}
 
 function buildPrompt(task, text, count, ratio) {
   const safeText = text.slice(0, 30000);

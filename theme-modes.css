@@ -1,0 +1,145 @@
+/* ============================================================
+   THEME-MODES.CSS — Light (default) / Dark / Fun palettes.
+
+   This file did not exist anywhere in the project even though
+   every page has linked to it from the start — that 404 is the
+   entire reason Dark mode and Fun mode had zero visible effect
+   when picked in the theme panel (ThemeEngine only ever sets the
+   `data-theme-mode` attribute on <html>; the actual colors have to
+   come from CSS rules keyed off that attribute, and none existed).
+
+   theme.css already does the hard work of using CSS custom
+   properties everywhere (--bg-main, --surface-white, --text-main,
+   --panel-border, --student-accent, --teacher-accent, etc.) instead
+   of hardcoded colors, so overriding those same variable names here
+   is enough to re-skin nearly the entire app — no need to touch
+   individual component rules. nepali-theme.css already follows this
+   exact pattern for the नेपाली mode; Light/Dark/Fun below do the
+   same for the other three.
+
+   Load order: theme.css, THEN this file, THEN nepali-theme.css
+   (nepali-theme.css is a 4th mode and loads last so it can add its
+   own extra flourishes on top without this file overriding them).
+   ============================================================ */
+
+/* ---------------- Light (explicit) ----------------
+   theme.css's :root defaults ARE the light palette, so this block
+   is only here so "light" is a real, explicit choice with its own
+   rules (useful if you want to tweak light mode later without it
+   silently being "whatever the default happens to be"). */
+:root[data-theme-mode="light"] {
+  --bg-main: #eef2f7;
+  --surface-white: #ffffff;
+  --primary-indigo: #7886fa;
+  --primary-indigo-hover: #6372f8;
+  --sky-accent: #38bdf8;
+  --purple-soft: #a5b4fc;
+  --panel-border: rgba(120, 134, 250, 0.15);
+  --text-main: #1e293b;
+  --text-muted: #64748b;
+  --student-accent: #6366f1;
+  --student-glow: rgba(99, 102, 241, 0.25);
+  --student-bg: #eef0ff;
+  --teacher-accent: #10b981;
+  --teacher-glow: rgba(16, 185, 129, 0.25);
+  --teacher-bg: #ecfdf5;
+}
+
+/* ---------------- Dark ---------------- */
+:root[data-theme-mode="dark"] {
+  --bg-main: #0e1220;
+  --surface-white: #1a2032;
+  --primary-indigo: #8b93ff;
+  --primary-indigo-hover: #a3aaff;
+  --sky-accent: #38bdf8;
+  --purple-soft: #453a7a;
+  --panel-border: rgba(139, 147, 255, 0.22);
+  --text-main: #e7eaf6;
+  --text-muted: #99a2c2;
+
+  --student-accent: #8b93ff;
+  --student-glow: rgba(139, 147, 255, 0.35);
+  --student-bg: rgba(139, 147, 255, 0.14);
+
+  --teacher-accent: #34d399;
+  --teacher-glow: rgba(52, 211, 153, 0.3);
+  --teacher-bg: rgba(52, 211, 153, 0.14);
+
+  --danger: #f87171;
+  --danger-bg: rgba(239, 68, 68, 0.16);
+  --success: #34d399;
+  --success-bg: rgba(16, 185, 129, 0.16);
+  --warn: #fbbf24;
+  --warn-bg: rgba(245, 158, 11, 0.16);
+
+  --shadow-sm: 0 4px 14px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 20px 45px rgba(0, 0, 0, 0.5);
+}
+
+/* A handful of spots in the shared theme + page-specific stylesheets
+   hardcode "#ffffff" / light-only rgba() instead of using the surface
+   variable (mostly hover/focus states) — those need an explicit nudge
+   in dark mode since overriding the variable alone can't reach them. */
+:root[data-theme-mode="dark"] body,
+:root[data-theme-mode="dark"] body.divedu {
+  background-color: var(--bg-main);
+  color: var(--text-main);
+}
+:root[data-theme-mode="dark"] .d-navbar { background: rgba(14, 18, 32, 0.88); border-bottom-color: rgba(255,255,255,0.06); }
+:root[data-theme-mode="dark"] .navbar { background: rgba(14, 18, 32, 0.88); }
+:root[data-theme-mode="dark"] .d-toast { background: #2a3350; color: var(--text-main); }
+:root[data-theme-mode="dark"] input:focus,
+:root[data-theme-mode="dark"] .input-wrapper select:focus,
+:root[data-theme-mode="dark"] .btn-secondary:hover { background-color: var(--surface-white) !important; }
+:root[data-theme-mode="dark"] .card:hover,
+:root[data-theme-mode="dark"] .d-card:hover { background: var(--surface-white) !important; }
+:root[data-theme-mode="dark"] ::-webkit-scrollbar-track { background: var(--bg-main); }
+:root[data-theme-mode="dark"] ::-webkit-scrollbar-thumb { background: var(--panel-border); }
+/* Ambient glow blobs are lovely on a light background and much too
+   loud/muddy on a dark one — dim them instead of removing them. */
+:root[data-theme-mode="dark"] .bg-glow { opacity: 0.18; }
+
+/* ---------------- Fun ---------------- */
+:root[data-theme-mode="fun"] {
+  --bg-main: #fff7fb;
+  --surface-white: #ffffff;
+  --primary-indigo: #ff6fae;
+  --primary-indigo-hover: #ff4f98;
+  --sky-accent: #22d3ee;
+  --purple-soft: #ffd166;
+  --panel-border: rgba(255, 111, 174, 0.25);
+  --text-main: #34163c;
+  --text-muted: #8a6a90;
+
+  --student-accent: #ff6fae;
+  --student-glow: rgba(255, 111, 174, 0.35);
+  --student-bg: #ffe3f0;
+
+  --teacher-accent: #22d3ee;
+  --teacher-glow: rgba(34, 211, 238, 0.3);
+  --teacher-bg: #e0fbff;
+
+  --radius-sm: 14px;
+  --radius: 20px;
+  --radius-lg: 26px;
+}
+:root[data-theme-mode="fun"] body,
+:root[data-theme-mode="fun"] body.divedu { background-color: var(--bg-main); }
+:root[data-theme-mode="fun"] .bg-glow { opacity: 0.5; }
+/* A little extra bounce on primary buttons only in Fun mode — subtle
+   enough not to get in the way, playful enough to feel distinct. */
+:root[data-theme-mode="fun"] .btn-primary:hover { transform: translateY(-2px) scale(1.03); }
+:root[data-theme-mode="fun"] .feature-card:hover,
+:root[data-theme-mode="fun"] .d-card:hover { transform: translateY(-6px) rotate(-0.3deg); }
+
+/* The floating emoji stickers (built by theme-engine.js) are only
+   ever meant to show up in Fun mode — gate their visibility here so
+   switching modes is what actually turns them on/off. */
+.te-stickers { display: none; }
+:root[data-theme-mode="fun"] .te-stickers { display: block; }
+
+@media (max-width: 640px) {
+  /* Keep dark/fun mode's own decorations light-touch on small
+     screens too — nothing here should fight for space with content. */
+  :root[data-theme-mode="fun"] .bg-glow { opacity: 0.3; }
+}

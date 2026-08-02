@@ -36,6 +36,7 @@ const root = document.documentElement;
 function switchRole(role) {
   currentRole = role;
   hideStatus();
+  const t = (typeof LangEngine !== 'undefined') ? LangEngine.t : (k => k);
 
   if (role === 'student') {
     tabStudent.classList.add('active');
@@ -47,10 +48,10 @@ function switchRole(role) {
 
     roleIndicator.className = 'role-indicator student';
     roleIcon.className = 'fa-solid fa-user-graduate';
-    roleText.textContent = isRegisterMode ? 'New Student Registration' : 'Student Access Mode';
-    identifierLabel.textContent = isRegisterMode ? 'Student Email Address' : 'Student ID or Email';
+    roleText.textContent = isRegisterMode ? t('newStudentReg') : t('studentAccessMode');
+    identifierLabel.textContent = isRegisterMode ? t('studentEmailAddr') : t('studentIdOrEmail');
     identifierInput.placeholder = 'e.g. STU-2026-8942';
-    extraFieldLabel.textContent = 'Class / Grade';
+    extraFieldLabel.textContent = t('classGradeLabel');
     extraFieldInput.placeholder = 'e.g. Grade 10';
     if (isRegisterMode) { extraFieldGroup.classList.remove('hidden'); teacherSubjectGroup.classList.add('hidden'); }
 
@@ -64,8 +65,8 @@ function switchRole(role) {
 
     roleIndicator.className = 'role-indicator teacher';
     roleIcon.className = 'fa-solid fa-chalkboard-user';
-    roleText.textContent = isRegisterMode ? 'New Faculty Account' : 'Educator Portal Mode';
-    identifierLabel.textContent = isRegisterMode ? 'Faculty Email Address' : 'Faculty ID or Work Email';
+    roleText.textContent = isRegisterMode ? t('newFacultyAcct') : t('teacherAccessMode');
+    identifierLabel.textContent = isRegisterMode ? t('facultyEmailAddr') : t('facultyIdOrEmail');
     identifierInput.placeholder = 'e.g. FAC-2026-1049';
     if (isRegisterMode) { teacherSubjectGroup.classList.remove('hidden'); extraFieldGroup.classList.add('hidden'); }
   }
@@ -76,32 +77,41 @@ function toggleAuthMode(e) {
   if(e) e.preventDefault();
   isRegisterMode = !isRegisterMode;
   hideStatus();
+  renderAuthModeLabels();
+  switchRole(currentRole); // Refresh role labels
+}
+
+/** Sets every label that depends on isRegisterMode (but not on
+ *  which role tab is active — see switchRole() for those). Split out
+ *  from toggleAuthMode() so the 'langChanged' listener below can
+ *  re-apply the current mode's labels in the new language without
+ *  also flipping login <-> register. */
+function renderAuthModeLabels() {
+  const t = (typeof LangEngine !== 'undefined') ? LangEngine.t : (k => k);
 
   if (isRegisterMode) {
-    formTitle.textContent = 'Create Portal Account';
-    formSub.textContent = 'Set up your smart classroom access';
-    brandTitle.textContent = 'Join ज्ञानSetu Today';
-    brandDesc.textContent = 'Create your account to unlock personalized learning modules, analytics, and instant collaboration.';
-    submitBtnText.textContent = 'Register & Create Account';
-    modePrompt.textContent = 'Already have an account?';
-    modeToggleBtn.textContent = 'Sign In';
+    formTitle.textContent = t('formTitleCreate');
+    formSub.textContent = t('formSubCreate');
+    brandTitle.textContent = t('brandTitleRegister');
+    brandDesc.textContent = t('brandDescRegister');
+    submitBtnText.textContent = t('submitRegister');
+    modePrompt.textContent = t('alreadyHaveAccount');
+    modeToggleBtn.textContent = t('login');
     fullNameGroup.classList.remove('hidden');
     forgotLink.classList.add('hidden');
   } else {
-    formTitle.textContent = 'Welcome Back';
-    formSub.textContent = 'Select your portal access mode to continue';
-    brandTitle.textContent = 'Next-Gen Interactive Learning';
-    brandDesc.textContent = 'Access live virtual labs, real-time analytics, and collaborative smart classroom modules.';
-    submitBtnText.textContent = 'Enter Classroom';
-    modePrompt.textContent = "Don't have an account?";
-    modeToggleBtn.textContent = 'Create Account';
+    formTitle.textContent = t('formTitleWelcome');
+    formSub.textContent = t('formSubWelcome');
+    brandTitle.textContent = t('brandTitleLogin');
+    brandDesc.textContent = t('brandDescLogin');
+    submitBtnText.textContent = t('submitLogin');
+    modePrompt.textContent = t('dontHaveAccount');
+    modeToggleBtn.textContent = t('createAccount');
     fullNameGroup.classList.add('hidden');
     extraFieldGroup.classList.add('hidden');
     teacherSubjectGroup.classList.add('hidden');
     forgotLink.classList.remove('hidden');
   }
-
-  switchRole(currentRole); // Refresh role labels
 }
 
 // Password Visibility Toggle
@@ -218,3 +228,15 @@ function showStatus(msg, type) {
 function hideStatus() {
   statusMessage.style.display = 'none';
 }
+
+// LangEngine (loaded after this file) dispatches 'langChanged' once
+// immediately on page load and again on every language switch. index.js
+// runs first in script order, so this listener is safely attached
+// before that first dispatch — this is what actually populates the
+// auth form's labels in the right language from the very first paint,
+// since otherwise they'd just show whatever plain-English text was
+// hardcoded in index.html until the next click.
+document.addEventListener('langChanged', () => {
+  renderAuthModeLabels();
+  switchRole(currentRole);
+});

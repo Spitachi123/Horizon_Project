@@ -14,6 +14,7 @@
   --primary-indigo: #b3262e;
   --primary-indigo-hover: #931f26;
   --sky-accent: #003893;
+  --purple-soft: #f0c48a;
   --panel-border: rgba(179, 38, 46, 0.22);
   --text-main: #2b1a12;
   --text-muted: #8a6a4f;
@@ -33,6 +34,13 @@
   --radius: 14px;
   --radius-lg: 18px;
 }
+
+/* blob-3's color is hardcoded in index.css/theme.css (not a
+   variable), so overriding --purple-soft alone can't reach it —
+   without this it stayed the default lavender/purple no matter what
+   the rest of the palette did, which is the main reason Nepali mode
+   read as "still looks like the default theme" before. */
+:root[data-theme-mode="nepali"] .blob-3 { background: #f0a93a !important; }
 
 :root[data-theme-mode="nepali"] body {
   background-color: var(--bg-main);
@@ -66,11 +74,13 @@
   background: linear-gradient(90deg, rgba(179,38,46,0.06), rgba(0,56,147,0.06));
 }
 
-/* ---------------- Namaste character stickers ----------------
-   The floating boy/girl/marigold/diya decorations and the top
-   greeting banner now ship their own complete, self-contained CSS
-   from theme-engine.js (see injectRuntimeStyles() there) so their
-   positioning, z-index, and responsive sizing can never silently
-   conflict with this stylesheet or go missing if this file changes.
-   Nothing to do here anymore — kept this note so nobody re-adds a
-   second, competing copy of those rules in the future. */
+:root[data-theme-mode="nepali"] .bg-glow { opacity: 0.28; }
+
+/* ---------------- Namaste / flag / diya decorations ----------------
+   The floating 🙏 🇳🇵 🪔 🌼 decorations and the top greeting banner
+   ship their own complete, self-contained CSS from theme-engine.js
+   (see injectRuntimeStyles() there) so their positioning, z-index,
+   and responsive cutoff can never silently conflict with this
+   stylesheet or go missing if this file changes. Nothing to do here
+   anymore — kept this note so nobody re-adds a second, competing
+   copy of those rules in the future. */

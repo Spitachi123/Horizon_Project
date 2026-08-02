@@ -36,14 +36,14 @@
 
     <!-- Scroll Navigation Links -->
     <nav class="nav-links">
-      <a href="#features">Features</a>
-      <a href="#how-it-works">How It Works</a>
-      <a href="#milestones">Milestones</a>
+      <a href="#features" data-i18n="navFeaturesLink">Features</a>
+      <a href="#how-it-works" data-i18n="navHowItWorksLink">How It Works</a>
+      <a href="#milestones" data-i18n="navMilestonesLink">Milestones</a>
     </nav>
 
     <div class="nav-actions">
-      <button class="btn-secondary" onclick="showView('authView')">Sign In</button>
-      <button class="btn-primary" onclick="showView('authView')">Get Started</button>
+      <button class="btn-secondary" onclick="showView('authView')" data-i18n="signInNav">Sign In</button>
+      <button class="btn-primary" onclick="showView('authView')" data-i18n="getStartedNav">Get Started</button>
     </div>
   </header>
 
@@ -53,30 +53,30 @@
     <!-- 1. HERO SECTION -->
     <section class="landing-hero">
       <div class="badge-pill">
-        <i class="fa-solid fa-wand-magic-sparkles"></i> Zero Hesitation Learning Platform
+        <i class="fa-solid fa-wand-magic-sparkles"></i> <span data-i18n="heroBadge">Zero Hesitation Learning Platform</span>
       </div>
 
       <h1 class="hero-title">
-        Ask Anything. <span class="gradient-text">Break Down Complex Topics.</span> Reach Every Milestone.
+        <span data-i18n="heroTitlePlain1">Ask Anything.</span> <span class="gradient-text" data-i18n="heroTitleGradient">Break Down Complex Topics.</span> <span data-i18n="heroTitlePlain2">Reach Every Milestone.</span>
       </h1>
 
-      <p class="hero-sub">
+      <p class="hero-sub" data-i18n="heroSub">
         Anonymously ask doubts without fear of judgment, digest complex subjects in bite-sized chunks, and master coursework through structured milestone tracking.
       </p>
 
       <div class="hero-cta">
         <button class="btn-primary" style="padding: 0.85rem 2rem; font-size: 1rem;" onclick="showView('authView')">
-          Join the Classroom <i class="fa-solid fa-arrow-right" style="margin-left: 0.5rem;"></i>
+          <span data-i18n="ctaJoinClassroom">Join the Classroom</span> <i class="fa-solid fa-arrow-right" style="margin-left: 0.5rem;"></i>
         </button>
-        <a href="#features" class="btn-secondary" style="padding: 0.85rem 1.8rem; font-size: 1rem; text-decoration: none; display: inline-flex; align-items: center;">
+        <a href="#features" class="btn-secondary" style="padding: 0.85rem 1.8rem; font-size: 1rem; text-decoration: none; display: inline-flex; align-items: center;" data-i18n="ctaExploreFeatures">
           Explore Features
         </a>
       </div>
 
       <div class="hero-capabilities">
-        <div class="cap-chip"><i class="fa-solid fa-user-secret"></i> Ask anonymously</div>
-        <div class="cap-chip"><i class="fa-solid fa-diagram-project"></i> Bite-sized breakdowns</div>
-        <div class="cap-chip"><i class="fa-solid fa-flag-checkered"></i> Milestone tracking</div>
+        <div class="cap-chip"><i class="fa-solid fa-user-secret"></i> <span data-i18n="chipAskAnon">Ask anonymously</span></div>
+        <div class="cap-chip"><i class="fa-solid fa-diagram-project"></i> <span data-i18n="chipBreakdowns">Bite-sized breakdowns</span></div>
+        <div class="cap-chip"><i class="fa-solid fa-flag-checkered"></i> <span data-i18n="chipMilestoneTrack">Milestone tracking</span></div>
       </div>
     </section>
 
@@ -187,9 +187,9 @@
 
     <!-- 5. CALL TO ACTION FOOTER BANNER -->
     <section class="landing-cta-banner">
-      <h2>Ready to Experience Fearless Learning?</h2>
-      <p>Set up your classroom in minutes — pick your role, sign up, and start tracking milestones today.</p>
-      <button class="btn-primary" style="padding: 1rem 2.5rem; font-size: 1.1rem; margin-top: 1rem;" onclick="showView('authView')">
+      <h2 data-i18n="ctaFooterTitle">Ready to Experience Fearless Learning?</h2>
+      <p data-i18n="ctaFooterSub">Set up your classroom in minutes — pick your role, sign up, and start tracking milestones today.</p>
+      <button class="btn-primary" style="padding: 1rem 2.5rem; font-size: 1.1rem; margin-top: 1rem;" onclick="showView('authView')" data-i18n="ctaFooterBtn">
         Get Started Now
       </button>
     </section>
@@ -212,9 +212,9 @@
           <h2 id="brandTitle">Join the Classroom</h2>
           <p id="brandDesc">A smart classroom platform for students to clear their doubts anonymously and track assignments effortlessly.</p>
           <div class="feature-pills">
-            <span class="pill"><i class="fa-solid fa-user-secret"></i> Anonymous Questions</span>
-            <span class="pill"><i class="fa-solid fa-diagram-project"></i> Content Breakdown</span>
-            <span class="pill"><i class="fa-solid fa-flag-checkered"></i> Milestone Tasks</span>
+            <span class="pill"><i class="fa-solid fa-user-secret"></i> <span data-i18n="pillAnonQuestions">Anonymous Questions</span></span>
+            <span class="pill"><i class="fa-solid fa-diagram-project"></i> <span data-i18n="pillContentBreakdown">Content Breakdown</span></span>
+            <span class="pill"><i class="fa-solid fa-flag-checkered"></i> <span data-i18n="pillMilestoneTasks">Milestone Tasks</span></span>
           </div>
         </div>
         <div class="branding-footer"></div>
@@ -230,10 +230,10 @@
         <!-- Role Selector Tabs -->
         <div class="role-selector">
           <button type="button" class="tab-btn active" id="tab-student" onclick="switchRole('student')">
-            <i class="fa-solid fa-user-graduate"></i> Student
+            <i class="fa-solid fa-user-graduate"></i> <span data-i18n="studentTab">Student</span>
           </button>
           <button type="button" class="tab-btn" id="tab-teacher" onclick="switchRole('teacher')">
-            <i class="fa-solid fa-chalkboard-user"></i> Teacher
+            <i class="fa-solid fa-chalkboard-user"></i> <span data-i18n="teacherTab">Teacher</span>
           </button>
           <div class="tab-slider" id="slider"></div>
         </div>
@@ -248,7 +248,7 @@
 
           <!-- Full Name (Only in Register Mode) -->
           <div class="input-group hidden" id="fullNameGroup">
-            <label for="fullName">Full Name</label>
+            <label for="fullName" data-i18n="fullNameLabel">Full Name</label>
             <div class="input-wrapper">
               <i class="fa-solid fa-user input-icon"></i>
               <input type="text" id="fullName" placeholder="e.g. Alex Morgan" />
@@ -271,7 +271,7 @@
                lets anonymous questions and result entry be routed to
                the *respective subject teacher* only. -->
           <div class="input-group hidden" id="teacherSubjectGroup">
-            <label for="teacherSubject">Subject You Teach</label>
+            <label for="teacherSubject" data-i18n="subjectYouTeachLabel">Subject You Teach</label>
             <div class="input-wrapper">
               <i class="fa-solid fa-book input-icon"></i>
               <select id="teacherSubject">
@@ -285,7 +285,7 @@
                 <option value="General">General</option>
               </select>
             </div>
-            <p style="font-size:11px; color:var(--text-muted); margin-top:6px;">You'll only see anonymous questions and enter results for this subject. You can change it later from your dashboard.</p>
+            <p style="font-size:11px; color:var(--text-muted); margin-top:6px;" data-i18n="subjectHint">You'll only see anonymous questions and enter results for this subject. You can change it later from your dashboard.</p>
           </div>
 
           <!-- Email -->
@@ -300,8 +300,8 @@
           <!-- Password -->
           <div class="input-group">
             <div class="label-row">
-              <label for="password">Password</label>
-              <a href="#" class="forgot-pass" id="forgotLink" onclick="handleForgot(event)">Forgot?</a>
+              <label for="password" data-i18n="passwordLabel">Password</label>
+              <a href="#" class="forgot-pass" id="forgotLink" onclick="handleForgot(event)" data-i18n="forgotShort">Forgot?</a>
             </div>
             <div class="input-wrapper">
               <i class="fa-solid fa-lock input-icon"></i>
@@ -315,7 +315,7 @@
             <label class="remember-me">
               <input type="checkbox" id="remember" />
               <span class="custom-checkbox"></span>
-              <span id="rememberText">Keep session active</span>
+              <span id="rememberText" data-i18n="keepSessionActive">Keep session active</span>
             </label>
           </div>
 
