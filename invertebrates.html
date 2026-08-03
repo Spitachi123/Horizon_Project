@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wonders of the Invertebrates — Arthropoda &amp; Mollusca</title>
+<style>
+  :root{
+    --bg-deep:#100c09;
+    --bg-deep2:#160f0a;
+    --paper:#f7efdd;
+    --paper-edge:#eadfc4;
+    --ink:#241a10;
+    --ink-soft:#5c4a35;
+
+    --arthro-1:#ff8a3d;
+    --arthro-2:#e2472a;
+    --arthro-3:#ffcf6b;
+    --arthro-dark:#7a2d0e;
+    --arthro-tint:#fff1de;
+
+    --mollusc-1:#22d1c4;
+    --mollusc-2:#0f8b8f;
+    --mollusc-3:#7ef0e0;
+    --mollusc-dark:#0b4a4f;
+    --mollusc-tint:#e2f7f4;
+
+    --gold:#e8b64a;
+    --rule: rgba(36,26,16,0.35);
+  }
+
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0; padding:0; height:100%;
+    background:var(--bg-deep);
+    font-family:"Times New Roman", Times, serif;
+    color:var(--ink);
+    overflow:hidden;
+  }
+
+  /* ===== ambient dark backdrop ===== */
+  #backdrop{
+    position:fixed; inset:0; z-index:0; overflow:hidden;
+    background:
+      radial-gradient(1200px 800px at 15% 20%, rgba(255,138,61,0.16), transparent 60%),
+      radial-gradient(1200px 900px at 85% 80%, rgba(34,209,196,0.14), transparent 60%),
+      linear-gradient(160deg, var(--bg-deep2), var(--bg-deep) 60%);
+    transition:background 1.2s ease;
+  }
+  #backdrop.arthropoda{
+    background:
+      radial-gradient(1300px 900px at 20% 15%, rgba(255,138,61,0.30), transparent 55%),
+      radial-gradient(900px 700px at 85% 85%, rgba(226,71,42,0.18), transparent 55%),
+      linear-gradient(160deg, #1a0f08, #100b07 65%);
+  }
+  #backdrop.mollusca{
+    background:
+      radial-gradient(1300px 900px at 80% 20%, rgba(34,209,196,0.26), transparent 55%),
+      radial-gradient(900px 700px at 15% 85%, rgba(15,139,143,0.20), transparent 55%),
+      linear-gradient(160deg, #08161a, #0a0f10 65%);
+  }
+  #backdrop.chart{
+    background:
+      radial-gradient(1100px 800px at 25% 25%, rgba(232,182,74,0.16), transparent 55%),
+      radial-gradient(1100px 800px at 80% 75%, rgba(34,209,196,0.10), transparent 55%),
+      linear-gradient(160deg, #12100c, #0d0b09 65%);
+  }
+
+  .motes{ position:absolute; inset:0; }
+  .mote{
+    position:absolute; border-radius:50%;
+    background:radial-gradient(circle, rgba(255,224,180,0.55), transparent 70%);
+    filter:blur(0.5px);
+    animation:drift linear infinite;
+    opacity:0.5;
+  }
+  @keyframes drift{
+    0%{ transform:translateY(0) translateX(0); }
+    50%{ transform:translateY(-40px) translateX(18px); }
+    100%{ transform:translateY(0) translateX(0); }
+  }
+
+  #deck{ position:relative; width:100%; height:100%; z-index:1; }
+
+  /* ============ TOP BAR ============ */
+  #topbar{
+    position:fixed; top:0; left:0; right:0;
+    height:70px;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:0 38px;
+    z-index:50;
+    pointer-events:none;
+  }
+  #topbar .brand{
+    font-style:italic; letter-spacing:0.5px; font-size:15px; color:#e9dcc2;
+    pointer-events:auto; text-shadow:0 2px 10px rgba(0,0,0,0.5);
+  }
+  #topbar .brand b{ font-style:normal; color:var(--gold); }
+  #section-pills{ display:flex; gap:10px; pointer-events:auto; }
+  .pill{
+    font-family:"Times New Roman", serif;
+    font-size:12.5px; letter-spacing:1.8px; text-transform:uppercase;
+    padding:8px 18px; border-radius:30px;
+    border:1px solid rgba(255,255,255,0.25);
+    background:rgba(255,255,255,0.06);
+    backdrop-filter:blur(6px);
+    cursor:pointer; color:#e9dcc2;
+    transition:all .25s ease;
+  }
+  .pill:hover{ background:rgba(255,255,255,0.16); transform:translateY(-1px); }
+  .pill.active-arthro{ background:linear-gradient(120deg,var(--arthro-1),var(--arthro-2)); border-color:transparent; color:#2a0f02; font-weight:bold; box-shadow:0 6px 18px rgba(226,71,42,0.45);}
+  .pill.active-mollusc{ background:linear-gradient(120deg,var(--mollusc-1),var(--mollusc-2)); border-color:transparent; color:#052426; font-weight:bold; box-shadow:0 6px 18px rgba(15,139,143,0.45);}
+  .pill.active-chart{ background:linear-gradient(120deg,var(--gold),#fff1c2); border-color:transparent; color:#3a2a05; font-weight:bold; box-shadow:0 6px 18px rgba(232,182,74,0.45);}
+
+  /* ============ PROGRESS ============ */
+  #progress-track{
+    position:fixed; top:70px; left:0; right:0; height:3px;
+    background:rgba(255,255,255,0.08); z-index:50;
+  }
+  #progress-fill{
+    height:100%; width:0%;
+    background:linear-gradient(90deg, var(--gold), var(--arthro-1), var(--mollusc-1));
+    background-size:300% 100%;
+    animation:shimmer 6s linear infinite;
+    transition:width .5s cubic-bezier(.4,0,.2,1);
+    box-shadow:0 0 12px rgba(232,182,74,0.6);
+  }
+  @keyframes shimmer{ 0%{background-position:0% 0;} 100%{background-position:300% 0;} }
+
+  /* ============ SLIDE STAGE ============ */
+  #stage{
+    position:absolute; top:0; left:0; right:0; bottom:0;
+    display:flex; align-items:center; justify-content:center;
+    padding:100px 70px 108px;
+    perspective:1800px;
+  }
+
+  .slide{
+    position:absolute;
+    width:min(1200px, 88vw);
+    height:min(660px, 80vh);
+    opacity:0;
+    transform:translateX(60px) rotateY(-8deg) scale(.92);
+    pointer-events:none;
+    transition:opacity .6s cubic-bezier(.22,1,.36,1), transform .65s cubic-bezier(.22,1,.36,1);
+  }
+  .slide.active{
+    opacity:1;
+    transform:translateX(0) rotateY(0) scale(1);
+    pointer-events:auto;
+    z-index:5;
+  }
+  .slide.prev-exit{
+    opacity:0;
+    transform:translateX(-60px) rotateY(8deg) scale(.92);
+  }
+
+  .card{
+    position:relative;
+    width:100%; height:100%;
+    background:
+      radial-gradient(1200px 500px at -10% -10%, rgba(255,255,255,0.5), transparent 40%),
+      var(--paper);
+    border-radius:6px;
+    box-shadow:
+      0 2px 0 rgba(255,255,255,0.5) inset,
+      0 40px 90px -25px rgba(0,0,0,0.65),
+      0 0 0 1px rgba(0,0,0,0.06);
+    display:flex;
+    overflow:hidden;
+  }
+  .card::after{
+    content:""; position:absolute; inset:13px;
+    border:1px solid var(--rule);
+    border-radius:3px;
+    pointer-events:none;
+  }
+  .accent-arthro .card::after{ border-color:rgba(226,71,42,0.32); }
+  .accent-mollusc .card::after{ border-color:rgba(15,139,143,0.32); }
+
+  /* ghost watermark number */
+  .ghost-num{
+    position:absolute; left:-10px; bottom:-70px;
+    font-size:340px; font-weight:bold; line-height:1;
+    color:var(--ink); opacity:0.035; z-index:0; user-select:none;
+    font-family:"Times New Roman", serif;
+  }
+
+  .tag{
+    position:absolute; top:24px; right:28px;
+    text-align:right; z-index:3;
+    font-size:11px; letter-spacing:1.6px; text-transform:uppercase;
+    color:var(--ink-soft); line-height:1.6;
+  }
+  .tag .num{
+    font-size:24px; font-style:italic; display:block; letter-spacing:0;
+    background:linear-gradient(120deg, var(--gold), #b9862a);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+
+  .content-col{
+    flex:1.15; padding:56px 22px 50px 58px;
+    display:flex; flex-direction:column; justify-content:center;
+    position:relative; z-index:2;
+  }
+  .art-col{
+    flex:0.95; position:relative;
+    display:flex; align-items:center; justify-content:center;
+    padding:34px;
+    overflow:hidden;
+  }
+  .accent-arthro .art-col{
+    background:
+      radial-gradient(circle at 30% 25%, rgba(255,207,107,0.45), transparent 55%),
+      linear-gradient(160deg, var(--arthro-tint), #ffe2bd 120%);
+  }
+  .accent-mollusc .art-col{
+    background:
+      radial-gradient(circle at 30% 25%, rgba(126,240,224,0.4), transparent 55%),
+      linear-gradient(160deg, var(--mollusc-tint), #c9efe9 120%);
+  }
+  .art-col::before{
+    content:""; position:absolute; inset:0;
+    background-image:radial-gradient(rgba(0,0,0,0.05) 1px, transparent 1px);
+    background-size:14px 14px;
+    opacity:0.3; mix-blend-mode:multiply;
+    pointer-events:none;
+  }
+  .art-glow{
+    position:absolute; width:280px; height:280px; border-radius:50%;
+    filter:blur(34px); opacity:0.5; z-index:0;
+    animation:pulseglow 5s ease-in-out infinite;
+  }
+  .accent-arthro .art-glow{ background:radial-gradient(circle, var(--arthro-1), transparent 70%); }
+  .accent-mollusc .art-glow{ background:radial-gradient(circle, var(--mollusc-1), transparent 70%); }
+  @keyframes pulseglow{ 0%,100%{ transform:scale(1); opacity:.4; } 50%{ transform:scale(1.15); opacity:.6; } }
+
+  .eyebrow{
+    font-size:12.5px; letter-spacing:3px; text-transform:uppercase;
+    margin:0 0 14px; display:flex; align-items:center; gap:10px;
+    font-weight:bold;
+  }
+  .eyebrow::before{ content:""; width:30px; height:2px; display:inline-block; border-radius:2px;}
+  .accent-arthro .eyebrow{ color:var(--arthro-2); }
+  .accent-arthro .eyebrow::before{ background:linear-gradient(90deg,var(--arthro-1),var(--arthro-2)); }
+  .accent-mollusc .eyebrow{ color:var(--mollusc-2); }
+  .accent-mollusc .eyebrow::before{ background:linear-gradient(90deg,var(--mollusc-1),var(--mollusc-2)); }
+
+  h1.title{
+    font-size:40px; font-weight:bold; margin:0 0 6px;
+    line-height:1.1; letter-spacing:0.2px;
+    color:var(--ink);
+  }
+  .latin{ font-style:italic; color:var(--ink-soft); font-size:16px; margin:0 0 20px; }
+
+  .rule{
+    width:0; height:3px; margin:0 0 22px 0; border-radius:3px;
+    animation:draw .8s .15s cubic-bezier(.22,1,.36,1) forwards;
+  }
+  .accent-arthro .rule{ background:linear-gradient(90deg,var(--arthro-1),var(--arthro-2)); }
+  .accent-mollusc .rule{ background:linear-gradient(90deg,var(--mollusc-1),var(--mollusc-2)); }
+  @keyframes draw{ to{ width:70px; } }
+
+  .body-text{ font-size:18.5px; line-height:1.6; color:var(--ink); max-width:58ch; }
+  .body-text p{ margin:0 0 14px; }
+  .body-text ul{ margin:0; padding-left:0; list-style:none; }
+  .body-text li{
+    margin-bottom:12px; padding-left:28px; position:relative;
+  }
+  .body-text li::before{
+    content:"◆"; position:absolute; left:0; top:1px; font-size:11px;
+  }
+  .accent-arthro .body-text li::before{ color:var(--arthro-2); }
+  .accent-mollusc .body-text li::before{ color:var(--mollusc-2); }
+  .body-text strong{ font-weight:bold; }
+  .accent-arthro .body-text strong{ color:var(--arthro-dark); }
+  .accent-mollusc .body-text strong{ color:var(--mollusc-dark); }
+
+  .example-strip{ display:flex; flex-wrap:wrap; gap:9px; margin-top:16px; }
+  .example-chip{
+    font-size:13.5px; padding:7px 15px; border-radius:20px; letter-spacing:0.3px;
+    color:#2a1a05; font-weight:bold;
+    background:linear-gradient(120deg, var(--arthro-3), var(--arthro-1));
+    box-shadow:0 4px 10px rgba(226,71,42,0.25);
+    transform:translateY(0); transition:transform .2s ease;
+  }
+  .example-chip:hover{ transform:translateY(-3px); }
+
+  /* ============ PHOTO FRAME (replaces old SVG icon-frame) ============ */
+  .photo-frame{
+    width:100%; height:100%;
+    max-width:420px; max-height:100%;
+    position:relative; z-index:1;
+    border-radius:14px;
+    overflow:hidden;
+    animation:breathe 5s ease-in-out infinite;
+    box-shadow:
+      0 22px 44px -14px rgba(0,0,0,0.45),
+      0 0 0 6px rgba(255,255,255,0.55),
+      0 0 0 7px rgba(0,0,0,0.08);
+  }
+  .photo-frame img{
+    width:100%; height:100%;
+    object-fit:cover;
+    display:block;
+    filter:saturate(1.08) contrast(1.03);
+  }
+  .photo-frame::after{
+    content:"";
+    position:absolute; inset:0;
+    background:linear-gradient(200deg, rgba(0,0,0,0) 55%, rgba(0,0,0,0.35) 100%);
+    pointer-events:none;
+  }
+  @keyframes breathe{ 0%,100%{ transform:translateY(0) scale(1); } 50%{ transform:translateY(-6px) scale(1.015); } }
+
+  .art-caption{
+    position:absolute; bottom:20px; left:0; right:0; text-align:center; z-index:2;
+    font-size:12px; letter-spacing:2px; text-transform:uppercase; font-weight:bold;
+  }
+  .accent-arthro .art-caption{ color:var(--arthro-dark); }
+  .accent-mollusc .art-caption{ color:var(--mollusc-dark); }
+
+  .photo-credit{
+    position:absolute; bottom:4px; right:10px; z-index:2;
+    font-size:9px; letter-spacing:0.5px; text-transform:none;
+    color:rgba(36,26,16,0.45); font-style:italic;
+  }
+
+  /* text stagger-in */
+  .fx{ opacity:0; transform:translateY(16px); animation:riseIn .6s cubic-bezier(.22,1,.36,1) forwards; }
+  .fx1{ animation-delay:.05s; } .fx2{ animation-delay:.15s; } .fx3{ animation-delay:.25s; } .fx4{ animation-delay:.35s; }
+  @keyframes riseIn{ to{ opacity:1; transform:translateY(0); } }
+
+  /* ============ CHART SLIDE ============ */
+  .chart-card{ padding:34px 40px 22px; display:flex; flex-direction:column; align-items:center; overflow:auto; }
+  .chart-title{ text-align:center; margin-bottom:4px; }
+  .chart-title h1{ font-size:32px; margin:0 0 4px; background:linear-gradient(120deg,var(--gold),#c9871f); -webkit-background-clip:text; background-clip:text; color:transparent;}
+  .chart-title .latin{ margin-bottom:8px; font-size:14px;}
+  .chart-wrap{ width:100%; }
+
+  .cbox{
+    font-family:"Times New Roman", serif;
+    padding:7px 15px; font-size:13px; text-align:center;
+    border-radius:6px; white-space:nowrap; color:#2a1a05;
+    box-shadow:0 3px 8px rgba(0,0,0,0.12);
+    transition:transform .2s ease;
+  }
+  .cbox:hover{ transform:translateY(-2px) scale(1.03); }
+  .cbox b{ display:block; font-size:13px; }
+  .cbox small{ font-style:italic; font-size:10.5px; opacity:0.75; }
+  .cbox.root{ background:linear-gradient(120deg,var(--gold),#fff1c2); font-size:15px; font-weight:bold; box-shadow:0 6px 16px rgba(232,182,74,0.4); }
+  .cbox.nc{ background:linear-gradient(120deg,#ffe1b8,#ffb877); }
+  .cbox.nc.hi{ background:linear-gradient(120deg,var(--arthro-1),var(--arthro-2)); color:#2a0f02; font-weight:bold; }
+  .cbox.ch{ background:linear-gradient(120deg,#c9f3ec,#8de6da); }
+  .cbox.ch.hi{ background:linear-gradient(120deg,var(--mollusc-1),var(--mollusc-2)); color:#052426; font-weight:bold; }
+  .cbox.leaf{ font-size:11.5px; padding:5px 12px; }
+
+  /* ============ NAV ============ */
+  #navbar{
+    position:fixed; bottom:0; left:0; right:0; height:88px;
+    display:flex; align-items:center; justify-content:center; gap:28px;
+    z-index:50;
+  }
+  .nav-btn{
+    width:50px; height:50px; border-radius:50%;
+    border:none; cursor:pointer;
+    background:linear-gradient(140deg, #2b2118, #171009);
+    color:var(--gold);
+    font-family:"Times New Roman", serif; font-size:22px;
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 8px 20px rgba(0,0,0,0.45), 0 0 0 1px rgba(232,182,74,0.35);
+    transition:all .2s ease;
+  }
+  .nav-btn:hover{ transform:translateY(-3px) scale(1.06); box-shadow:0 12px 26px rgba(0,0,0,0.5), 0 0 0 1.5px var(--gold); }
+  .nav-btn:disabled{ opacity:0.25; cursor:default; }
+  .nav-btn:disabled:hover{ transform:none; box-shadow:0 8px 20px rgba(0,0,0,0.45), 0 0 0 1px rgba(232,182,74,0.35); }
+
+  #counter{ font-size:14px; letter-spacing:1px; color:#e9dcc2; min-width:120px; text-align:center; }
+  #counter b{ color:var(--gold); font-size:18px; }
+
+  #hint{
+    position:fixed; top:82px; right:38px; z-index:40;
+    font-size:11.5px; color:#cbb98f; letter-spacing:0.5px; opacity:0.7;
+  }
+
+  @media (max-width: 880px){
+    .slide{ width:94vw; height:86vh; }
+    .card{ flex-direction:column; overflow:auto; }
+    .content-col{ padding:34px 22px 16px; }
+    .art-col{ min-height:220px; padding:18px; }
+    .photo-frame{ max-width:100%; height:200px; }
+    h1.title{ font-size:27px; }
+    .body-text{ font-size:16px; }
+    #section-pills .pill{ padding:6px 11px; font-size:10.5px; }
+    #hint{ display:none; }
+    .ghost-num{ font-size:180px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="backdrop" class="chart"><div class="motes" id="motes"></div></div>
+
+<div id="deck">
+
+  <div id="topbar">
+    <div class="brand">Wonders of the Invertebrates &mdash; <b>Field Atlas</b></div>
+    <div id="section-pills">
+      <div class="pill" data-jump="chart">I. Classification</div>
+      <div class="pill" data-jump="arthropoda">II. Arthropoda</div>
+      <div class="pill" data-jump="mollusca">III. Mollusca</div>
+    </div>
+  </div>
+  <div id="progress-track"><div id="progress-fill"></div></div>
+  <div id="hint">use &larr; &rarr; or swipe to browse</div>
+
+  <div id="stage"></div>
+
+  <div id="navbar">
+    <button class="nav-btn" id="prevBtn" aria-label="Previous">&#8249;</button>
+    <div id="counter"><b id="curNum">1</b> / <span id="totalNum">1</span></div>
+    <button class="nav-btn" id="nextBtn" aria-label="Next">&#8250;</button>
+  </div>
+
+</div>
+
+<script>
+/* ============================================================
+   PHOTO LIBRARY — real photographs (Wikimedia Commons, freely licensed)
+   ============================================================ */
+const CDN = "https://commons.wikimedia.org/wiki/Special:FilePath/";
+const PHOTOS = {
+  prawn:      { src: CDN + "Prawn_fish.jpg",                                   credit: "Wikimedia Commons" },
+  bee:        { src: CDN + "Honey_bee_(Apis_mellifera).jpg",                   credit: "Wikimedia Commons" },
+  butterfly:  { src: CDN + "Monarch_butterfly_(70387).jpg",                    credit: "Wikimedia Commons" },
+  molt:       { src: CDN + "Cicada_Molting.jpg",                               credit: "Wikimedia Commons" },
+  eye:        { src: CDN + "Dragonfly_eye_3811.jpg",                           credit: "Wikimedia Commons" },
+  millipede:  { src: CDN + "Millipede.jpg",                                    credit: "Wikimedia Commons" },
+  spider:     { src: CDN + "Yellow_Garden_Spider_and_its_web.JPG",             credit: "Wikimedia Commons" },
+  horseshoe:  { src: CDN + "Horseshoe_Crab_(4035509350).jpg",                  credit: "USFWS / Wikimedia Commons" },
+  crab:       { src: CDN + "Blue_crab.jpeg",                                   credit: "Wikimedia Commons" },
+  grasshopper:{ src: CDN + "Grasshopper_2.JPG",                                credit: "Wikimedia Commons" },
+  snail:      { src: CDN + "Snail_Close-up.JPG",                               credit: "Wikimedia Commons" },
+  octopus:    { src: CDN + "Common_octopus.jpg",                               credit: "Wikimedia Commons" },
+  shell:      { src: CDN + "Different_types_of_shells.jpg",                    credit: "Wikimedia Commons" },
+  eggs:       { src: CDN + "Snail_eggs.jpg",                                   credit: "Wikimedia Commons" },
+  tidepool:   { src: CDN + "Tide_pools_in_santa_cruz.jpg",                     credit: "Wikimedia Commons" }
+};
+
+/* ============================================================
+   SLIDE DATA — all wording preserved verbatim from source notes
+   ============================================================ */
+const SLIDES = [];
+
+/* ---------- 0. CLASSIFICATION CHART ---------- */
+SLIDES.push({ type:"chart", section:"chart" });
+
+/* ---------- helper ---------- */
+function s(section, tag, title, latin, photoKey, bodyHTML, extra){
+  return Object.assign({type:"content", section, tag, title, latin, photoKey, bodyHTML}, extra||{});
+}
+
+/* =================== PHYLUM ARTHROPODA =================== */
+SLIDES.push(s("arthropoda","Phylum · Overview","Phylum Arthropoda","Etymology: Greek \u2018arthros\u2019 = jointed, \u2018podos\u2019 = feet.","butterfly",
+  `<p><strong>Overview:</strong> The largest phylum in the animal kingdom, accounting for about 84% of all known animal species. They are found virtually everywhere&mdash;in water, on land, and in the air across all climates and altitudes.</p>`));
+
+SLIDES.push(s("arthropoda","Key Characteristics (in order)","a) Special Features","Jointed Appendages","crab",
+  `<p>Possess paired, jointed legs, antennae, and mouth parts.</p>`));
+
+SLIDES.push(s("arthropoda","Key Characteristics (in order)","a) Special Features","Body Regions","bee",
+  `<p>Segmented body divided into head, thorax, and abdomen. In some, the head and thorax fuse into a cephalothorax.</p>`));
+
+SLIDES.push(s("arthropoda","Key Characteristics (in order)","a) Special Features","Exoskeleton","molt",
+  `<p>Covered by a tough exoskeleton made of chitin.</p>`));
+
+SLIDES.push(s("arthropoda","Key Characteristics (in order)","a) Special Features","Sensory Organs","eye",
+  `<p>Antennae help sense food, prey, weather, and predators. The head features simple or compound eyes.</p>`));
+
+SLIDES.push(s("arthropoda","Key Characteristics (in order)","b) Locomotion",null,"grasshopper",
+  `<p>Walk, crawl, or fly using jointed legs, wings, or both (attached to the thorax). Wings may be absent, single-paired, or two-paired.</p>`));
+
+SLIDES.push(s("arthropoda","Key Characteristics (in order)","c) Symmetry",null,"butterfly",
+  `<p>Bilateral Symmetry (left and right sides are mirror images).</p>`));
+
+SLIDES.push(s("arthropoda","Key Characteristics (in order)","d) Germ Layers",null,"millipede",
+  `<p>Triploblastic (developed from three embryonic tissue layers: ectoderm, mesoderm, endoderm).</p>`));
+
+SLIDES.push(s("arthropoda","Key Characteristics (in order)","e) Segmentation",null,"millipede",
+  `<p>Distinctly segmented bodies.</p>`));
+
+SLIDES.push(s("arthropoda","Key Characteristics (in order)","f) Digestive Tract",null,"crab",
+  `<p>Complete digestive system (food enters through the mouth and waste exits through the anus).</p>`));
+
+SLIDES.push(s("arthropoda","Key Characteristics (in order)","g) Sexual Orientation",null,"spider",
+  `<p>Generally unisexual (distinct male and female individuals).</p>`));
+
+SLIDES.push(s("arthropoda","Key Characteristics (in order)","h) Body Systems","Reproductive System","spider",
+  `<p>Sexual reproduction with genitalia located in the abdomen.</p>`));
+
+SLIDES.push(s("arthropoda","Key Characteristics (in order)","h) Body Systems","Respiratory System","spider",
+  `<p>Breathes via body surface, gills, trachea, book gills, or book lungs.</p>`));
+
+SLIDES.push(s("arthropoda","Key Characteristics (in order)","h) Body Systems","Excretory System","molt",
+  `<p>Excretion occurs through Malpighian tubules and specialized glands.</p>`));
+
+SLIDES.push(s("arthropoda","Key Characteristics (in order)","h) Body Systems","Nervous System","eye",
+  `<p>Composed of a nerve ring, two nerve cords, and nerve bundles.</p>`));
+
+SLIDES.push(s("arthropoda","Field Notes","Examples",null,"prawn",
+  `<div class="example-strip">
+    <span class="example-chip">Prawn</span><span class="example-chip">Crab</span><span class="example-chip">Spider</span>
+    <span class="example-chip">Scorpion</span><span class="example-chip">Centipede</span><span class="example-chip">Millipede</span>
+    <span class="example-chip">Butterfly</span><span class="example-chip">Honey bee</span><span class="example-chip">Grasshopper</span>
+  </div>`));
+
+SLIDES.push(s("arthropoda","💡 Fun Facts About Arthropods","Armor Swap (Molting)",null,"molt",
+  `<p>Because their chitinous exoskeleton cannot grow, arthropods must periodically shed their hard shell to grow bigger&mdash;a process called ecdysis.</p>`));
+
+SLIDES.push(s("arthropoda","💡 Fun Facts About Arthropods","Super Vision",null,"eye",
+  `<p>Many insects have compound eyes with thousands of individual lenses, giving them a near 360-degree view of their surroundings.</p>`));
+
+SLIDES.push(s("arthropoda","💡 Fun Facts About Arthropods","Blue Blood",null,"horseshoe",
+  `<p>Crabs and lobsters don't have red blood; their blood is blue because it uses copper (hemocyanin) instead of iron (hemoglobin) to carry oxygen! Horseshoe crabs, close arthropod relatives, are famous for this striking blue blood.</p>`));
+
+SLIDES.push(s("arthropoda","Classes of Phylum Arthropoda","Classes of Phylum Arthropoda",null,"millipede",
+  `<p>Arthropods are classified primarily based on their number of legs and habitat:</p>`));
+
+SLIDES.push(s("arthropoda","Class","Crustacea","e.g., Prawns, Crabs, Lobsters","prawn",
+  `<p><strong>Habitat:</strong> Mostly aquatic (freshwater and marine).</p>
+   <p><strong>Key Feature:</strong> Head and thorax fused (cephalothorax); usually have 5 or more pairs of jointed legs and 2 pairs of antennae.</p>`));
+
+SLIDES.push(s("arthropoda","Class","Insecta","e.g., Honey bees, Butterflies, Grasshoppers","bee",
+  `<p><strong>Habitat:</strong> Mostly terrestrial and aerial.</p>
+   <p><strong>Key Feature:</strong> 3 distinct body parts (head, thorax, abdomen), 6 jointed legs (3 pairs), and often 1 or 2 pairs of wings.</p>`));
+
+SLIDES.push(s("arthropoda","Class","Arachnida","e.g., Spiders, Scorpions, Ticks","spider",
+  `<p><strong>Habitat:</strong> Mostly terrestrial.</p>
+   <p><strong>Key Feature:</strong> Cephalothorax and abdomen; 8 jointed legs (4 pairs); no antennae or wings.</p>`));
+
+SLIDES.push(s("arthropoda","Class","Myriapoda","e.g., Centipedes, Millipedes","millipede",
+  `<p><strong>Habitat:</strong> Terrestrial (dark, moist places).</p>
+   <p><strong>Key Feature:</strong> Long, highly segmented bodies with numerous legs (centipedes have 1 pair per segment; millipedes have 2 pairs per segment).</p>`));
+
+
+/* =================== PHYLUM MOLLUSCA =================== */
+SLIDES.push(s("mollusca","1. Body Structure","Phylum Mollusca","Body Structure","snail",
+  `<p>Soft and unsegmented body, usually protected by a hard calcareous shell.</p>
+   <p>The body is divided into four main parts:</p>`));
+
+SLIDES.push(s("mollusca","1. Body Structure","Head",null,"snail",
+  `<p>Contains the mouth, eyes, and tentacles. It helps in feeding and sensing the surroundings.</p>`));
+
+SLIDES.push(s("mollusca","1. Body Structure","Mantle",null,"shell",
+  `<p>A soft fold of tissue that covers the visceral mass. It secretes the hard shell and protects the internal organs.</p>`));
+
+SLIDES.push(s("mollusca","1. Body Structure","Visceral Mass",null,"octopus",
+  `<p>The central part of the body that contains important internal organs such as the digestive, circulatory, excretory, and reproductive systems.</p>`));
+
+SLIDES.push(s("mollusca","1. Body Structure","Muscular Foot",null,"snail",
+  `<p>A thick, muscular organ used for locomotion. It helps the animal crawl, burrow, glide, or swim depending on the species.</p>`));
+
+SLIDES.push(s("mollusca","1. Body Structure","Protective Covering",null,"shell",
+  `<p>Most molluscs have a hard shell made mainly of calcium carbonate that protects the soft body from enemies and environmental hazards.</p>`));
+
+SLIDES.push(s("mollusca","2. Special Feature","Etymology &amp; Shells",null,"octopus",
+  `<p>The word Mollusca is derived from the Latin word molluscus, meaning "soft" or "soft-bodied." Fun Fact: Although most molluscs have shells, animals like octopus, squid, and slugs have reduced, internal, or no external shell.</p>`));
+
+SLIDES.push(s("mollusca","2. Special Feature","Radula",null,"snail",
+  `<p>Most have a special feeding organ called the radula, used for scraping food (except bivalves like oysters and clams).</p>`));
+
+SLIDES.push(s("mollusca","2. Special Feature","Sense Organs",null,"snail",
+  `<p>They possess tentacles on the head that help detect touch, smell, and chemicals in the surroundings. Many species also have well-developed eyes.</p>`));
+
+SLIDES.push(s("mollusca","3. Locomotion","Locomotion",null,"octopus",
+  `<ul>
+     <li>Movement occurs with the help of a muscular foot.</li>
+     <li>Snails glide on mucus.</li>
+     <li>Squids and octopuses swim using jet propulsion.</li>
+   </ul>`));
+
+SLIDES.push(s("mollusca","4. Body Organization","Body Organization",null,"shell",
+  `<p>Organ-system level of organization.</p>`));
+
+SLIDES.push(s("mollusca","5. Symmetry","Symmetry",null,"snail",
+  `<ul>
+     <li>Most molluscs are asymmetrical.</li>
+     <li>Some show bilateral symmetry.</li>
+   </ul>`));
+
+SLIDES.push(s("mollusca","6. Germ Layers","Germ Layers",null,"shell",
+  `<p>Triploblastic (has three germ layers: ectoderm, mesoderm, and endoderm).</p>`));
+
+SLIDES.push(s("mollusca","7. Segmentation","Segmentation",null,"shell",
+  `<p>Unsegmented (absent).</p>`));
+
+SLIDES.push(s("mollusca","8. Digestive Tract","Digestive Tract",null,"octopus",
+  `<p>Digestive system is complete and well developed.</p>`));
+
+SLIDES.push(s("mollusca","9. Sexual Orientation","Sexual Orientation",null,"eggs",
+  `<ul>
+     <li>Reproduction is mainly sexual.</li>
+     <li>Fertilization is usually internal.</li>
+     <li>Most species have separate sexes.</li>
+     <li>Some snails are hermaphrodites, having both male and female reproductive organs.</li>
+   </ul>`));
+
+SLIDES.push(s("mollusca","10. Systems","Respiratory System",null,"octopus",
+  `<p>Depending on their habitat, respiration occurs through:</p>
+   <ul>
+     <li>Gills (aquatic species)</li>
+     <li>Pulmonary sac or lung (land snails)</li>
+     <li>Body surface in some simple forms</li>
+   </ul>`));
+
+SLIDES.push(s("mollusca","10. Systems","Circulatory System",null,"octopus",
+  `<p>Circulatory system is developed. Most possess an open circulatory system. Cephalopods (octopus and squid) have a closed circulatory system.</p>`));
+
+SLIDES.push(s("mollusca","10. Systems","Nervous System",null,"octopus",
+  `<p>Nervous system is well developed. Cephalopods have one of the most advanced nervous systems among invertebrates.</p>`));
+
+SLIDES.push(s("mollusca","10. Systems","Habitat",null,"tidepool",
+  `<p>Molluscs live in freshwater, marine water, moist land, and damp soil.</p>`));
+
+
+/* ============================================================
+   RENDER ENGINE
+   ============================================================ */
+const stage = document.getElementById("stage");
+const backdrop = document.getElementById("backdrop");
+let current = 0;
+
+function chartSlideHTML(){
+  return `
+  <div class="slide" data-section="chart">
+    <div class="card chart-card">
+      <div class="tag"><span class="num">I.</span>Classification</div>
+      <div class="chart-title">
+        <h1 class="title fx fx1" style="font-size:30px;">Classification of Animals</h1>
+        <p class="latin fx fx2">Non-chordata &amp; Chordata &mdash; with focus on Arthropoda and Mollusca</p>
+        <div class="rule" style="margin:0 auto 14px;"></div>
+      </div>
+      <div class="chart-wrap fx fx3" id="chartWrap"></div>
+    </div>
+  </div>`;
+}
+
+function buildChart(){
+  const wrap = document.getElementById("chartWrap");
+  if(!wrap || wrap.dataset.built) return;
+  wrap.dataset.built = "1";
+  wrap.innerHTML = `
+  <div style="display:flex;flex-direction:column;align-items:center;gap:10px;font-family:'Times New Roman',serif;">
+    <div class="cbox root"><b>Animal Kingdom</b></div>
+    <div style="display:flex;gap:120px;">
+      <div style="width:2px;height:16px;background:var(--gold);"></div>
+      <div style="width:2px;height:16px;background:var(--gold);"></div>
+    </div>
+    <div style="display:flex;gap:60px;align-items:flex-start;">
+
+      <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
+        <div class="cbox nc hi"><b>Group Non-chordata</b><small>(notochord absent)</small></div>
+        <div style="width:2px;height:12px;background:var(--arthro-1);"></div>
+        <div style="display:flex;flex-direction:column;gap:6px;align-items:stretch;">
+          <div class="cbox nc leaf">Phylum: Porifera <i>e.g. sycon</i></div>
+          <div class="cbox nc leaf">Phylum: Coelenterata <i>e.g. hydra</i></div>
+          <div class="cbox nc leaf">Phylum: Platyhelminthes <i>e.g. tapeworm</i></div>
+          <div class="cbox nc leaf">Phylum: Aschelminthes <i>e.g. round worm</i></div>
+          <div class="cbox nc leaf">Phylum: Annelida <i>e.g. earthworm</i></div>
+          <div class="cbox nc hi">Phylum: Arthropoda</div>
+          <div style="display:flex;flex-direction:column;gap:5px;margin-left:26px;border-left:2px solid var(--arthro-1);padding-left:10px;">
+            <div class="cbox nc leaf">Class: Crustacea <i>e.g. prawn</i></div>
+            <div class="cbox nc leaf">Class: Insecta <i>e.g. butterfly</i></div>
+            <div class="cbox nc leaf">Class: Myriapoda <i>e.g. millipede</i></div>
+            <div class="cbox nc leaf">Class: Arachnida <i>e.g. spider</i></div>
+          </div>
+          <div class="cbox nc hi">Phylum: Mollusca</div>
+          <div class="cbox nc leaf">Phylum: Echinodermata <i>e.g. starfish</i></div>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
+        <div class="cbox ch hi"><b>Group Chordata</b><small>(notochord present)</small></div>
+        <div style="width:2px;height:12px;background:var(--mollusc-1);"></div>
+        <div class="cbox ch hi"><b>Phylum Chordata</b></div>
+        <div style="width:2px;height:12px;background:var(--mollusc-1);"></div>
+        <div style="display:flex;flex-direction:column;gap:6px;align-items:stretch;">
+          <div class="cbox ch leaf">Sub-phylum: Hemichordata</div>
+          <div class="cbox ch leaf">Sub-phylum: Urochordata</div>
+          <div class="cbox ch leaf">Sub-phylum: Cephalochordata</div>
+          <div class="cbox ch hi">Sub-phylum: Vertebrata</div>
+          <div style="display:flex;flex-direction:column;gap:5px;margin-left:26px;border-left:2px solid var(--mollusc-1);padding-left:10px;">
+            <div class="cbox ch leaf">Class: Pisces <i>e.g. rohu</i></div>
+            <div class="cbox ch leaf">Class: Amphibia <i>e.g. frog</i></div>
+            <div class="cbox ch leaf">Class: Reptilia <i>e.g. snake</i></div>
+            <div class="cbox ch leaf">Class: Aves <i>e.g. parrot</i></div>
+            <div class="cbox ch leaf">Class: Mammalia <i>e.g. human</i></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function contentSlideHTML(d, idx){
+  const accent = d.section === "arthropoda" ? "accent-arthro" : "accent-mollusc";
+  const romanNumeral = d.section === "arthropoda" ? "II" : "III";
+  const label = d.section === "arthropoda" ? "Arthropoda" : "Mollusca";
+  const photo = PHOTOS[d.photoKey] || PHOTOS.shell;
+  return `
+  <div class="slide ${accent}" data-section="${d.section}">
+    <div class="card">
+      <div class="ghost-num">${String(idx).padStart(2,"0")}</div>
+      <div class="content-col">
+        <div class="tag"><span class="num">${romanNumeral}</span>${label}</div>
+        <p class="eyebrow fx fx1">${d.tag}</p>
+        <h1 class="title fx fx2">${d.title}</h1>
+        ${d.latin ? `<p class="latin fx fx2">${d.latin}</p>` : ""}
+        <div class="rule"></div>
+        <div class="body-text fx fx3">${d.bodyHTML}</div>
+      </div>
+      <div class="art-col">
+        <div class="art-glow"></div>
+        <div class="photo-frame"><img src="${photo.src}" alt="${d.title}" loading="lazy" referrerpolicy="no-referrer"></div>
+        <div class="art-caption">${label}</div>
+        <div class="photo-credit">${photo.credit}</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function render(){
+  stage.innerHTML = SLIDES.map((d,i)=>{
+    if(d.type === "chart") return chartSlideHTML();
+    return contentSlideHTML(d, i);
+  }).join("");
+  buildChart();
+  document.getElementById("totalNum").textContent = SLIDES.length;
+  goTo(0, true);
+}
+
+function retriggerAnim(el){
+  el.querySelectorAll(".fx").forEach(node=>{
+    node.style.animation = "none";
+    void node.offsetWidth;
+    node.style.animation = "";
+  });
+  const rule = el.querySelector(".rule");
+  if(rule){
+    rule.style.animation = "none";
+    void rule.offsetWidth;
+    rule.style.animation = "";
+  }
+}
+
+function goTo(i, initial){
+  if(i < 0 || i >= SLIDES.length) return;
+  const slides = stage.querySelectorAll(".slide");
+  slides.forEach((el, idx)=>{
+    el.classList.remove("active","prev-exit");
+    if(idx === i){
+      el.classList.add("active");
+      retriggerAnim(el);
+    }
+  });
+  current = i;
+  document.getElementById("curNum").textContent = i+1;
+  document.getElementById("progress-fill").style.width = ((i+1)/SLIDES.length*100)+"%";
+  document.getElementById("prevBtn").disabled = (i===0);
+  document.getElementById("nextBtn").disabled = (i===SLIDES.length-1);
+
+  const sec = SLIDES[i].section;
+  document.querySelectorAll(".pill").forEach(p=>p.classList.remove("active-arthro","active-mollusc","active-chart"));
+  const map = {chart:"active-chart", arthropoda:"active-arthro", mollusca:"active-mollusc"};
+  const pillIdx = sec === "chart" ? 0 : (sec === "arthropoda" ? 1 : 2);
+  document.querySelectorAll(".pill")[pillIdx].classList.add(map[sec]);
+
+  backdrop.className = sec;
+
+  if(!initial) buildChart();
+}
+
+document.getElementById("prevBtn").addEventListener("click", ()=>goTo(current-1));
+document.getElementById("nextBtn").addEventListener("click", ()=>goTo(current+1));
+
+document.addEventListener("keydown", (e)=>{
+  if(e.key === "ArrowRight" || e.key === "PageDown"){ goTo(current+1); }
+  if(e.key === "ArrowLeft" || e.key === "PageUp"){ goTo(current-1); }
+});
+
+document.querySelectorAll(".pill").forEach(p=>{
+  p.addEventListener("click", ()=>{
+    const target = p.dataset.jump;
+    const firstIdx = SLIDES.findIndex(d => d.section === target);
+    if(firstIdx >= 0) goTo(firstIdx);
+  });
+});
+
+let touchStartX = null;
+stage.addEventListener("touchstart", e=>{ touchStartX = e.touches[0].clientX; }, {passive:true});
+stage.addEventListener("touchend", e=>{
+  if(touchStartX === null) return;
+  const dx = e.changedTouches[0].clientX - touchStartX;
+  if(dx > 50) goTo(current-1);
+  if(dx < -50) goTo(current+1);
+  touchStartX = null;
+}, {passive:true});
+
+/* ambient floating motes */
+(function buildMotes(){
+  const host = document.getElementById("motes");
+  const n = 26;
+  for(let i=0;i<n;i++){
+    const m = document.createElement("div");
+    m.className = "mote";
+    const size = 2 + Math.random()*4;
+    m.style.width = size+"px";
+    m.style.height = size+"px";
+    m.style.left = (Math.random()*100)+"%";
+    m.style.top = (Math.random()*100)+"%";
+    m.style.animationDuration = (6+Math.random()*8)+"s";
+    m.style.animationDelay = (Math.random()*6)+"s";
+    host.appendChild(m);
+  }
+})();
+
+/* subtle card tilt on mouse move */
+stage.addEventListener("mousemove", (e)=>{
+  const active = stage.querySelector(".slide.active .card");
+  if(!active) return;
+  const r = active.getBoundingClientRect();
+  const px = (e.clientX - r.left)/r.width - 0.5;
+  const py = (e.clientY - r.top)/r.height - 0.5;
+  active.style.transform = `rotateX(${(-py*2.2).toFixed(2)}deg) rotateY(${(px*2.6).toFixed(2)}deg)`;
+});
+stage.addEventListener("mouseleave", ()=>{
+  const active = stage.querySelector(".slide.active .card");
+  if(active) active.style.transform = "rotateX(0) rotateY(0)";
+});
+
+render();
+</script>
+</body>
+</html>
