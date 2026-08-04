@@ -29,6 +29,14 @@
   .voice-toggle .knob { position:absolute; top:2px; left:2px; width:13px; height:13px; border-radius:50%; background:#fff; transition: transform .2s; box-shadow:0 1px 3px rgba(0,0,0,.3); }
   .voice-toggle.active .knob { transform: translateX(13px); }
 
+  /* AI voice picker — dropdown of installed speechSynthesis voices, shown next to the Voice replies toggle */
+  .voice-picker-wrap { display:flex; align-items:center; gap:6px; background:var(--surface-white); border:1.5px solid var(--panel-border); border-radius:20px; padding:6px 12px 6px 14px; font-size:12px; font-weight:700; color:var(--text-muted); }
+  .voice-picker-wrap.disabled { opacity:.5; }
+  .voice-picker-wrap i { font-size:12px; color:var(--current-accent); }
+  #voicePicker { border:none; background:transparent; color:var(--text-main); font-size:12px; font-weight:700; font-family:inherit; cursor:pointer; max-width:160px; }
+  #voicePicker:disabled { cursor:not-allowed; }
+  #voicePicker:focus { outline:none; }
+
   /* Mic button — pulses red while actively listening */
   .mic-btn.listening { border-color: var(--danger, #ef4444); color: var(--danger, #ef4444); animation: micPulse 1.4s ease-in-out infinite; }
   @keyframes micPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.35); } 50% { box-shadow: 0 0 0 8px rgba(239,68,68,0); } }
@@ -98,7 +106,6 @@
   .trust-note { font-size:11px; color:var(--text-muted); text-align:center; padding: 0 20px 4px; }
 </style>
 <link rel="stylesheet" href="theme-modes.css">
-<link rel="stylesheet" href="nepali-theme.css">
 </head>
 <body class="divedu">
 
@@ -113,6 +120,10 @@
         <span class="switch"><span class="knob"></span></span>
         <span><i class="fa-solid fa-volume-high"></i> Voice replies</span>
       </button>
+      <div class="voice-picker-wrap" id="voicePickerWrap" title="Choose the AI voice used for replies">
+        <i class="fa-solid fa-microphone-lines"></i>
+        <select id="voicePicker"><option value="">Default voice</option></select>
+      </div>
       <button class="nep-toggle" id="nepToggle" title="Reply in Nepali">
         <span class="switch"><span class="knob"></span></span>
         <span>नेपाली Reply</span>
@@ -269,14 +280,55 @@ voiceToggle.addEventListener('click', () => {
   voiceRepliesOn = !voiceRepliesOn;
   voiceToggle.classList.toggle('active', voiceRepliesOn);
   try { localStorage.setItem('divedu_chat_voice_replies', voiceRepliesOn ? '1' : '0'); } catch (e) { /* ignore */ }
+  updateVoicePickerEnabled();
   if (!voiceRepliesOn && 'speechSynthesis' in window) speechSynthesis.cancel();
 });
 
+/* ---------------- AI voice picker ----------------
+ * Lets the user pick which installed speechSynthesis voice reads
+ * replies aloud, instead of always using whatever the browser
+ * defaults to. The list of voices is filled in asynchronously by
+ * the browser (via the 'voiceschanged' event) and can differ a lot
+ * between English and Nepali replies, so entries show their
+ * language alongside the voice name. The chosen voice's name is
+ * remembered in localStorage and re-matched by name next visit,
+ * since browsers don't expose a stable voice id. */
+const voicePicker = document.getElementById('voicePicker');
+const voicePickerWrap = document.getElementById('voicePickerWrap');
+let preferredVoiceName = '';
+try { preferredVoiceName = localStorage.getItem('divedu_chat_voice_name') || ''; } catch (e) { /* ignore */ }
+
+function updateVoicePickerEnabled() {
+  voicePicker.disabled = !voiceRepliesOn;
+  voicePickerWrap.classList.toggle('disabled', !voiceRepliesOn);
+}
+
+function populateVoicePicker() {
+  if (!('speechSynthesis' in window)) { voicePickerWrap.style.display = 'none'; return; }
+  const voices = speechSynthesis.getVoices();
+  if (!voices.length) return;
+  voicePicker.innerHTML = '<option value="">Default voice</option>' +
+    voices.map(v => `<option value="${escapeHtml(v.name)}">${escapeHtml(v.name)} (${escapeHtml(v.lang)})</option>`).join('');
+  if (preferredVoiceName && voices.some(v => v.name === preferredVoiceName)) {
+    voicePicker.value = preferredVoiceName;
+  }
+}
+if ('speechSynthesis' in window) {
+  populateVoicePicker();
+  speechSynthesis.addEventListener('voiceschanged', populateVoicePicker);
+}
+voicePicker.addEventListener('change', () => {
+  preferredVoiceName = voicePicker.value;
+  try { localStorage.setItem('divedu_chat_voice_name', preferredVoiceName); } catch (e) { /* ignore */ }
+});
+updateVoicePickerEnabled();
+
 /** Speaks the assistant's reply aloud when "Voice replies" is on.
  *  Strips markdown symbols first so it doesn't read out asterisks,
- *  hashes, etc. Picks a Nepali voice when replying in Nepali mode if
- *  the browser/OS has one installed; otherwise falls back to the
- *  default voice (still fine for mixed-script text in most engines). */
+ *  hashes, etc. Uses the voice chosen in the voice picker if one is
+ *  set; otherwise picks a Nepali voice when replying in Nepali mode
+ *  if the browser/OS has one installed, falling back to the default
+ *  voice (still fine for mixed-script text in most engines). */
 function speakReply(rawText) {
   if (!voiceRepliesOn || !('speechSynthesis' in window)) return;
   const plain = rawText
@@ -289,8 +341,9 @@ function speakReply(rawText) {
   const utter = new SpeechSynthesisUtterance(plain);
   utter.lang = nepaliMode ? 'ne-NP' : 'en-US';
   const voices = speechSynthesis.getVoices();
-  const match = voices.find(v => v.lang === utter.lang) || voices.find(v => v.lang.startsWith(nepaliMode ? 'ne' : 'en'));
-  if (match) utter.voice = match;
+  let match = preferredVoiceName ? voices.find(v => v.name === preferredVoiceName) : null;
+  if (!match) match = voices.find(v => v.lang === utter.lang) || voices.find(v => v.lang.startsWith(nepaliMode ? 'ne' : 'en'));
+  if (match) { utter.voice = match; utter.lang = match.lang; }
   utter.rate = 1;
   speechSynthesis.speak(utter);
 }

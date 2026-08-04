@@ -1,13 +1,11 @@
 /* ============================================================
-   THEME-ENGINE.JS — shared Light / Dark / Fun / नेपाली mode
-   switcher + custom accent color picker, used on every ज्ञानSetु
-   page.
+   THEME-ENGINE.JS — shared Light / Dark / Fun mode switcher +
+   custom accent color picker, used on every ज्ञानSetु page.
 
    Pairs with theme-modes.css (must be loaded on the same page)
    for the base light/dark/fun palettes. As of this version the
-   floating toggle button + settings panel + all Nepali-mode
-   decorations (characters, marigolds, banner) ship with their
-   OWN complete CSS (injected once via injectRuntimeStyles()) so
+   floating toggle button + settings panel ship with their OWN
+   complete CSS (injected once via injectRuntimeStyles()) so
    they render correctly and never overlap page content even if
    theme-modes.css is missing, stale, or only covers the color
    palettes. Self-contained: builds its own markup, so no page
@@ -98,11 +96,9 @@ const ThemeEngine = (() => {
   }
 
   /* ---------------- Decorative floating motifs ----------------
-     Fun mode gets drifting emoji stickers; नेपाली mode gets a small
-     namaste/flag/diya/marigold motif set plus a greeting banner.
-     Real Unicode emoji instead of hand-drawn art — crisp on every
-     device, zero load time, and (importantly) the Nepal flag emoji
-     IS the actual Nepal flag, not an approximation.
+     Fun mode gets drifting emoji stickers. Real Unicode emoji
+     instead of hand-drawn art — crisp on every device, zero load
+     time.
 
      Placement is deliberately conservative: everything sits only in
      the outer 8% margin on each side, and the whole layer disappears
@@ -111,7 +107,6 @@ const ThemeEngine = (() => {
      text and buttons on narrower or embedded views — there's no safe
      empty margin to put decorations in below that width, so instead
      of guessing they just stay off rather than covering content. */
-  const NEPALI_MOTIFS = ['🙏', '🇳🇵', '🪔', '🌼'];
 
   function buildStickers() {
     if (document.querySelector('.te-stickers')) return;
@@ -134,41 +129,6 @@ const ThemeEngine = (() => {
     document.body.appendChild(wrap);
   }
 
-  function buildNamasteStickers() {
-    if (document.querySelector('.te-namaste-wrap')) return;
-    const wrap = document.createElement('div');
-    wrap.className = 'te-namaste-wrap';
-    const positions = [
-      { left: '2vw', top: '14vh' }, { left: '97vw', top: '12vh', transform: 'translateX(-100%)' },
-      { left: '2vw', top: '48vh' }, { left: '97vw', top: '46vh', transform: 'translateX(-100%)' },
-      { left: '3vw', top: '80vh' }, { left: '96vw', top: '78vh', transform: 'translateX(-100%)' }
-    ];
-    positions.forEach((pos, i) => {
-      const holder = document.createElement('div');
-      holder.className = 'te-namaste';
-      holder.style.left = pos.left;
-      holder.style.top = pos.top;
-      if (pos.transform) holder.style.transform = pos.transform;
-      holder.style.animationDelay = (i * 0.8).toFixed(1) + 's';
-      holder.textContent = NEPALI_MOTIFS[i % NEPALI_MOTIFS.length];
-      wrap.appendChild(holder);
-    });
-    document.body.appendChild(wrap);
-  }
-
-  function buildNamasteBanner() {
-    if (document.querySelector('.te-namaste-banner')) return;
-    const container = document.querySelector('.d-container, .desk-wrap, .chat-wrap, .page');
-    if (!container) return;
-    const banner = document.createElement('div');
-    banner.className = 'te-namaste-banner';
-    banner.style.background = 'linear-gradient(90deg, var(--student-bg, #fbe6df), var(--teacher-bg, #e4ecf9))';
-    banner.style.border = '1px solid var(--panel-border, rgba(179,38,46,0.22))';
-    banner.style.color = 'var(--text-main, #2b1a12)';
-    banner.innerHTML = `<span class="te-banner-emoji" aria-hidden="true">🙏🇳🇵</span><span data-i18n="namasteBanner">नमस्ते! Welcome — you can switch back to English anytime from the same menu.</span>`;
-    container.prepend(banner);
-  }
-
   /* ---------------- self-contained runtime CSS ----------------
      Everything the widget + decorations need to look right and
      stack correctly, independent of theme-modes.css. Injected once,
@@ -180,16 +140,13 @@ const ThemeEngine = (() => {
     const style = document.createElement('style');
     style.id = 'te-runtime-styles';
     style.textContent = `
-      .te-stickers, .te-namaste-wrap { position: fixed; inset: 0; pointer-events: none; z-index: 1; overflow: hidden; }
-      .te-namaste-wrap { display: none; }
-      :root[data-theme-mode="nepali"] .te-namaste-wrap { display: block; }
+      .te-stickers { position: fixed; inset: 0; pointer-events: none; z-index: 1; overflow: hidden; }
 
-      .te-sticker, .te-namaste {
+      .te-sticker {
         position: absolute; font-size: 30px; line-height: 1;
         opacity: 0.5; animation: teDriftBob 6s ease-in-out infinite;
         filter: drop-shadow(0 4px 8px rgba(0,0,0,0.15));
       }
-      .te-namaste { font-size: 34px; }
       @keyframes teDriftBob { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-14px) rotate(-4deg); } }
 
       /* The whole decorative layer only ever shows where there is
@@ -198,12 +155,9 @@ const ThemeEngine = (() => {
          was overlapping headline text and buttons before), so it's
          simply hidden rather than guessed at. */
       @media (max-width: 1100px) {
-        .te-stickers, .te-namaste-wrap { display: none !important; }
+        .te-stickers { display: none !important; }
       }
 
-      .te-namaste-banner { display: none; align-items: center; gap: 10px; border-radius: 14px; padding: 10px 16px; font-size: 13px; font-weight: 700; margin: 0 0 16px; position: relative; z-index: 3; }
-      :root[data-theme-mode="nepali"] .te-namaste-banner { display: flex; }
-      .te-banner-emoji { font-size: 22px; flex-shrink: 0; }
       .te-flag-icon { font-size: 13px; }
 
       .te-toggle-btn {
@@ -286,7 +240,6 @@ const ThemeEngine = (() => {
         <button class="te-mode-btn" data-mode="light"><i class="fa-solid fa-sun"></i>Light</button>
         <button class="te-mode-btn" data-mode="dark"><i class="fa-solid fa-moon"></i>Dark</button>
         <button class="te-mode-btn" data-mode="fun"><i class="fa-solid fa-face-grin-stars"></i>Fun</button>
-        <button class="te-mode-btn" data-mode="nepali"><span class="te-flag-icon" aria-hidden="true">🇳🇵</span>नेपाली</button>
       </div>
       <h5>Site language</h5>
       <div class="te-modes">
@@ -323,7 +276,6 @@ const ThemeEngine = (() => {
         prefs.mode = b.dataset.mode;
         applyMode(prefs.mode);
         savePrefs(prefs);
-        if (prefs.mode === 'nepali') { buildNamasteStickers(); buildNamasteBanner(); }
         refreshActiveStates();
       });
     });
@@ -331,7 +283,6 @@ const ThemeEngine = (() => {
     panel.querySelectorAll('.te-lang-btn').forEach(b => {
       b.addEventListener('click', () => {
         if (typeof LangEngine !== 'undefined') LangEngine.setLang(b.dataset.lang);
-        if (b.dataset.lang === 'ne') buildNamasteBanner();
         refreshActiveStates();
       });
     });
@@ -376,7 +327,6 @@ const ThemeEngine = (() => {
   function syncFromStorage(prefs) {
     applyMode(prefs.mode || 'light');
     applyAccent(prefs.accent || null);
-    if (prefs.mode === 'nepali') { buildNamasteStickers(); buildNamasteBanner(); }
     const panel = document.querySelector('.te-panel');
     if (panel) {
       panel.querySelectorAll('.te-mode-btn[data-mode]').forEach(b => b.classList.toggle('active', b.dataset.mode === prefs.mode));
@@ -393,7 +343,6 @@ const ThemeEngine = (() => {
     const boot = () => {
       injectRuntimeStyles();
       buildStickers();
-      if (prefs.mode === 'nepali') { buildNamasteStickers(); buildNamasteBanner(); }
       // Only the outermost window gets the floating button + panel —
       // see isTopFrame() above for why.
       if (isTopFrame()) buildWidget(prefs);

@@ -13,13 +13,10 @@
    --panel-border, --student-accent, --teacher-accent, etc.) instead
    of hardcoded colors, so overriding those same variable names here
    is enough to re-skin nearly the entire app — no need to touch
-   individual component rules. nepali-theme.css already follows this
-   exact pattern for the नेपाली mode; Light/Dark/Fun below do the
-   same for the other three.
+   individual component rules. Light/Dark/Fun below each follow this
+   same pattern.
 
-   Load order: theme.css, THEN this file, THEN nepali-theme.css
-   (nepali-theme.css is a 4th mode and loads last so it can add its
-   own extra flourishes on top without this file overriding them).
+   Load order: theme.css, THEN this file.
    ============================================================ */
 
 /* ---------------- Light (explicit) ----------------
