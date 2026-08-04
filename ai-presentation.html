@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ज्ञानSetu | AI Presentation Creator</title>
+<link rel="stylesheet" href="theme.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+  body.divedu { background: var(--bg-main); }
+  .pres-wrap { max-width: 1040px; margin: 0 auto; padding: 24px 20px 40px; }
+  .pres-head { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:18px; }
+  .pres-head h1 { font-size: 20px; font-weight: 800; display:flex; align-items:center; gap:10px; }
+  .pres-head p { font-size:12.5px; color:var(--text-muted); margin-top:2px; }
+
+  .pres-panel { background: var(--surface-white); border:1px solid var(--panel-border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); padding: 22px 24px; margin-bottom: 20px; }
+
+  /* Source-input tabs: topic / notes / files can ALL be filled in at once — these
+     just control which input is focused/visible by default, not exclusive modes. */
+  .src-tabs { display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; }
+  .src-tab { border:1.5px solid var(--panel-border); background:var(--bg-main); color:var(--text-muted); padding:8px 16px; border-radius:20px; font-weight:700; font-size:12.5px; cursor:pointer; display:flex; align-items:center; gap:7px; }
+  .src-tab.active { background: var(--current-accent); color:#fff; border-color: var(--current-accent); }
+
+  .src-field { display:none; }
+  .src-field.active { display:block; }
+  .src-field input[type="text"], .src-field textarea { width:100%; padding: 12px 14px; border:1.5px solid var(--panel-border); border-radius: 12px; background: var(--bg-main); font-size:14px; font-family:inherit; color:var(--text-main); line-height:1.55; box-sizing:border-box; }
+  .src-field input[type="text"]:focus, .src-field textarea:focus { outline:none; border-color:var(--current-accent); background:var(--surface-white); }
+  .src-field textarea { min-height: 160px; resize:vertical; }
+  .src-hint { font-size:11.5px; color:var(--text-muted); margin-top:6px; }
+
+  .drop-zone { border: 2px dashed var(--panel-border); border-radius: 14px; padding: 26px 16px; text-align:center; cursor:pointer; color:var(--text-muted); transition: all .15s; }
+  .drop-zone:hover, .drop-zone.dragover { border-color: var(--current-accent); color: var(--current-accent); background: var(--student-bg); }
+  .drop-zone i { font-size: 26px; margin-bottom:8px; display:block; }
+  .drop-zone strong { color: var(--text-main); }
+
+  .file-chip-row { display:flex; gap:8px; flex-wrap:wrap; margin-top: 12px; }
+  .file-chip { display:flex; align-items:center; gap:8px; background: var(--bg-main); border:1.5px solid var(--panel-border); border-radius:12px; padding:6px 10px; font-size:12px; font-weight:700; color:var(--text-main); }
+  .file-chip i.fa-file-pdf { color:#ef4444; }
+  .file-chip i.fa-file-word { color:#2563eb; }
+  .file-chip i.fa-file-lines { color:#64748b; }
+  .file-chip i.fa-file-image { color:#16a34a; }
+  .file-chip .rm { cursor:pointer; color:var(--text-muted); font-size:11px; }
+  .file-chip .rm:hover { color: var(--danger); }
+
+  .opts-row { display:flex; align-items:center; gap:20px; flex-wrap:wrap; margin: 18px 0 4px; padding-top:16px; border-top:1.5px dashed var(--panel-border); }
+  .opt-field { display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:700; color:var(--text-muted); }
+  .opt-field select { border:1.5px solid var(--panel-border); background:var(--bg-main); color:var(--text-main); font-size:12.5px; font-weight:700; padding:6px 10px; border-radius:10px; font-family:inherit; }
+
+  .generate-btn { margin-top:16px; width:100%; background: var(--current-accent); color:#fff; border:none; padding: 13px 20px; border-radius: 14px; font-weight:800; font-size:14.5px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:10px; box-shadow:0 8px 20px var(--current-glow); }
+  .generate-btn:disabled { opacity:.55; cursor:not-allowed; box-shadow:none; }
+  .generate-btn .spin { display:none; }
+  .generate-btn.loading .spin { display:inline-block; animation: peSpin 0.9s linear infinite; }
+  .generate-btn.loading .static-icon { display:none; }
+  @keyframes peSpin { to { transform: rotate(360deg); } }
+
+  .gen-progress { font-size:11.5px; color:var(--text-muted); text-align:center; margin-top:8px; display:none; }
+  .gen-progress.show { display:block; }
+
+  /* --- Deck output panel --- */
+  #deckPanel { display:none; }
+  #deckPanel.show { display:block; }
+  .deck-toolbar { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:14px; }
+  .deck-title-block h2 { font-size:17px; font-weight:800; }
+  .deck-title-block p { font-size:12px; color:var(--text-muted); margin-top:2px; }
+  .deck-actions { display:flex; gap:10px; flex-wrap:wrap; }
+
+  /* Web slideshow viewer (rendered by PresentationEngine.renderDeck) */
+  #deckViewer { border-radius: var(--radius-lg); overflow:hidden; box-shadow: var(--shadow-sm); }
+  .pe-viewer { position:relative; background: var(--pe-bg, #1e293b); }
+  .pe-viewer:fullscreen { display:flex; align-items:center; justify-content:center; }
+  .pe-stage { display:flex; transition: transform .35s ease; }
+  .pe-slide { min-width:100%; box-sizing:border-box; aspect-ratio: 16 / 9; display:flex; flex-direction:column; justify-content:center; padding: 6% 8%; color: var(--pe-text, #f8fafc); position:relative; }
+  .pe-slide-inner { width:100%; }
+  .pe-slide h1 { font-size: clamp(24px, 4.2vw, 46px); font-weight:800; line-height:1.15; }
+  .pe-slide h2 { font-size: clamp(18px, 2.6vw, 28px); font-weight:800; margin-bottom:6px; color: var(--pe-accent, #3b82f6); }
+  .pe-slide .pe-subtitle { font-size: clamp(12px, 1.5vw, 16px); opacity:.85; margin-top:6px; margin-bottom:14px; }
+  .pe-slide ul { list-style:none; padding:0; margin-top: 10px; }
+  .pe-slide ul li { font-size: clamp(13px, 1.7vw, 18px); line-height:1.65; padding-left: 26px; position:relative; margin-bottom:8px; }
+  .pe-slide ul li::before { content:"▸"; position:absolute; left:0; color: var(--pe-accent, #3b82f6); font-weight:800; }
+  .pe-slide-title-layout, .pe-slide-section-layout { text-align:left; }
+  .pe-section-num { font-size: clamp(14px, 2vw, 20px); font-weight:800; color: var(--pe-accent, #3b82f6); margin-bottom:10px; letter-spacing:.04em; }
+  .pe-slide-quote-layout { text-align:center; }
+  .pe-quote-mark { font-size: 26px; color: var(--pe-accent, #3b82f6); opacity:.7; margin-bottom:12px; }
+  .pe-quote-text { font-size: clamp(16px, 2.6vw, 26px); font-style:italic; line-height:1.5; }
+  .pe-quote-attr { margin-top:14px; font-size: clamp(11px, 1.4vw, 15px); color: var(--pe-accent, #3b82f6); font-weight:700; }
+  .pe-two-col { display:grid; grid-template-columns:1fr 1fr; gap: 5%; margin-top:8px; }
+  .pe-col h4 { font-size: clamp(12px, 1.6vw, 16px); color: var(--pe-accent, #3b82f6); margin-bottom:6px; font-weight:800; }
+  .pe-closing-list { margin-top:14px; }
+  .pe-slide-footer { position:absolute; bottom:16px; right:24px; font-size:11px; opacity:.5; font-weight:700; }
+
+  .pe-controls { display:flex; align-items:center; justify-content:center; gap:14px; padding: 14px; background: rgba(0,0,0,0.12); }
+  .pe-nav-btn { width:38px; height:38px; border-radius:50%; border:none; background: rgba(255,255,255,0.12); color:#fff; font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+  .pe-nav-btn:hover { background: rgba(255,255,255,0.25); }
+  .pe-fullscreen-btn { margin-left: 8px; }
+  .pe-dots { display:flex; gap:6px; flex-wrap:wrap; max-width: 260px; justify-content:center; }
+  .pe-dot { width:8px; height:8px; border-radius:50%; border:none; background: rgba(255,255,255,0.3); cursor:pointer; padding:0; }
+  .pe-dot.active { background: #fff; width:20px; border-radius:5px; }
+
+  .empty-state-pres { text-align:center; padding: 50px 20px; color: var(--text-muted); }
+  .empty-state-pres i { font-size: 32px; color: var(--current-accent); opacity:.6; margin-bottom:12px; }
+</style>
+<link rel="stylesheet" href="theme-modes.css">
+</head>
+<body class="divedu">
+
+<div class="pres-wrap">
+  <div class="pres-head">
+    <div>
+      <h1><i class="fa-solid fa-display" style="color:var(--current-accent);"></i> AI Presentation Creator</h1>
+      <p>Give it a topic, some notes, or a file — get a full slide deck, right here in the app.</p>
+    </div>
+  </div>
+
+  <div class="pres-panel">
+    <div class="src-tabs">
+      <button type="button" class="src-tab active" data-src="topic"><i class="fa-solid fa-lightbulb"></i> Topic</button>
+      <button type="button" class="src-tab" data-src="notes"><i class="fa-solid fa-align-left"></i> Paste notes / outline</button>
+      <button type="button" class="src-tab" data-src="files"><i class="fa-solid fa-paperclip"></i> Upload files</button>
+    </div>
+
+    <div class="src-field active" data-src-field="topic">
+      <input type="text" id="topicInput" placeholder="e.g. Photosynthesis for grade 8 students">
+      <div class="src-hint">The AI will research and structure the whole deck from just this topic.</div>
+    </div>
+
+    <div class="src-field" data-src-field="notes">
+      <textarea id="notesInput" placeholder="Paste your notes, an outline, or rough bullet points here..."></textarea>
+      <div class="src-hint">The AI will organize this into slides — order and grouping don't need to be perfect.</div>
+    </div>
+
+    <div class="src-field" data-src-field="files">
+      <input type="file" id="presFileInput" class="hidden" accept="image/png,image/jpeg,image/webp,application/pdf,.docx,.txt" multiple>
+      <div class="drop-zone" id="dropZone">
+        <i class="fa-solid fa-cloud-arrow-up"></i>
+        <strong>Click to upload</strong> or drag a file here
+        <div class="src-hint">PDF, Word (.docx), image, or plain text — up to 4 files</div>
+      </div>
+      <div class="file-chip-row" id="fileChipRow"></div>
+    </div>
+
+    <!-- Extra sources stay visible/filled even when not the active tab, so a topic + a
+         file (for example) can be combined into one generation. -->
+    <div class="opts-row">
+      <div class="opt-field">
+        <span>Slides:</span>
+        <select id="slideCountSel">
+          <option value="5">5</option>
+          <option value="8" selected>8</option>
+          <option value="10">10</option>
+          <option value="12">12</option>
+          <option value="16">16</option>
+        </select>
+      </div>
+      <div class="opt-field">
+        <span>Style:</span>
+        <select id="themeSel">
+          <option value="">AI picks</option>
+          <option value="blue">Blue</option>
+          <option value="green">Green</option>
+          <option value="purple">Purple</option>
+          <option value="warm">Warm</option>
+          <option value="dark">Dark</option>
+        </select>
+      </div>
+    </div>
+
+    <button class="generate-btn" id="generateBtn">
+      <i class="fa-solid fa-wand-magic-sparkles static-icon"></i>
+      <i class="fa-solid fa-spinner spin"></i>
+      <span id="generateBtnLabel">Generate presentation</span>
+    </button>
+    <div class="gen-progress" id="genProgress"></div>
+  </div>
+
+  <div class="pres-panel" id="deckPanel">
+    <div class="deck-toolbar">
+      <div class="deck-title-block">
+        <h2 id="deckTitleText">—</h2>
+        <p id="deckSubtitleText"></p>
+      </div>
+      <div class="deck-actions">
+        <button class="btn-secondary" style="padding:9px 16px; font-size:12.5px;" id="regenerateBtn"><i class="fa-solid fa-rotate-left"></i> Regenerate</button>
+        <button class="btn-primary" style="padding:9px 18px; font-size:12.5px;" id="downloadPptxBtn"><i class="fa-solid fa-file-powerpoint"></i> Download .pptx</button>
+      </div>
+    </div>
+    <div id="deckViewer"></div>
+  </div>
+
+  <div class="pres-panel empty-state-pres" id="emptyStatePres">
+    <i class="fa-solid fa-images"></i>
+    <h3 style="font-size:15px; color:var(--text-main); margin-bottom:6px;">No presentation yet</h3>
+    <p style="font-size:12.5px;">Fill in a topic, notes, or upload a file above, then hit Generate.</p>
+  </div>
+</div>
+
+<div class="d-toast" id="toast"></div>
+
+<script src="ai-engine.js"></script>
+<script src="llm-engine.js"></script>
+<script src="chat-engine.js"></script>
+<script src="presentation-engine.js"></script>
+<script>
+let stagedFiles = [];   // raw File objects, staged for the next generation
+let currentDeck = null; // last generated deck JSON, kept for regenerate/edit/export
+let lastRequest = null; // { topic, notes, files, slideCount } used by "Regenerate"
+
+const generateBtn = document.getElementById('generateBtn');
+const generateBtnLabel = document.getElementById('generateBtnLabel');
+const genProgress = document.getElementById('genProgress');
+const deckPanel = document.getElementById('deckPanel');
+const emptyStatePres = document.getElementById('emptyStatePres');
+const deckViewer = document.getElementById('deckViewer');
+
+function toast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'd-toast show' + (type ? ' ' + type : '');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+/* ---------------- source tabs (topic / notes / files can all be filled at once) ---------------- */
+document.querySelectorAll('.src-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.src-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.src-field').forEach(f => f.classList.remove('active'));
+    tab.classList.add('active');
+    document.querySelector(`.src-field[data-src-field="${tab.dataset.src}"]`).classList.add('active');
+  });
+});
+
+/* ---------------- file upload (click + drag/drop), reusing ChatEngine's file reading later ---------------- */
+const dropZone = document.getElementById('dropZone');
+const presFileInput = document.getElementById('presFileInput');
+const fileChipRow = document.getElementById('fileChipRow');
+const MAX_FILES = 4;
+
+function fileIcon(file) {
+  if (file.type.startsWith('image/')) return 'fa-file-image';
+  if (file.type === 'application/pdf' || /\.pdf$/i.test(file.name)) return 'fa-file-pdf';
+  if (/\.docx$/i.test(file.name)) return 'fa-file-word';
+  return 'fa-file-lines';
+}
+function renderFileChips() {
+  fileChipRow.innerHTML = stagedFiles.map((f, i) => `
+    <div class="file-chip"><i class="fa-solid ${fileIcon(f)}"></i> ${f.name.length > 26 ? f.name.slice(0, 24) + '…' : f.name}
+      <span class="rm" data-rm="${i}"><i class="fa-solid fa-xmark"></i></span>
+    </div>`).join('');
+  fileChipRow.querySelectorAll('[data-rm]').forEach(el => {
+    el.addEventListener('click', () => { stagedFiles.splice(Number(el.dataset.rm), 1); renderFileChips(); });
+  });
+}
+function addFiles(fileList) {
+  const incoming = Array.from(fileList || []);
+  for (const f of incoming) {
+    if (stagedFiles.length >= MAX_FILES) { toast('Up to ' + MAX_FILES + ' files at a time.', 'error'); break; }
+    stagedFiles.push(f);
+  }
+  renderFileChips();
+}
+dropZone.addEventListener('click', () => presFileInput.click());
+presFileInput.addEventListener('change', () => { addFiles(presFileInput.files); presFileInput.value = ''; });
+['dragover', 'dragenter'].forEach(ev => dropZone.addEventListener(ev, (e) => { e.preventDefault(); dropZone.classList.add('dragover'); }));
+['dragleave', 'drop'].forEach(ev => dropZone.addEventListener(ev, (e) => { e.preventDefault(); dropZone.classList.remove('dragover'); }));
+dropZone.addEventListener('drop', (e) => { if (e.dataTransfer && e.dataTransfer.files) addFiles(e.dataTransfer.files); });
+
+/* ---------------- generation ---------------- */
+async function runGeneration() {
+  if (!PresentationEngine.isConfigured()) {
+    toast('AI worker not configured yet — see cloudflare-worker.js setup instructions.', 'error');
+    return;
+  }
+  const topic = document.getElementById('topicInput').value.trim();
+  const notes = document.getElementById('notesInput').value.trim();
+  const slideCount = parseInt(document.getElementById('slideCountSel').value, 10);
+  const chosenTheme = document.getElementById('themeSel').value;
+
+  if (!topic && !notes && stagedFiles.length === 0) {
+    toast('Add a topic, some notes, or a file first.', 'error');
+    return;
+  }
+
+  lastRequest = { topic, notes, files: stagedFiles.slice(), slideCount };
+  generateBtn.disabled = true;
+  generateBtn.classList.add('loading');
+  generateBtnLabel.textContent = 'Designing your deck…';
+  genProgress.classList.add('show');
+  genProgress.textContent = stagedFiles.length ? 'Reading attached files…' : 'Talking to the AI…';
+
+  try {
+    const deck = await PresentationEngine.generate({
+      topic, notes, files: stagedFiles, slideCount,
+      onFileProgress: (done, total) => { genProgress.textContent = `Reading files… (${done}/${total})`; }
+    });
+    if (chosenTheme) deck.theme = chosenTheme; // user override wins over the AI's pick
+    currentDeck = deck;
+    showDeck(deck);
+    toast('Presentation ready!', 'success');
+  } catch (err) {
+    console.error(err);
+    toast(err.message || 'Could not generate the presentation.', 'error');
+  } finally {
+    generateBtn.disabled = false;
+    generateBtn.classList.remove('loading');
+    generateBtnLabel.textContent = 'Generate presentation';
+    genProgress.classList.remove('show');
+  }
+}
+
+function showDeck(deck) {
+  document.getElementById('deckTitleText').textContent = deck.title || 'Untitled presentation';
+  document.getElementById('deckSubtitleText').textContent = deck.subtitle || `${deck.slides.length} slides`;
+  PresentationEngine.renderDeck(deck, deckViewer);
+  deckPanel.classList.add('show');
+  emptyStatePres.style.display = 'none';
+  deckPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+generateBtn.addEventListener('click', runGeneration);
+
+document.getElementById('regenerateBtn').addEventListener('click', async () => {
+  if (!lastRequest) { runGeneration(); return; }
+  generateBtn.disabled = true;
+  await runGeneration();
+});
+
+document.getElementById('downloadPptxBtn').addEventListener('click', async () => {
+  if (!currentDeck) return;
+  const btn = document.getElementById('downloadPptxBtn');
+  const original = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-spinner" style="animation:peSpin 0.9s linear infinite;"></i> Building file…';
+  try {
+    await PresentationEngine.exportPptx(currentDeck, PresentationEngine.sanitizeFilename(currentDeck.title) + '.pptx');
+    toast('Downloaded — check your downloads folder.', 'success');
+  } catch (err) {
+    console.error(err);
+    toast(err.message || 'Could not build the .pptx file.', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = original;
+  }
+});
+
+// Enter key in the topic field generates immediately (common single-line-field UX)
+document.getElementById('topicInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); runGeneration(); }
+});
+</script>
+<script src="lang-engine.js"></script>
+<script src="theme-engine.js"></script>
+</body>
+</html>

@@ -63,6 +63,13 @@ export default {
       return handleChat(body, env);
     }
 
+    // Presentation generation also has its own shape (a topic and/or
+    // pasted notes and/or file attachments, producing a structured
+    // slide-deck JSON rather than the flat shapes the other tasks use).
+    if (task === 'presentation') {
+      return handlePresentation(body, env);
+    }
+
     const text = (body.text || '').toString();
 
     if (!text || text.trim().length < 10) {
@@ -235,6 +242,117 @@ async function handleChat(body, env) {
     return json({ ok: true, task: 'chat', result: { reply } });
   } catch (err) {
     console.error('Worker chat error:', err);
+    return json({ error: 'Something went wrong contacting the AI service.', debug: String(err && err.message || err) }, 500);
+  }
+}
+
+const MAX_PRESENTATION_ATTACHMENTS = 4;
+
+/** Handles the "presentation" task: takes a topic, and/or pasted
+ *  notes/outline text, and/or file attachments (same shapes as chat
+ *  — images/PDFs as inline base64, DOCX/TXT already extracted to
+ *  plain text client-side), and returns a structured slide-deck JSON
+ *  that the frontend turns into both a downloadable .pptx (via
+ *  PptxGenJS) and an in-app web slideshow. Uses responseMimeType:
+ *  'application/json' plus an explicit schema in the prompt so the
+ *  model's output can be parsed directly, the same pattern as the
+ *  other structured tasks (summarize/quiz/milestones) below. */
+async function handlePresentation(body, env) {
+  const topic = (body.topic || '').toString().slice(0, 500);
+  const notes = (body.notes || '').toString().slice(0, MAX_INPUT_CHARS);
+  const slideCount = Math.min(Math.max(parseInt(body.slideCount, 10) || 8, 3), 20);
+  const attachments = Array.isArray(body.attachments) ? body.attachments.slice(0, MAX_PRESENTATION_ATTACHMENTS) : [];
+
+  if (!topic && !notes && attachments.length === 0) {
+    return json({ error: 'Give it a topic, some notes, or a file to work from.' }, 400);
+  }
+
+  const schemaInstructions =
+    `Design a ${slideCount}-slide presentation deck. Respond ONLY with valid JSON (no markdown ` +
+    `fences, no commentary) in exactly this shape:\n` +
+    `{"title": "deck title", "subtitle": "short subtitle or empty string", ` +
+    `"theme": "one of: blue, green, purple, warm, dark — pick whichever best fits the subject's mood", ` +
+    `"slides": [{"layout": "one of: title, bullets, twoColumn, quote, sectionHeader, imageFocus, closing", ` +
+    `"title": "slide title", "subtitle": "optional short line, or empty string", ` +
+    `"bullets": ["point", "..."], "leftTitle": "only for twoColumn layout", "leftBullets": ["...", "only for twoColumn"], ` +
+    `"rightTitle": "only for twoColumn layout", "rightBullets": ["...", "only for twoColumn"], ` +
+    `"quote": "only for quote layout", "attribution": "only for quote layout", ` +
+    `"notes": "one or two sentences of speaker notes for this slide"}]}\n\n` +
+    `Rules: the FIRST slide must use layout "title" (deck title + subtitle, no bullets). The LAST slide ` +
+    `must use layout "closing" (a short wrap-up/thank-you, 0-3 bullets max). Use "sectionHeader" sparingly ` +
+    `to divide the deck into 2-4 parts if it naturally has distinct sections. Keep each "bullets" array to ` +
+    `3-5 short punchy points (max ~12 words each) — this is a presentation slide, not a document; move ` +
+    `detail into "notes" instead of cramming it into bullets. Use "twoColumn" for genuine comparisons ` +
+    `(before/after, pros/cons, X vs Y) and "quote" only if there's a real quote/statistic worth isolating. ` +
+    `Write in the same language as the source material/topic (reply in Nepali/Devanagari if the input is Nepali).`;
+
+  const systemText =
+    'You are an expert presentation designer helping a student or teacher turn a topic, notes, or ' +
+    'documents into a clear, well-structured slide deck for the ज्ञानSetु (DiveEdu) classroom platform. ' +
+    schemaInstructions;
+
+  const parts = [];
+  let sourceDescription = '';
+  if (topic) { parts.push({ text: `Presentation topic: ${topic}` }); sourceDescription += 'a topic'; }
+  if (notes) { parts.push({ text: `Source notes/outline to build the deck from:\n"""${notes}"""` }); sourceDescription += (sourceDescription ? ' and ' : '') + 'notes'; }
+  for (const att of attachments) {
+    if (att && att.data && att.mimeType) {
+      parts.push({ inline_data: { mime_type: att.mimeType, data: String(att.data).slice(0, 12_000_000) } });
+      sourceDescription += (sourceDescription ? ' and ' : '') + 'an attached file';
+    } else if (att && att.text) {
+      const label = att.name ? `[Attached file: ${att.name}]` : '[Attached file]';
+      parts.push({ text: `${label}\n${String(att.text).slice(0, MAX_ATTACHMENT_TEXT_CHARS)}` });
+      sourceDescription += (sourceDescription ? ' and ' : '') + 'an attached file';
+    }
+  }
+  if (parts.length === 0) parts.push({ text: '(No usable source content was provided.)' });
+
+  try {
+    const geminiResp = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${env.GEMINI_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts }],
+          systemInstruction: { parts: [{ text: systemText }] },
+          generationConfig: { temperature: 0.5, responseMimeType: 'application/json' }
+        })
+      }
+    );
+
+    if (!geminiResp.ok) {
+      const errText = await geminiResp.text();
+      console.error('Gemini presentation error:', geminiResp.status, errText);
+      const status = geminiResp.status === 429 ? 429 : 502;
+      return json({
+        error: status === 429
+          ? 'The free AI quota is temporarily exhausted — please try again in a minute.'
+          : 'The AI service is temporarily unavailable.',
+        debug: `Gemini responded ${geminiResp.status}: ${errText.slice(0, 500)}`
+      }, status);
+    }
+
+    const data = await geminiResp.json();
+    const raw = data && data.candidates && data.candidates[0] &&
+      data.candidates[0].content && data.candidates[0].content.parts &&
+      data.candidates[0].content.parts[0] ? data.candidates[0].content.parts[0].text : '';
+
+    let parsed;
+    try {
+      const cleaned = raw.trim().replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```\s*$/, '');
+      parsed = JSON.parse(cleaned);
+    } catch (e) {
+      console.error('Could not parse Gemini presentation output as JSON:', raw);
+      return json({ error: 'The AI returned something unexpected — please try again.', debug: raw.slice(0, 500) }, 502);
+    }
+    if (!parsed || !Array.isArray(parsed.slides) || parsed.slides.length === 0) {
+      return json({ error: 'The AI did not return any slides — please try again.' }, 502);
+    }
+
+    return json({ ok: true, task: 'presentation', result: parsed });
+  } catch (err) {
+    console.error('Worker presentation error:', err);
     return json({ error: 'Something went wrong contacting the AI service.', debug: String(err && err.message || err) }, 500);
   }
 }
