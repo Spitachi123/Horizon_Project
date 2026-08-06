@@ -52,7 +52,7 @@
   <div class="desk-head">
     <div>
       <h1><i class="fa-solid fa-newspaper" style="color:var(--current-accent);"></i> Current Affairs</h1>
-      <p>The latest headlines from the last couple of days, refreshed automatically — Nepal, international, trade &amp; business, and a Trending &amp; More tab with gold/silver rates, hiking &amp; travel picks.</p>
+      <p>The latest headlines from the last couple of days, refreshed automatically — Nepal, international, trade &amp; business, sports, and a Trending &amp; More tab with gold/silver rates, hiking &amp; travel picks.</p>
     </div>
     <span class="badge-pill"><i class="fa-solid fa-tower-broadcast"></i> Live feed</span>
   </div>
@@ -95,10 +95,11 @@ const CATEGORY_META = {
   nepal:         { label: 'Nepal News',       icon: 'fa-flag',          color: '#DC2626' },
   international: { label: 'International',     icon: 'fa-earth-asia',    color: '#2563EB' },
   trade:         { label: 'Trade & Business',  icon: 'fa-chart-line',    color: '#059669' },
+  sports:        { label: 'Sports',             icon: 'fa-futbol',       color: '#0891B2' },
   other:         { label: 'Other',              icon: 'fa-layer-group',  color: '#7C3AED' },
   trending:      { label: 'Trending & More',    icon: 'fa-mountain',     color: '#EA580C' }
 };
-const CATEGORY_ORDER = ['nepal', 'international', 'trade', 'other', 'trending'];
+const CATEGORY_ORDER = ['nepal', 'international', 'trade', 'sports', 'other', 'trending'];
 
 let newsData = { categories: {}, fetchedAt: null };
 let activeCategory = 'nepal';

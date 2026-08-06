@@ -482,33 +482,47 @@ function json(obj, status) {
    needed. Uses Google News' public RSS endpoints, which are always
    current (today's stories) and don't require any account/key:
      - Nepal news:        a Google News search feed scoped to Nepal
-     - International:     Google News' World topic feed
-     - Trade & Business:   Google News' Business topic feed
-     - Other:              Google News' Technology topic feed
+     - International:     Google News' World topic feed + BBC World
+     - Trade & Business:   Google News' Business topic feed + BBC Business
+     - Sports:              Google News' Nepal-sports search + BBC Sport
+     - Other:              Google News' Technology topic feed + BBC Tech
    Results are cached at Cloudflare's edge for NEWS_CACHE_SECONDS so
    repeated dashboard loads don't re-fetch every feed every time.
-   Swap/add feed URLs below if you'd rather pull from specific
-   outlets (Kathmandu Post, BBC, Reuters, etc.) — any standard RSS
-   2.0 feed works with the same parser. */
+   BBC's feeds (feeds.bbci.co.uk) are included alongside Google News
+   in most categories because Google News' RSS endpoint sometimes
+   rate-limits or blocks requests coming from shared datacenter IPs
+   (which is what a Cloudflare Worker uses) — BBC's feeds don't have
+   that restriction, so they act as a much more reliable fallback
+   than a second Google News query would be. Swap/add feed URLs below
+   if you'd rather pull from specific outlets (Kathmandu Post, Al
+   Jazeera, Reuters, etc.) — any standard RSS 2.0 feed works with the
+   same parser. */
 
 const NEWS_FEEDS = {
-  // Each category now has more than one feed URL — if Google News'
-  // scoped feed for a category comes back empty or errors (which is
-  // the main reason a tab looked permanently empty), the other
-  // feed(s) still have a shot at filling it.
+  // Each category now has more than one feed URL from more than one
+  // provider — if one feed (or one provider entirely) comes back
+  // empty or errors, the other(s) still have a shot at filling it.
   nepal: [
     'https://news.google.com/rss/search?q=Nepal&hl=en-US&gl=NP&ceid=NP:en',
     'https://news.google.com/rss/headlines/section/geo/Nepal?hl=en-US&gl=NP&ceid=NP:en'
   ],
   international: [
+    'http://feeds.bbci.co.uk/news/world/rss.xml',
     'https://news.google.com/rss/headlines/section/topic/WORLD?hl=en-US&gl=US&ceid=US:en',
     'https://news.google.com/rss/search?q=world%20news&hl=en-US&gl=US&ceid=US:en'
   ],
   trade: [
+    'http://feeds.bbci.co.uk/news/business/rss.xml',
     'https://news.google.com/rss/headlines/section/topic/BUSINESS?hl=en-US&gl=US&ceid=US:en',
     'https://news.google.com/rss/search?q=business%20markets&hl=en-US&gl=US&ceid=US:en'
   ],
+  sports: [
+    'http://feeds.bbci.co.uk/sport/rss.xml',
+    'https://news.google.com/rss/search?q=Nepal%20sports%20cricket%20football&hl=en-US&gl=NP&ceid=NP:en',
+    'https://news.google.com/rss/headlines/section/topic/SPORTS?hl=en-US&gl=US&ceid=US:en'
+  ],
   other: [
+    'http://feeds.bbci.co.uk/news/technology/rss.xml',
     'https://news.google.com/rss/headlines/section/topic/TECHNOLOGY?hl=en-US&gl=US&ceid=US:en'
   ]
 };
@@ -534,7 +548,7 @@ const MIN_RECENT_ITEMS = 3; // if fewer than this many recent stories exist, wid
 
 async function handleNews(body) {
   const cache = typeof caches !== 'undefined' && caches.default ? caches.default : null;
-  const cacheKey = new Request('https://divedu-news-cache.internal/v2');
+  const cacheKey = new Request('https://divedu-news-cache.internal/v3');
 
   if (cache && !body.forceRefresh) {
     const cached = await cache.match(cacheKey);
