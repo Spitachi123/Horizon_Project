@@ -25,7 +25,7 @@
   .map-tools { display:flex; gap:6px; }
   .map-tool-btn { border:1.5px solid var(--panel-border); background:var(--bg-main); color:var(--text-muted); width:32px; height:32px; border-radius:8px; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:13px; }
   .map-tool-btn:hover { background:var(--student-bg); color:var(--current-accent); border-color: var(--current-accent); }
-  .map-viewport { position:relative; flex:1; min-height: 500px; overflow:hidden; cursor:grab; background:
+  .map-viewport { position:relative; flex:1; min-height: 500px; overflow:hidden; cursor:grab; touch-action:none; background:
       radial-gradient(circle, rgba(120,134,250,0.10) 1px, transparent 1px) 0 0/22px 22px, var(--bg-main); }
   .map-viewport.grabbing { cursor:grabbing; }
   .map-viewport svg { width:100%; height:100%; display:block; }
@@ -35,17 +35,17 @@
     border-radius: 10px;
     height: 100%;
     display:flex; align-items:center;
-    padding: 6px 12px;
+    padding: 7px 12px;
     font-size: 12.5px;
     font-weight: 700;
     color: var(--text-main);
-    line-height:1.25;
+    line-height:1.28;
     overflow:hidden;
     box-shadow: 0 2px 6px rgba(30,41,59,.08);
     cursor:pointer;
     user-select:none;
   }
-  .mm-node-box .clamp { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .mm-node-box .clamp { display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
   .mm-node-box.root { color:#fff; font-size:14.5px; font-weight:800; justify-content:center; text-align:center; box-shadow: 0 8px 20px var(--current-glow); }
   .mm-node-box .collapse-dot { width:16px; height:16px; border-radius:50%; background:rgba(0,0,0,.06); display:flex; align-items:center; justify-content:center; font-size:9px; margin-right:6px; flex-shrink:0; }
   .empty-hint { color: var(--text-muted); font-size: 13.5px; text-align:center; padding: 80px 20px; }
@@ -206,9 +206,10 @@ async function runMindmap() {
 
 /* ---------------- Layout + render ---------------- */
 const BRANCH_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#0ea5e9', '#a855f7', '#14b8a6', '#f97316'];
-const DEPTH_X = [40, 320, 600, 880];      // px, left edge per depth
-const NODE_W  = [190, 180, 170, 160];     // px, box width per depth
-const ROW_H = 54;
+const DEPTH_X = [40, 330, 620, 910];      // px, left edge per depth
+const NODE_W  = [210, 200, 190, 180];     // px, box width per depth
+const NODE_H = 64;   // px, box height — sized for ~3 wrapped lines of label text so it isn't clipped
+const ROW_H = 80;    // px, vertical spacing per leaf row (NODE_H + a gap)
 
 let currentTree = null;
 let viewState = { scale: 1, tx: 0, ty: 0 };
@@ -260,15 +261,15 @@ function draw() {
   const edges = collectEdges(currentTree, []);
   nodes.forEach(n => { if (!n.__id) n.__id = 'mmn' + (nodeIdCounter++); });
 
-  const maxY = Math.max(...nodes.map(n => n.__y)) + 40;
+  const maxY = Math.max(...nodes.map(n => n.__y)) + NODE_H;
   const maxX = Math.max(...nodes.map(n => n.__x + n.__w)) + 40;
   svg.setAttribute('viewBox', `0 0 ${maxX} ${maxY + 40}`);
 
   let html = '';
   edges.forEach(([a, b]) => {
     const color = b.__color || '#94a3b8';
-    const x1 = a.__x + a.__w, y1 = a.__y + 20;
-    const x2 = b.__x, y2 = b.__y + 20;
+    const x1 = a.__x + a.__w, y1 = a.__y + NODE_H / 2;
+    const x2 = b.__x, y2 = b.__y + NODE_H / 2;
     const mx = (x1 + x2) / 2;
     html += `<path d="M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}" fill="none" stroke="${color}" stroke-width="2" opacity="0.55"/>`;
   });
@@ -279,7 +280,7 @@ function draw() {
     const boxStyle = isRoot
       ? `background:linear-gradient(135deg, var(--current-accent), var(--sky-accent));`
       : `border-color:${n.__color}66;`;
-    html += `<foreignObject x="${n.__x}" y="${n.__y}" width="${n.__w}" height="40">
+    html += `<foreignObject x="${n.__x}" y="${n.__y}" width="${n.__w}" height="${NODE_H}">
       <div xmlns="http://www.w3.org/1999/xhtml" class="mm-node-box${isRoot ? ' root' : ''}" style="${boxStyle}" onclick="mmToggle('${n.__id}')" title="${escapeAttr(n.label || n.title)}">
         ${hasKids ? `<span class="collapse-dot">${n.__collapsed ? '+' : '−'}</span>` : ''}
         <span class="clamp">${escapeHtml(n.label || n.title)}</span>
@@ -362,6 +363,47 @@ function mmResetView() {
     e.preventDefault();
     mmZoom(e.deltaY < 0 ? 1.08 : 0.93);
   }, { passive: false });
+
+  /* ---- Touch support: one-finger pan, two-finger pinch-zoom ----
+     Mouse events alone left mobile/tablet users with no way to pan
+     or zoom into a mind map at all, so anything past the initial
+     view was simply unreachable — this is what that "content" was
+     actually missing (touch-action:none on the viewport above stops
+     the browser from grabbing the gesture for page scroll/refresh
+     instead). */
+  let pinchStartDist = 0, pinchStartScale = 1;
+  function touchDist(t0, t1) {
+    return Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
+  }
+  vp.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 1) {
+      if (e.target.closest('.mm-node-box')) return;
+      dragging = true;
+      lastX = e.touches[0].clientX; lastY = e.touches[0].clientY;
+    } else if (e.touches.length === 2) {
+      dragging = false;
+      pinchStartDist = touchDist(e.touches[0], e.touches[1]);
+      pinchStartScale = viewState.scale;
+    }
+  }, { passive: true });
+  vp.addEventListener('touchmove', (e) => {
+    if (e.touches.length === 1 && dragging) {
+      e.preventDefault();
+      const t = e.touches[0];
+      viewState.tx += (t.clientX - lastX); viewState.ty += (t.clientY - lastY);
+      lastX = t.clientX; lastY = t.clientY;
+      applyTransform();
+    } else if (e.touches.length === 2) {
+      e.preventDefault();
+      const dist = touchDist(e.touches[0], e.touches[1]);
+      if (pinchStartDist > 0) {
+        viewState.scale = Math.max(0.3, Math.min(2.5, pinchStartScale * (dist / pinchStartDist)));
+        applyTransform();
+      }
+    }
+  }, { passive: false });
+  vp.addEventListener('touchend', () => { dragging = false; pinchStartDist = 0; });
+  vp.addEventListener('touchcancel', () => { dragging = false; pinchStartDist = 0; });
 })();
 
 function escapeHtml(str) {

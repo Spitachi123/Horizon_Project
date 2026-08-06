@@ -71,6 +71,13 @@ export default {
       return handlePresentation(body, env);
     }
 
+    // Current Affairs also has its own shape (no `text` at all — it's
+    // a read of live external news feeds, not something Gemini
+    // generates), so it gets its own path too.
+    if (task === 'news') {
+      return handleNews(body);
+    }
+
     const text = (body.text || '').toString();
     // Attachments (images/PDFs/DOCX-or-other-as-text) can now stand in
     // for, or supplement, pasted text on these tasks too — e.g. the
@@ -433,11 +440,13 @@ function buildPrompt(task, text, count, ratio, hasAttachments) {
     return `You are building a structural mind map of the source material below for a student, ` +
       `capturing its main topic and the distinct concepts/branches that support it. ` +
       `Respond ONLY with valid JSON (no markdown fences, no commentary) in exactly this shape:\n` +
-      `{"title": "short 3-6 word main topic", "children": [{"label": "branch concept name", ` +
-      `"children": [{"label": "supporting point or detail, one short sentence"}, "..."]}, "..."]}\n` +
+      `{"title": "short 2-5 word main topic", "children": [{"label": "branch concept name, max 6 words", ` +
+      `"children": [{"label": "supporting point, one short phrase or clause, max 12 words / ~65 characters"}, "..."]}, "..."]}\n` +
       `Include 4-7 top-level branches, each with 2-4 supporting points where the source material ` +
-      `supports it. Keep every label concise (under 12 words). Write in the same language as the ` +
-      `source material (reply in Nepali/Devanagari if the input is Nepali).\n\n` +
+      `supports it. These labels render inside small fixed-size boxes on a mind-map diagram (roughly ` +
+      `3 lines of text fit per box) — keep every label genuinely short and punchy, not a full sentence; ` +
+      `trim to the core idea rather than writing something that will get cut off. Write in the same ` +
+      `language as the source material (reply in Nepali/Devanagari if the input is Nepali).\n\n` +
       `${sourceRef}`;
   }
 
@@ -457,4 +466,136 @@ function json(obj, status) {
     status: status || 200,
     headers: Object.assign({ 'Content-Type': 'application/json' }, corsHeaders())
   });
+}
+
+/* ============================================================
+   CURRENT AFFAIRS ("news" task)
+   ============================================================
+   Reads live public RSS feeds server-side (Workers fetch has no
+   CORS restrictions, unlike the browser) and hands back a small,
+   already-categorized JSON digest — no Gemini call, no API key
+   needed. Uses Google News' public RSS endpoints, which are always
+   current (today's stories) and don't require any account/key:
+     - Nepal news:        a Google News search feed scoped to Nepal
+     - International:     Google News' World topic feed
+     - Trade & Business:   Google News' Business topic feed
+     - Other:              Google News' Technology topic feed
+   Results are cached at Cloudflare's edge for NEWS_CACHE_SECONDS so
+   repeated dashboard loads don't re-fetch every feed every time.
+   Swap/add feed URLs below if you'd rather pull from specific
+   outlets (Kathmandu Post, BBC, Reuters, etc.) — any standard RSS
+   2.0 feed works with the same parser. */
+
+const NEWS_FEEDS = {
+  nepal: [
+    'https://news.google.com/rss/search?q=Nepal&hl=en-US&gl=NP&ceid=NP:en'
+  ],
+  international: [
+    'https://news.google.com/rss/headlines/section/topic/WORLD?hl=en-US&gl=US&ceid=US:en'
+  ],
+  trade: [
+    'https://news.google.com/rss/headlines/section/topic/BUSINESS?hl=en-US&gl=US&ceid=US:en'
+  ],
+  other: [
+    'https://news.google.com/rss/headlines/section/topic/TECHNOLOGY?hl=en-US&gl=US&ceid=US:en'
+  ]
+};
+const NEWS_CACHE_SECONDS = 600; // 10 minutes — keeps loads snappy without hammering the feeds constantly
+const NEWS_ITEMS_PER_CATEGORY = 14;
+
+async function handleNews(body) {
+  const cache = typeof caches !== 'undefined' && caches.default ? caches.default : null;
+  const cacheKey = new Request('https://divedu-news-cache.internal/v1');
+
+  if (cache && !body.forceRefresh) {
+    const cached = await cache.match(cacheKey);
+    if (cached) return cached;
+  }
+
+  const categoryEntries = Object.entries(NEWS_FEEDS);
+  const results = await Promise.all(categoryEntries.map(async ([key, urls]) => {
+    const items = [];
+    for (const url of urls) {
+      try {
+        const resp = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; DiveEduNewsBot/1.0; +https://divedu.app)' } });
+        if (!resp.ok) continue;
+        const xml = await resp.text();
+        items.push(...parseRssItems(xml));
+      } catch (e) {
+        console.error('News feed error (' + key + '):', url, e && e.message);
+        // Skip a feed that's down rather than failing the whole category.
+      }
+    }
+    const seen = new Set();
+    const deduped = items.filter(it => {
+      const k = it.title.toLowerCase();
+      if (!k || seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+    deduped.sort((a, b) => (b.pubDateMs || 0) - (a.pubDateMs || 0));
+    const trimmed = deduped.slice(0, NEWS_ITEMS_PER_CATEGORY)
+      .map(it => ({ title: it.title, link: it.link, source: it.source, pubDate: it.pubDate }));
+    return [key, trimmed];
+  }));
+
+  const categories = Object.fromEntries(results);
+  const payload = { ok: true, task: 'news', result: { categories, fetchedAt: new Date().toISOString() } };
+  const resp = json(payload);
+  resp.headers.set('Cache-Control', 'public, max-age=' + NEWS_CACHE_SECONDS);
+
+  if (cache) {
+    try { await cache.put(cacheKey, resp.clone()); } catch (e) { /* edge cache best-effort, not fatal */ }
+  }
+  return resp;
+}
+
+/** Minimal, dependency-free RSS <item> extractor. Cloudflare Workers
+ *  have no DOMParser/XML parser built in, so this pulls title/link/
+ *  pubDate/source out of each <item>...</item> block with regex —
+ *  good enough for the well-formed RSS 2.0 that Google News (and
+ *  virtually every news outlet's own feed) emits. */
+function parseRssItems(xml) {
+  const items = [];
+  const itemRe = /<item>([\s\S]*?)<\/item>/g;
+  let m;
+  while ((m = itemRe.exec(xml))) {
+    const block = m[1];
+    let title = decodeXmlEntities(extractXmlTag(block, 'title'));
+    const link = decodeXmlEntities(extractXmlTag(block, 'link'));
+    const pubDate = extractXmlTag(block, 'pubDate');
+    const sourceMatch = block.match(/<source[^>]*>([\s\S]*?)<\/source>/);
+    const source = sourceMatch ? decodeXmlEntities(sourceMatch[1]) : '';
+    if (!title) continue;
+    // Google News titles are often "Headline - Source Name" with the
+    // same source repeated in its own <source> tag — strip the
+    // duplicate suffix so the headline reads cleanly on its own.
+    if (source && title.endsWith(' - ' + source)) {
+      title = title.slice(0, title.length - source.length - 3).trim();
+    }
+    const pubDateMs = pubDate ? Date.parse(pubDate) : NaN;
+    items.push({ title, link, source, pubDate, pubDateMs: isNaN(pubDateMs) ? 0 : pubDateMs });
+  }
+  return items;
+}
+
+function extractXmlTag(block, tag) {
+  const m = block.match(new RegExp('<' + tag + '[^>]*>([\\s\\S]*?)<\\/' + tag + '>', 'i'));
+  if (!m) return '';
+  let val = m[1].trim();
+  const cdata = val.match(/^<!\[CDATA\[([\s\S]*?)\]\]>$/);
+  if (cdata) val = cdata[1];
+  return val.trim();
+}
+
+function decodeXmlEntities(str) {
+  if (!str) return '';
+  return str
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#0*39;|&apos;/g, "'")
+    .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(parseInt(dec, 10)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
 }
