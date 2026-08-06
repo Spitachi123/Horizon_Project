@@ -69,13 +69,14 @@
   <div class="mm-layout">
     <div class="desk-panel">
       <h3><i class="fa-solid fa-file-lines"></i> Source content</h3>
-      <textarea id="mmInput" placeholder="Paste a paragraph, chapter, or set of notes here..."></textarea>
+      <textarea id="mmInput" placeholder="Paste a paragraph, chapter, or set of notes here (optional if you attach a file below)..."></textarea>
       <div class="desk-controls">
-        <label class="len-btn" for="mmPdfInput" style="display:inline-flex; align-items:center; gap:6px; cursor:pointer; border:1.5px solid var(--panel-border); background:var(--bg-main); color:var(--text-muted); padding:8px 14px; border-radius:20px; font-weight:700; font-size:12.5px;">
-          <i class="fa-solid fa-file-pdf"></i> Upload PDF
+        <label class="len-btn" for="mmFileInput" style="display:inline-flex; align-items:center; gap:6px; cursor:pointer; border:1.5px solid var(--panel-border); background:var(--bg-main); color:var(--text-muted); padding:8px 14px; border-radius:20px; font-weight:700; font-size:12.5px;">
+          <i class="fa-solid fa-paperclip"></i> Attach file
         </label>
-        <input type="file" id="mmPdfInput" accept="application/pdf" class="hidden">
-        <span id="mmPdfStatus" style="font-size:11.5px; color:var(--text-muted);"></span>
+        <input type="file" id="mmFileInput" accept="image/png,image/jpeg,image/webp,application/pdf,.docx,.txt,.md,.csv,.json" class="hidden">
+        <span id="mmFileStatus" style="font-size:11.5px; color:var(--text-muted);"></span>
+        <button type="button" id="mmFileRemove" class="map-tool-btn" style="display:none; width:auto; padding:0 8px;" title="Remove attached file" onclick="removeMmAttachment()"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <button class="btn-primary" style="width:100%; margin-top:18px;" onclick="runMindmap()"><i class="fa-solid fa-diagram-project"></i> Generate Mind Map</button>
     </div>
@@ -91,7 +92,7 @@
         </div>
       </div>
       <div class="map-viewport" id="mmViewport">
-        <div class="empty-hint" id="mmEmptyHint"><i class="fa-solid fa-diagram-project" style="opacity:.4; font-size:22px;"></i><br><br>Paste some text (or upload a PDF) on the left and hit <strong>Generate Mind Map</strong>.</div>
+        <div class="empty-hint" id="mmEmptyHint"><i class="fa-solid fa-diagram-project" style="opacity:.4; font-size:22px;"></i><br><br>Paste some text or attach a file (image, PDF, DOCX, TXT...) on the left and hit <strong>Generate Mind Map</strong>.</div>
         <svg id="mmSvg" style="display:none;"><g id="mmZoomGroup"></g></svg>
       </div>
     </div>
@@ -117,23 +118,38 @@ function toast(msg, type) {
   setTimeout(() => t.classList.remove('show'), 2500);
 }
 
-/* ---------------- PDF upload ---------------- */
-document.getElementById('mmPdfInput').addEventListener('change', async (e) => {
+/* ---------------- File attachment ----------------
+   The file is now sent straight to Gemini (as base64 for images/
+   PDFs, or as extracted text for DOCX/plain text) instead of being
+   pre-extracted into the textarea — same "any file format" approach
+   used by the chatbot and presentation generator. The textarea is
+   still available for pasted notes, either instead of or alongside
+   the attached file. */
+let mmAttachment = null;
+
+document.getElementById('mmFileInput').addEventListener('change', async (e) => {
   const file = e.target.files[0];
   if (!file) return;
-  const statusEl = document.getElementById('mmPdfStatus');
-  statusEl.textContent = 'Reading PDF…';
+  const statusEl = document.getElementById('mmFileStatus');
+  statusEl.textContent = 'Reading file…';
   try {
-    const text = await AIEngine.extractPdfText(file, (p, total) => { statusEl.textContent = `Reading page ${p}/${total}…`; });
-    if (!text) { toast('Could not find any text in that PDF (it may be scanned images).', 'error'); statusEl.textContent = ''; return; }
-    document.getElementById('mmInput').value = text;
-    statusEl.textContent = `Loaded "${file.name}".`;
-    toast('PDF text extracted — hit Generate Mind Map.', 'success');
+    mmAttachment = await AIEngine.prepareAttachment(file, (p, total) => { statusEl.textContent = `Reading… (${p}/${total})`; });
+    statusEl.textContent = `Attached "${file.name}".`;
+    document.getElementById('mmFileRemove').style.display = 'inline-flex';
+    toast('File attached — hit Generate Mind Map.', 'success');
   } catch (err) {
-    toast(err.message || 'Could not read that PDF.', 'error');
+    mmAttachment = null;
+    toast(err.message || 'Could not read that file.', 'error');
     statusEl.textContent = '';
   }
 });
+
+function removeMmAttachment() {
+  mmAttachment = null;
+  document.getElementById('mmFileInput').value = '';
+  document.getElementById('mmFileStatus').textContent = '';
+  document.getElementById('mmFileRemove').style.display = 'none';
+}
 
 /* Handoff from a dashboard's Materials tab, same pattern as h.html. */
 window.addEventListener('message', async (event) => {
@@ -142,12 +158,16 @@ window.addEventListener('message', async (event) => {
     document.getElementById('mmInput').value = data.text;
     runMindmap();
   } else if (data.type === 'divedu-mindmap-load-pdf-url' && data.url) {
-    const statusEl = document.getElementById('mmPdfStatus');
+    const statusEl = document.getElementById('mmFileStatus');
     statusEl.textContent = `Fetching "${data.name || 'material'}"…`;
     try {
-      const text = await AIEngine.extractPdfTextFromUrl(data.url, (p, total) => { statusEl.textContent = `Reading page ${p}/${total}…`; });
-      document.getElementById('mmInput').value = text;
-      statusEl.textContent = `Loaded "${data.name || 'material'}".`;
+      const resp = await fetch(data.url);
+      if (!resp.ok) throw new Error('Could not download that material.');
+      const blob = await resp.blob();
+      const file = new File([blob], data.name || 'material.pdf', { type: blob.type || 'application/pdf' });
+      mmAttachment = await AIEngine.prepareAttachment(file);
+      statusEl.textContent = `Attached "${file.name}".`;
+      document.getElementById('mmFileRemove').style.display = 'inline-flex';
       runMindmap();
     } catch (err) {
       toast(err.message || 'Could not load that material.', 'error');
@@ -160,16 +180,16 @@ try { window.parent.postMessage({ type: 'divedu-mindmap-ready' }, '*'); } catch 
 /* ---------------- Generate ---------------- */
 async function runMindmap() {
   const text = document.getElementById('mmInput').value.trim();
-  if (!text) { toast('Paste some text first.', 'error'); return; }
+  if (!text && !mmAttachment) { toast('Paste some text or attach a file first.', 'error'); return; }
 
   const btn = document.querySelector('.desk-panel .btn-primary');
   if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Thinking…'; }
 
-  const { mindmap, source } = await LLMEngine.draftMindmap(text);
+  const { mindmap, source } = await LLMEngine.draftMindmap(text, mmAttachment ? [mmAttachment] : []);
 
   if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-diagram-project"></i> Generate Mind Map'; }
 
-  if (!mindmap || !mindmap.title) { toast('Could not build a mind map from that text.', 'error'); return; }
+  if (!mindmap || !mindmap.title || mindmap.title === 'No content found') { toast('Could not build a mind map from that — try pasting more text or a different file.', 'error'); return; }
 
   const badge = document.getElementById('mmSourceBadge');
   if (source === 'gemini') {

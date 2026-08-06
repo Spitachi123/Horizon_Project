@@ -57,11 +57,12 @@
 
   <div class="desk-panel">
     <h3><i class="fa-solid fa-file-lines"></i> Paste your lesson content</h3>
-    <textarea id="lessonText" placeholder="Paste a chapter, lecture notes, or a topic description here..."></textarea>
+    <textarea id="lessonText" placeholder="Paste a chapter, lecture notes, or a topic description here (optional if you attach a file below)..."></textarea>
     <div class="mode-tabs" style="margin-top:0;">
-      <label class="mode-tab" for="pdfInput" style="cursor:pointer;"><i class="fa-solid fa-file-pdf"></i> Upload PDF</label>
-      <input type="file" id="pdfInput" accept="application/pdf" class="hidden">
-      <span id="pdfStatus" style="font-size:11.5px; color:var(--text-muted); align-self:center;"></span>
+      <label class="mode-tab" for="fileInput" style="cursor:pointer;"><i class="fa-solid fa-paperclip"></i> Attach file</label>
+      <input type="file" id="fileInput" accept="image/png,image/jpeg,image/webp,application/pdf,.docx,.txt,.md,.csv,.json" class="hidden">
+      <span id="fileStatus" style="font-size:11.5px; color:var(--text-muted); align-self:center;"></span>
+      <button type="button" id="fileRemove" class="mode-tab" style="display:none;" onclick="removeAttachment()"><i class="fa-solid fa-xmark"></i> Remove</button>
     </div>
     <div class="mode-tabs">
       <button class="mode-tab active" data-mode="summary" onclick="setMode(this)"><i class="fa-solid fa-list-check"></i> Summary</button>
@@ -99,28 +100,43 @@ function toast(msg, type) {
 }
 function escapeHtml(str) { const div = document.createElement('div'); div.textContent = str; return div.innerHTML; }
 
-document.getElementById('pdfInput').addEventListener('change', async (e) => {
+/* ---------------- File attachment ----------------
+   Sends the file straight to Gemini (image/PDF as base64, DOCX/
+   plain text as extracted text) instead of pre-extracting text into
+   the textarea first — works for any file format, not just PDFs. */
+let currentAttachment = null;
+
+document.getElementById('fileInput').addEventListener('change', async (e) => {
   const file = e.target.files[0];
   if (!file) return;
-  const statusEl = document.getElementById('pdfStatus');
-  statusEl.textContent = 'Reading PDF…';
+  const statusEl = document.getElementById('fileStatus');
+  statusEl.textContent = 'Reading file…';
   try {
-    const text = await AIEngine.extractPdfText(file, (p, total) => { statusEl.textContent = `Reading page ${p}/${total}…`; });
-    if (!text) { toast('Could not find any text in that PDF (it may be scanned images).', 'error'); statusEl.textContent = ''; return; }
-    document.getElementById('lessonText').value = text;
-    statusEl.textContent = `Loaded "${file.name}".`;
-    toast('PDF text extracted — hit Generate.', 'success');
+    currentAttachment = await AIEngine.prepareAttachment(file, (p, total) => { statusEl.textContent = `Reading… (${p}/${total})`; });
+    statusEl.textContent = `Attached "${file.name}".`;
+    document.getElementById('fileRemove').style.display = 'inline-flex';
+    toast('File attached — hit Generate.', 'success');
   } catch (err) {
-    toast(err.message || 'Could not read that PDF.', 'error');
+    currentAttachment = null;
+    toast(err.message || 'Could not read that file.', 'error');
     statusEl.textContent = '';
   }
 });
 
+function removeAttachment() {
+  currentAttachment = null;
+  document.getElementById('fileInput').value = '';
+  document.getElementById('fileStatus').textContent = '';
+  document.getElementById('fileRemove').style.display = 'none';
+}
+
 async function runAssist() {
   const text = document.getElementById('lessonText').value.trim();
-  if (!text) { toast('Paste some lesson content first.', 'error'); return; }
-  const { sentences } = AIEngine.analyze(text);
-  if (sentences.length === 0) { toast('Could not find sentences in that text.', 'error'); return; }
+  if (!text && !currentAttachment) { toast('Paste some lesson content or attach a file first.', 'error'); return; }
+  if (text) {
+    const { sentences } = AIEngine.analyze(text);
+    if (sentences.length === 0) { toast('Could not find sentences in that text.', 'error'); return; }
+  }
 
   const genBtn = document.querySelector('.desk-panel .btn-primary');
   const out = document.getElementById('output');
@@ -146,7 +162,7 @@ function setAiBadge(source) {
 }
 
 async function renderSummary(text) {
-  const result = await LLMEngine.summarize(text, 0.3);
+  const result = await LLMEngine.summarize(text, 0.3, currentAttachment ? [currentAttachment] : []);
   const out = document.getElementById('output');
   if (!result) { out.innerHTML = `<div class="empty-hint">Could not summarize that text — try pasting a longer passage.</div>`; return; }
   setAiBadge(result.source);
@@ -166,7 +182,7 @@ async function renderSummary(text) {
 }
 
 async function renderQuiz(text) {
-  const { questions, source } = await LLMEngine.draftQuestions(text, 6);
+  const { questions, source } = await LLMEngine.draftQuestions(text, 6, currentAttachment ? [currentAttachment] : []);
   const out = document.getElementById('output');
   if (questions.length === 0) { out.innerHTML = `<div class="empty-hint">Not enough substantial content to draft questions from — try pasting a longer passage.</div>`; return; }
   setAiBadge(source);
@@ -187,7 +203,7 @@ async function renderQuiz(text) {
 }
 
 async function renderMilestones(text) {
-  const { milestones, source } = await LLMEngine.draftMilestones(text, 3);
+  const { milestones, source } = await LLMEngine.draftMilestones(text, 3, currentAttachment ? [currentAttachment] : []);
   const out = document.getElementById('output');
   if (milestones.length === 0) { out.innerHTML = `<div class="empty-hint">Could not draft milestones from that text — try pasting a longer passage.</div>`; return; }
   setAiBadge(source);

@@ -292,6 +292,121 @@ const AIEngine = (() => {
     return extractPdfText(blob, onProgress);
   }
 
+  /* ---------------- Shared "any file" attachment prep ----------------
+     Used by every AI tool (chatbot, summarizer, quiz/milestone drafter,
+     mind map) to turn a raw <input type="file"> File into something the
+     Cloudflare worker can hand straight to Gemini, instead of each page
+     extracting text on its own and only understanding PDFs.
+
+     - Images and PDFs: Gemini reads these natively, so they travel as
+       inline base64 (images are downscaled first so a big phone photo
+       doesn't blow past the request size cap).
+     - DOCX: Gemini has no native Word reader, so this extracts plain
+       text client-side with mammoth.js (same as before, just shared).
+     - Everything else (txt, md, csv, json, code files, etc.): read as
+       plain text. This is a best-effort fallback for "any file
+       format" — genuinely binary formats Gemini can't read natively
+       and that aren't image/PDF/DOCX (e.g. .pptx, .xlsx, .zip) will
+       come through as garbled text; callers should let the user know
+       if extraction looks empty/unreadable. */
+  const MAX_IMAGE_DIM = 1600;
+
+  function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(',')[1] || '');
+      reader.onerror = () => reject(new Error('Could not read that file.'));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  /** Downscales an oversized image in a <canvas> before base64-encoding
+   *  it, so a 12MP phone photo doesn't blow past the request size
+   *  limit or burn a huge chunk of the model's context. */
+  function downscaleImage(file) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const scale = Math.min(1, MAX_IMAGE_DIM / Math.max(img.width, img.height));
+        if (scale === 1) { resolve(null); return; } // small enough already, use original file
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.86);
+        resolve({ base64: dataUrl.split(',')[1], mimeType: 'image/jpeg' });
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Could not read that image.')); };
+      img.src = url;
+    });
+  }
+
+  let mammothLoading = null;
+  function loadMammoth() {
+    if (window.mammoth) return Promise.resolve(window.mammoth);
+    if (mammothLoading) return mammothLoading;
+    mammothLoading = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.7.2/mammoth.browser.min.js';
+      script.onload = () => resolve(window.mammoth);
+      script.onerror = () => reject(new Error('Could not load the Word document reader.'));
+      document.head.appendChild(script);
+    });
+    return mammothLoading;
+  }
+
+  async function extractDocxText(file) {
+    const mammoth = await loadMammoth();
+    const buf = await file.arrayBuffer();
+    const result = await mammoth.extractRawText({ arrayBuffer: buf });
+    return (result.value || '').trim();
+  }
+
+  /** Turns a raw <input type="file"> File into the shape the worker
+   *  expects: images and PDFs travel as base64 (Gemini reads both
+   *  natively — including handwriting/diagrams in photos and full
+   *  PDF layout), DOCX/TXT-and-friends travel as already-extracted
+   *  plain text since Gemini has no native DOCX reader. Works for any
+   *  file the user drops in, not just PDFs. */
+  async function prepareAttachment(file, onProgress) {
+    const isImage = file.type.startsWith('image/');
+    const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+    const isDocx = /\.docx$/i.test(file.name);
+
+    if (isImage) {
+      if (onProgress) onProgress(1, 1);
+      const downscaled = await downscaleImage(file).catch(() => null);
+      if (downscaled) return { kind: 'image', mimeType: downscaled.mimeType, data: downscaled.base64, name: file.name };
+      const data = await fileToBase64(file);
+      return { kind: 'image', mimeType: file.type || 'image/png', data, name: file.name };
+    }
+    if (isPdf) {
+      if (onProgress) onProgress(1, 1);
+      const data = await fileToBase64(file);
+      return { kind: 'pdf', mimeType: 'application/pdf', data, name: file.name };
+    }
+    if (isDocx) {
+      if (onProgress) onProgress(1, 1);
+      const text = await extractDocxText(file);
+      return { kind: 'file', mimeType: null, data: null, text, name: file.name };
+    }
+    // Plain text / anything else readable as text (txt, md, csv, json,
+    // code, etc). Genuinely binary formats (pptx, xlsx, zip...) will
+    // come through unreadable — callers should sanity-check the result.
+    if (onProgress) onProgress(1, 1);
+    const text = await file.text();
+    return { kind: 'file', mimeType: null, data: null, text, name: file.name };
+  }
+
+  /** Strips an attachment down to the plain-JSON shape the worker
+   *  expects on the wire (no File/Blob references). */
+  function serializeAttachment(att) {
+    return { kind: att.kind, mimeType: att.mimeType, data: att.data, text: att.text, name: att.name };
+  }
+
   /** Builds a structural mind map (no LLM) by clustering the passage's
    *  top-ranked sentences under its top key terms, so each branch is a
    *  distinct concept and each sub-point is a real sentence from the
@@ -324,6 +439,7 @@ const AIEngine = (() => {
 
   return {
     tokenize, significantWords, splitSentences, analyze, summarize,
-    draftQuestions, draftMilestones, buildMindmap, extractPdfText, extractPdfTextFromUrl
+    draftQuestions, draftMilestones, buildMindmap, extractPdfText, extractPdfTextFromUrl,
+    prepareAttachment, serializeAttachment
   };
 })();

@@ -34,6 +34,7 @@
 
 const GEMINI_MODEL = 'gemini-3.6-flash'; // latest GA Gemini Flash model (faster + cheaper than 3.5/2.5 Flash)
 const MAX_INPUT_CHARS = 30000;
+const MAX_ATTACHMENTS = 4;
 
 export default {
   async fetch(request, env) {
@@ -71,18 +72,27 @@ export default {
     }
 
     const text = (body.text || '').toString();
+    // Attachments (images/PDFs/DOCX-or-other-as-text) can now stand in
+    // for, or supplement, pasted text on these tasks too — e.g. the
+    // mind map and summarizer/quiz/milestone tools send the actual
+    // file straight to Gemini instead of pre-extracting text
+    // client-side, and it works for any file format Gemini can read
+    // (or that got turned into text upstream), same as chat/presentation.
+    const attachments = Array.isArray(body.attachments) ? body.attachments.slice(0, MAX_ATTACHMENTS) : [];
 
-    if (!text || text.trim().length < 10) {
-      return json({ error: 'Please provide a longer passage of text.' }, 400);
+    if ((!text || text.trim().length < 10) && attachments.length === 0) {
+      return json({ error: 'Please provide a longer passage of text or attach a file.' }, 400);
     }
     if (text.length > MAX_INPUT_CHARS) {
       return json({ error: 'That text is too long for this endpoint — please shorten it.' }, 400);
     }
 
-    const prompt = buildPrompt(task, text, body.count, body.ratio);
-    if (!prompt) {
+    const promptText = buildPrompt(task, text, body.count, body.ratio, attachments.length > 0);
+    if (!promptText) {
       return json({ error: 'Unknown task type: ' + task }, 400);
     }
+
+    const parts = [{ text: promptText }, ...attachmentsToParts(attachments)];
 
     try {
       const geminiResp = await fetch(
@@ -91,7 +101,7 @@ export default {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
+            contents: [{ parts }],
             generationConfig: {
               temperature: 0.4,
               responseMimeType: 'application/json'
@@ -158,6 +168,26 @@ const CHAT_SYSTEM_PROMPT =
 const MAX_CHAT_ATTACHMENTS = 4;
 const MAX_CHAT_HISTORY = 20;
 const MAX_ATTACHMENT_TEXT_CHARS = 12000;
+
+/** Converts the frontend's attachment shape ({kind, mimeType, data,
+ *  text, name}) into Gemini `parts`: images/PDFs travel as inline
+ *  base64 (Gemini reads both natively), anything already reduced to
+ *  plain text client-side (DOCX, TXT, etc.) travels as a labelled
+ *  text part. Used by the summarize/quiz/milestones/mindmap task
+ *  path so those tasks can take a file attachment the same way chat
+ *  and presentation generation already do. */
+function attachmentsToParts(attachments) {
+  const parts = [];
+  for (const att of attachments) {
+    if (att && att.data && att.mimeType) {
+      parts.push({ inline_data: { mime_type: att.mimeType, data: String(att.data).slice(0, 12_000_000) } });
+    } else if (att && att.text) {
+      const label = att.name ? `[Attached file: ${att.name}]` : '[Attached file]';
+      parts.push({ text: `${label}\n${String(att.text).slice(0, MAX_ATTACHMENT_TEXT_CHARS)}` });
+    }
+  }
+  return parts;
+}
 
 /** Handles the chatbot's "chat" task: builds a full multi-turn,
  *  multimodal Gemini request (conversation history + this turn's
@@ -357,8 +387,13 @@ async function handlePresentation(body, env) {
   }
 }
 
-function buildPrompt(task, text, count, ratio) {
+function buildPrompt(task, text, count, ratio, hasAttachments) {
   const safeText = text.slice(0, 30000);
+  // When there's a file attachment and little/no pasted text, point the
+  // model at the attached file(s) instead of an (empty) quoted passage.
+  const sourceRef = safeText
+    ? `Passage:\n"""${safeText}"""`
+    : `Use the content of the attached file(s) provided with this request as the source material.`;
 
   if (task === 'summarize') {
     const pct = Math.round((ratio || 0.3) * 100);
@@ -370,7 +405,7 @@ function buildPrompt(task, text, count, ratio) {
       `"summary": ["point 1", "point 2", "..."], ` +
       `"terms": ["key term 1", "key term 2", "..."], ` +
       `"definitions": [{"term": "X", "explanation": "one-sentence explanation"}]}\n\n` +
-      `Passage:\n"""${safeText}"""`;
+      `${sourceRef}`;
   }
 
   if (task === 'quiz') {
@@ -381,7 +416,7 @@ function buildPrompt(task, text, count, ratio) {
       `Respond ONLY with valid JSON (no markdown fences, no commentary) in exactly this shape:\n` +
       `{"questions": [{"question": "...", "type": "short_answer", "answer": "..."}, ` +
       `{"question": "...", "type": "multiple_choice", "options": ["A", "B", "C", "D"], "answer": "B"}]}\n\n` +
-      `Passage:\n"""${safeText}"""`;
+      `${sourceRef}`;
   }
 
   if (task === 'milestones') {
@@ -391,7 +426,19 @@ function buildPrompt(task, text, count, ratio) {
       `Respond ONLY with valid JSON (no markdown fences, no commentary) in exactly this shape:\n` +
       `{"milestones": [{"title": "short activity title", ` +
       `"hint": "one sentence describing what the student should do or understand", "points": 15}]}\n\n` +
-      `Passage:\n"""${safeText}"""`;
+      `${sourceRef}`;
+  }
+
+  if (task === 'mindmap') {
+    return `You are building a structural mind map of the source material below for a student, ` +
+      `capturing its main topic and the distinct concepts/branches that support it. ` +
+      `Respond ONLY with valid JSON (no markdown fences, no commentary) in exactly this shape:\n` +
+      `{"title": "short 3-6 word main topic", "children": [{"label": "branch concept name", ` +
+      `"children": [{"label": "supporting point or detail, one short sentence"}, "..."]}, "..."]}\n` +
+      `Include 4-7 top-level branches, each with 2-4 supporting points where the source material ` +
+      `supports it. Keep every label concise (under 12 words). Write in the same language as the ` +
+      `source material (reply in Nepali/Devanagari if the input is Nepali).\n\n` +
+      `${sourceRef}`;
   }
 
   return null;
