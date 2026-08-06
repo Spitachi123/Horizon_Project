@@ -39,6 +39,28 @@
   .ca-item-open { color: var(--text-muted); font-size:12px; flex-shrink:0; margin-top:8px; }
 
   .empty-hint { color: var(--text-muted); font-size: 13.5px; text-align:center; padding: 60px 20px; }
+
+  /* --- Nepal-focused widgets: gold/silver strip + this-month calendar --- */
+  .np-widgets { display:flex; flex-direction:column; gap:12px; padding: 10px 10px 4px; }
+  .np-gs-strip { display:flex; gap:10px; flex-wrap:wrap; }
+  .np-gs-card { flex:1; min-width:220px; display:flex; align-items:flex-start; gap:10px; background: linear-gradient(135deg, #FFF7ED, #FEF3E2); border:1px solid #FDE0B0; border-radius: var(--radius-sm); padding: 12px 14px; text-decoration:none; color:inherit; }
+  .np-gs-card i { color:#D97706; font-size:15px; margin-top:2px; }
+  .np-gs-card-title { font-size:12.5px; font-weight:700; color:#7C2D12; line-height:1.4; }
+  .np-gs-card-meta { font-size:10.5px; color:#92603A; margin-top:4px; }
+  .np-gs-empty { font-size:12px; color: var(--text-muted); padding: 10px 4px; }
+
+  .np-cal { background: var(--bg-main); border:1px solid var(--panel-border); border-radius: var(--radius-sm); padding: 14px 16px; }
+  .np-cal-head { display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:800; color: var(--text-main); margin-bottom:10px; }
+  .np-cal-head i { color: var(--current-accent); }
+  .np-cal-list { display:flex; flex-direction:column; gap:8px; }
+  .np-cal-row { display:flex; gap:10px; align-items:flex-start; font-size:12.5px; }
+  .np-cal-date { flex-shrink:0; width:56px; font-weight:800; color: var(--text-main); }
+  .np-cal-body { flex:1; color: var(--text-main); line-height:1.4; }
+  .np-cal-tag { display:inline-block; font-size:9.5px; font-weight:800; letter-spacing:.2px; text-transform:uppercase; padding:2px 7px; border-radius:20px; margin-left:7px; vertical-align:middle; }
+  .np-cal-tag.holiday { background:#FEE2E2; color:#B91C1C; }
+  .np-cal-tag.festival { background:#FFF0DB; color:#B45309; }
+  .np-cal-tag.observance { background:#EEF2FF; color:#4338CA; }
+  .np-cal-empty { font-size:12px; color: var(--text-muted); }
   .ca-error { color:#b91c1c; background:#fef2f2; border:1px solid #fecaca; border-radius: var(--radius-sm); padding:14px 16px; font-size:13px; margin: 8px; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
   .ca-retry-btn { border:1.5px solid #b91c1c; color:#b91c1c; background:#fff; font-size:11.5px; font-weight:800; padding:6px 12px; border-radius:8px; cursor:pointer; white-space:nowrap; }
 </style>
@@ -67,6 +89,7 @@
   </div>
 
   <div class="ca-panel">
+    <div class="np-widgets" id="npWidgets" style="display:none;"></div>
     <div class="ca-list" id="caList">
       <div class="empty-hint"><i class="fa-solid fa-spinner fa-spin" style="opacity:.5; font-size:18px;"></i><br><br>Loading the latest headlines…</div>
     </div>
@@ -101,6 +124,53 @@ const CATEGORY_META = {
   trending:      { label: 'Trending & More',    icon: 'fa-mountain',     color: '#EA580C' }
 };
 const CATEGORY_ORDER = ['nepal', 'international', 'trade', 'sports', 'other', 'trending'];
+
+/* ------------------------------------------------------------
+   IMPORTANT DAYS IN NEPAL — a small hand-curated calendar shown
+   on the Nepal News tab ("This month in Nepal"). This is static
+   content, not pulled from any feed: Nepali festival dates follow
+   the lunar Bikram Sambat calendar and shift every Gregorian year,
+   so there's no reliable public RSS/API for this — it needs a
+   yearly refresh (best done once the new BS year's official
+   holiday list is published, around mid-April/Baisakh 1).
+   Sourced from the Government of Nepal's 2083 BS public holiday
+   notice and Hamro Patro's 2083 BS calendar. Keyed by "YYYY-MM".
+   tag: 'holiday' (public holiday), 'festival', or 'observance'
+   (international/awareness day observed in Nepal, not a day off).
+   ------------------------------------------------------------ */
+const NEPAL_IMPORTANT_DAYS = {
+  '2026-08': [
+    { date: 'Aug 8',  title: 'National Soil Conservation Day', tag: 'observance' },
+    { date: 'Aug 9',  title: "International Day of the World's Indigenous Peoples", tag: 'observance' },
+    { date: 'Aug 12', title: 'International Youth Day', tag: 'observance' },
+    { date: 'Aug 17', title: 'Nag Panchami & Singh Sankranti', tag: 'festival' },
+    { date: 'Aug 19', title: 'World Photography Day / Tulsidas Jayanti', tag: 'observance' },
+    { date: 'Aug 28', title: 'Janai Purnima (Raksha Bandhan)', tag: 'holiday' },
+    { date: 'Aug 29', title: 'Gaijatra', tag: 'holiday' }
+  ],
+  '2026-09': [
+    { date: 'Sep 4',  title: 'Shree Krishna Janmashtami', tag: 'holiday' },
+    { date: 'Sep 7',  title: 'Civil Service Day', tag: 'observance' },
+    { date: 'Sep 14', title: 'Haritalika Teej', tag: 'holiday' },
+    { date: 'Sep 19', title: 'Constitution Day (Sambidhan Diwas)', tag: 'observance' },
+    { date: 'Sep 25', title: 'Indra Jatra', tag: 'festival' }
+  ],
+  '2026-10': [
+    { date: 'Oct 4',  title: 'Jitiya Parva', tag: 'festival' },
+    { date: 'Oct 11', title: 'Ghatasthapana — Dashain begins', tag: 'holiday' },
+    { date: 'Oct 17', title: 'Phulpati', tag: 'festival' },
+    { date: 'Oct 18', title: 'Maha Ashtami', tag: 'holiday' },
+    { date: 'Oct 20', title: 'Maha Navami', tag: 'holiday' },
+    { date: 'Oct 21', title: 'Vijaya Dashami — Dashain Tika', tag: 'holiday' },
+    { date: 'Oct 26', title: 'Kojagrat Purnima', tag: 'festival' }
+  ],
+  '2026-11': [
+    { date: 'Nov 8',  title: 'Tihar begins — Kaag Tihar', tag: 'holiday' },
+    { date: 'Nov 9',  title: 'Laxmi Puja', tag: 'holiday' },
+    { date: 'Nov 10', title: 'Govardhan Puja / Nepal Sambat New Year', tag: 'holiday' },
+    { date: 'Nov 11', title: 'Bhai Tika', tag: 'holiday' }
+  ]
+};
 
 let newsData = { categories: {}, fetchedAt: null };
 let activeCategory = 'nepal';
@@ -152,7 +222,46 @@ function renderTabs() {
 function selectCategory(key) {
   activeCategory = key;
   renderTabs();
+  renderNepalWidgets();
   renderList();
+}
+
+/* Gold/silver strip + "This month in Nepal" calendar — only shown
+   above the headline list while the Nepal News tab is active, since
+   that's the tab this content is most relevant to. */
+function renderNepalWidgets() {
+  const wrap = document.getElementById('npWidgets');
+  if (activeCategory !== 'nepal') { wrap.style.display = 'none'; wrap.innerHTML = ''; return; }
+
+  const gsItems = (newsData.categories.goldsilver || []).slice(0, 2);
+  const gsHtml = gsItems.length
+    ? `<div class="np-gs-strip">${gsItems.map(item => `
+        <a class="np-gs-card" href="${escapeHtml(item.link || '#')}" target="_blank" rel="noopener noreferrer">
+          <i class="fa-solid fa-coins"></i>
+          <div>
+            <div class="np-gs-card-title">${escapeHtml(item.title)}</div>
+            <div class="np-gs-card-meta">${item.source ? escapeHtml(item.source) + ' · ' : ''}${escapeHtml(timeAgo(item.pubDate)) || 'recent'}</div>
+          </div>
+        </a>`).join('')}</div>`
+    : `<div class="np-gs-strip"><div class="np-gs-empty"><i class="fa-solid fa-coins"></i> Today's gold &amp; silver rate headlines aren't in yet — try refreshing in a bit.</div></div>`;
+
+  const now = new Date();
+  const monthKey = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+  const monthLabel = now.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+  const days = NEPAL_IMPORTANT_DAYS[monthKey];
+  const calHtml = `<div class="np-cal">
+      <div class="np-cal-head"><i class="fa-solid fa-calendar-days"></i> Important days in Nepal — ${escapeHtml(monthLabel)}</div>
+      <div class="np-cal-list">
+        ${days && days.length ? days.map(d => `
+          <div class="np-cal-row">
+            <div class="np-cal-date">${escapeHtml(d.date)}</div>
+            <div class="np-cal-body">${escapeHtml(d.title)}<span class="np-cal-tag ${d.tag}">${d.tag === 'holiday' ? 'Public holiday' : (d.tag === 'festival' ? 'Festival' : 'Observance')}</span></div>
+          </div>`).join('') : `<div class="np-cal-empty">Calendar for ${escapeHtml(monthLabel)} hasn't been added yet — check hamropatro.com for this month's dates.</div>`}
+      </div>
+    </div>`;
+
+  wrap.innerHTML = gsHtml + calHtml;
+  wrap.style.display = 'flex';
 }
 
 function renderList() {
@@ -213,6 +322,7 @@ async function loadNews(forceRefresh) {
 
     newsData = data.result || { categories: {}, fetchedAt: new Date().toISOString() };
     renderTabs();
+    renderNepalWidgets();
     renderList();
     renderUpdatedLabel();
     if (forceRefresh) toast('Headlines refreshed.', 'success');

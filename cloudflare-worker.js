@@ -481,11 +481,19 @@ function json(obj, status) {
    already-categorized JSON digest — no Gemini call, no API key
    needed. Uses Google News' public RSS endpoints, which are always
    current (today's stories) and don't require any account/key:
-     - Nepal news:        a Google News search feed scoped to Nepal
+     - Nepal news:        Kathmandu Post, Himalayan Times, Online
+                           Khabar & Nepali Times RSS + Google News
+                           Nepal search (this is the majority-Nepal
+                           category — see NEWS_FEEDS.nepal below)
      - International:     Google News' World topic feed + BBC World
-     - Trade & Business:   Google News' Business topic feed + BBC Business
+     - Trade & Business:   Google News' Business topic feed + BBC
+                           Business + a dedicated Nepal economy/NEPSE
+                           search
      - Sports:              Google News' Nepal-sports search + BBC Sport
      - Other:              Google News' Technology topic feed + BBC Tech
+     - Gold/Silver:        a dedicated Nepal gold & silver rate search,
+                           surfaced as a strip on the Nepal tab
+     - Trending & More:    hiking/trekking/travel reads for Nepal
    Results are cached at Cloudflare's edge for NEWS_CACHE_SECONDS so
    repeated dashboard loads don't re-fetch every feed every time.
    BBC's feeds (feeds.bbci.co.uk) are included alongside Google News
@@ -502,9 +510,26 @@ const NEWS_FEEDS = {
   // Each category now has more than one feed URL from more than one
   // provider — if one feed (or one provider entirely) comes back
   // empty or errors, the other(s) still have a shot at filling it.
+  //
+  // IMPORTANT — gl=NP vs gl=US: Google News' RSS endpoint behaves
+  // very differently depending on the "gl" (geo) parameter when the
+  // request comes from a shared datacenter IP, which is what a
+  // Cloudflare Worker uses. gl=NP (Nepal-scoped results) reliably
+  // comes back empty/blocked from Workers, while the exact same
+  // search with gl=US works fine and still returns Nepal-relevant
+  // stories (Google indexes them regardless of the geo param — geo
+  // just biases ranking, it doesn't gate which stories exist). This
+  // was the root cause of the empty Nepal News tab: every "nepal"
+  // and "trending" feed used to be gl=NP-only with no other source
+  // to fall back on. Every feed below now either uses gl=US or comes
+  // from a real Nepali outlet directly (which has no such block).
   nepal: [
-    'https://news.google.com/rss/search?q=Nepal&hl=en-US&gl=NP&ceid=NP:en',
-    'https://news.google.com/rss/headlines/section/geo/Nepal?hl=en-US&gl=NP&ceid=NP:en'
+    'https://kathmandupost.com/rss',
+    'https://thehimalayantimes.com/feed/',
+    'https://english.onlinekhabar.com/feed/',
+    'https://www.nepalitimes.com/feed/',
+    'https://news.google.com/rss/search?q=Nepal&hl=en-US&gl=US&ceid=US:en',
+    'https://news.google.com/rss/search?q=Nepal%20politics%20government&hl=en-US&gl=US&ceid=US:en'
   ],
   international: [
     'http://feeds.bbci.co.uk/news/world/rss.xml',
@@ -514,11 +539,15 @@ const NEWS_FEEDS = {
   trade: [
     'http://feeds.bbci.co.uk/news/business/rss.xml',
     'https://news.google.com/rss/headlines/section/topic/BUSINESS?hl=en-US&gl=US&ceid=US:en',
-    'https://news.google.com/rss/search?q=business%20markets&hl=en-US&gl=US&ceid=US:en'
+    'https://news.google.com/rss/search?q=business%20markets&hl=en-US&gl=US&ceid=US:en',
+    // Nepal-specific business/markets coverage (NEPSE, remittances,
+    // trade deficit, budget, etc.) so this tab isn't purely global.
+    'https://news.google.com/rss/search?q=Nepal%20economy%20NEPSE%20business&hl=en-US&gl=US&ceid=US:en'
   ],
   sports: [
     'http://feeds.bbci.co.uk/sport/rss.xml',
-    'https://news.google.com/rss/search?q=Nepal%20sports%20cricket%20football&hl=en-US&gl=NP&ceid=NP:en',
+    // Was gl=NP (silently blocked) — switched to gl=US, same query.
+    'https://news.google.com/rss/search?q=Nepal%20sports%20cricket%20football&hl=en-US&gl=US&ceid=US:en',
     'https://news.google.com/rss/headlines/section/topic/SPORTS?hl=en-US&gl=US&ceid=US:en'
   ],
   other: [
@@ -527,20 +556,32 @@ const NEWS_FEEDS = {
   ]
 };
 
-// A fallback/complementary category that doesn't depend on breaking
-// news being available at all — gold/silver rates, hiking & travel,
-// and similar evergreen reads for Nepal. Always fetched alongside the
-// news categories and shown as its own tab, so there's always
-// something worth showing even on a slow news day.
-const TRENDING_FEEDS = {
-  trending: [
-    'https://news.google.com/rss/search?q=gold%20silver%20price%20Nepal&hl=en-US&gl=NP&ceid=NP:en',
-    'https://news.google.com/rss/search?q=hiking%20trekking%20Nepal&hl=en-US&gl=NP&ceid=NP:en',
-    'https://news.google.com/rss/search?q=Nepal%20travel%20festival&hl=en-US&gl=NP&ceid=NP:en'
+// Two evergreen/complementary pulls that don't depend on breaking
+// news being available at all. Neither goes through the AI curation
+// pass (see NEWS_CATEGORIES_FOR_AI below) — both are shown as-is,
+// freshest first, straight from buildRawNewsCategories.
+//
+//   - goldsilver: dedicated gold/silver rate headlines. Kept as its
+//     own category (rather than folded into "trending") specifically
+//     so the frontend can surface a small "today's rate" strip on
+//     the Nepal tab itself, not just buried in a separate tab.
+//   - trending: hiking/trekking/travel & general "more" reads, shown
+//     under the Trending & More tab.
+const GOLDSILVER_FEEDS = {
+  goldsilver: [
+    'https://news.google.com/rss/search?q=gold%20silver%20price%20Nepal%20today&hl=en-US&gl=US&ceid=US:en',
+    'https://news.google.com/rss/search?q=%22gold%20price%22%20Nepal&hl=en-US&gl=US&ceid=US:en'
   ]
 };
 
-const ALL_NEWS_FEEDS = Object.assign({}, NEWS_FEEDS, TRENDING_FEEDS);
+const TRENDING_FEEDS = {
+  trending: [
+    'https://news.google.com/rss/search?q=hiking%20trekking%20Nepal&hl=en-US&gl=US&ceid=US:en',
+    'https://news.google.com/rss/search?q=Nepal%20travel%20tourism%20festival&hl=en-US&gl=US&ceid=US:en'
+  ]
+};
+
+const ALL_NEWS_FEEDS = Object.assign({}, NEWS_FEEDS, TRENDING_FEEDS, GOLDSILVER_FEEDS);
 const NEWS_CACHE_SECONDS = 600; // 10 minutes — keeps loads snappy without hammering the feeds constantly
 const NEWS_ITEMS_PER_CATEGORY = 14;
 const RECENT_WINDOW_MS = 48 * 60 * 60 * 1000; // prefer stories from the last ~2 days
@@ -550,7 +591,11 @@ const AI_NEWS_TIMEOUT_MS = 20000;
 
 async function handleNews(body, env) {
   const cache = typeof caches !== 'undefined' && caches.default ? caches.default : null;
-  const cacheKey = new Request('https://divedu-news-cache.internal/v4');
+  // Bumped v4 -> v5: the shape of ALL_NEWS_FEEDS/categories changed
+  // (new goldsilver category, fixed Nepal feeds) — a v4 key would
+  // keep serving the old, broken, edge-cached Nepal-News-is-empty
+  // response for up to NEWS_CACHE_SECONDS after deploy.
+  const cacheKey = new Request('https://divedu-news-cache.internal/v5');
 
   if (cache && !body.forceRefresh) {
     const cached = await cache.match(cacheKey);
@@ -584,8 +629,9 @@ async function handleNews(body, env) {
     return [key, deduped.slice(0, 20)]; // cap per feed-category before any AI pass, keeps the prompt small
   }));
 
-  const rawByCategory = fetched.filter(([key]) => key !== 'trending');
+  const rawByCategory = fetched.filter(([key]) => key !== 'trending' && key !== 'goldsilver');
   const trendingRaw = fetched.find(([key]) => key === 'trending');
+  const goldsilverRaw = fetched.find(([key]) => key === 'goldsilver');
 
   // The primary source of truth — plain recency-sorted RSS/BBC, no AI
   // involved. This is always computed, and is exactly what gets used
@@ -605,6 +651,7 @@ async function handleNews(body, env) {
   }
 
   categories.trending = buildRawNewsCategories(trendingRaw ? [trendingRaw] : []).trending || [];
+  categories.goldsilver = buildRawNewsCategories(goldsilverRaw ? [goldsilverRaw] : []).goldsilver || [];
 
   const payload = { ok: true, task: 'news', result: { categories, fetchedAt: new Date().toISOString(), source } };
   const resp = json(payload);
