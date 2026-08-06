@@ -44,9 +44,6 @@ export default {
     if (request.method !== 'POST') {
       return json({ error: 'This endpoint only accepts POST requests.' }, 405);
     }
-    if (!env.GEMINI_API_KEY) {
-      return json({ error: 'Server is missing GEMINI_API_KEY — add it in Worker Settings.' }, 500);
-    }
 
     let body;
     try {
@@ -56,6 +53,21 @@ export default {
     }
 
     const task = body.task;
+
+    // Current Affairs is handled FIRST, before the GEMINI_API_KEY check
+    // below — it's a plain read of live external RSS feeds and never
+    // calls Gemini at all. It used to sit after the key check, which
+    // meant the news tab silently broke any time GEMINI_API_KEY was
+    // missing, expired, or misconfigured, even though news doesn't
+    // depend on it. Keep it first so news works independently of the
+    // AI key's status.
+    if (task === 'news') {
+      return handleNews(body);
+    }
+
+    if (!env.GEMINI_API_KEY) {
+      return json({ error: 'Server is missing GEMINI_API_KEY — add it in Worker Settings.' }, 500);
+    }
 
     // Chatbot turns have a different shape (message + history +
     // attachments, no single `text` field) and can legitimately be
@@ -69,13 +81,6 @@ export default {
     // slide-deck JSON rather than the flat shapes the other tasks use).
     if (task === 'presentation') {
       return handlePresentation(body, env);
-    }
-
-    // Current Affairs also has its own shape (no `text` at all — it's
-    // a read of live external news feeds, not something Gemini
-    // generates), so it gets its own path too.
-    if (task === 'news') {
-      return handleNews(body);
     }
 
     const text = (body.text || '').toString();
@@ -487,32 +492,56 @@ function json(obj, status) {
    2.0 feed works with the same parser. */
 
 const NEWS_FEEDS = {
+  // Each category now has more than one feed URL — if Google News'
+  // scoped feed for a category comes back empty or errors (which is
+  // the main reason a tab looked permanently empty), the other
+  // feed(s) still have a shot at filling it.
   nepal: [
-    'https://news.google.com/rss/search?q=Nepal&hl=en-US&gl=NP&ceid=NP:en'
+    'https://news.google.com/rss/search?q=Nepal&hl=en-US&gl=NP&ceid=NP:en',
+    'https://news.google.com/rss/headlines/section/geo/Nepal?hl=en-US&gl=NP&ceid=NP:en'
   ],
   international: [
-    'https://news.google.com/rss/headlines/section/topic/WORLD?hl=en-US&gl=US&ceid=US:en'
+    'https://news.google.com/rss/headlines/section/topic/WORLD?hl=en-US&gl=US&ceid=US:en',
+    'https://news.google.com/rss/search?q=world%20news&hl=en-US&gl=US&ceid=US:en'
   ],
   trade: [
-    'https://news.google.com/rss/headlines/section/topic/BUSINESS?hl=en-US&gl=US&ceid=US:en'
+    'https://news.google.com/rss/headlines/section/topic/BUSINESS?hl=en-US&gl=US&ceid=US:en',
+    'https://news.google.com/rss/search?q=business%20markets&hl=en-US&gl=US&ceid=US:en'
   ],
   other: [
     'https://news.google.com/rss/headlines/section/topic/TECHNOLOGY?hl=en-US&gl=US&ceid=US:en'
   ]
 };
+
+// A fallback/complementary category that doesn't depend on breaking
+// news being available at all — gold/silver rates, hiking & travel,
+// and similar evergreen reads for Nepal. Always fetched alongside the
+// news categories and shown as its own tab, so there's always
+// something worth showing even on a slow news day.
+const TRENDING_FEEDS = {
+  trending: [
+    'https://news.google.com/rss/search?q=gold%20silver%20price%20Nepal&hl=en-US&gl=NP&ceid=NP:en',
+    'https://news.google.com/rss/search?q=hiking%20trekking%20Nepal&hl=en-US&gl=NP&ceid=NP:en',
+    'https://news.google.com/rss/search?q=Nepal%20travel%20festival&hl=en-US&gl=NP&ceid=NP:en'
+  ]
+};
+
+const ALL_NEWS_FEEDS = Object.assign({}, NEWS_FEEDS, TRENDING_FEEDS);
 const NEWS_CACHE_SECONDS = 600; // 10 minutes — keeps loads snappy without hammering the feeds constantly
 const NEWS_ITEMS_PER_CATEGORY = 14;
+const RECENT_WINDOW_MS = 48 * 60 * 60 * 1000; // prefer stories from the last ~2 days
+const MIN_RECENT_ITEMS = 3; // if fewer than this many recent stories exist, widen the window instead of showing an empty tab
 
 async function handleNews(body) {
   const cache = typeof caches !== 'undefined' && caches.default ? caches.default : null;
-  const cacheKey = new Request('https://divedu-news-cache.internal/v1');
+  const cacheKey = new Request('https://divedu-news-cache.internal/v2');
 
   if (cache && !body.forceRefresh) {
     const cached = await cache.match(cacheKey);
     if (cached) return cached;
   }
 
-  const categoryEntries = Object.entries(NEWS_FEEDS);
+  const categoryEntries = Object.entries(ALL_NEWS_FEEDS);
   const results = await Promise.all(categoryEntries.map(async ([key, urls]) => {
     const items = [];
     for (const url of urls) {
@@ -534,7 +563,15 @@ async function handleNews(body) {
       return true;
     });
     deduped.sort((a, b) => (b.pubDateMs || 0) - (a.pubDateMs || 0));
-    const trimmed = deduped.slice(0, NEWS_ITEMS_PER_CATEGORY)
+
+    // Prefer stories from the last ~2 days. Only fall back to older
+    // stories if the recent window didn't turn up enough to fill a
+    // tab — better than showing nothing, and still freshest-first.
+    const now = Date.now();
+    const recent = deduped.filter(it => it.pubDateMs && (now - it.pubDateMs) <= RECENT_WINDOW_MS);
+    const pool = recent.length >= MIN_RECENT_ITEMS ? recent : deduped;
+
+    const trimmed = pool.slice(0, NEWS_ITEMS_PER_CATEGORY)
       .map(it => ({ title: it.title, link: it.link, source: it.source, pubDate: it.pubDate }));
     return [key, trimmed];
   }));
