@@ -61,6 +61,7 @@
     <div class="ca-tabs" id="caTabs"></div>
     <div style="display:flex; align-items:center; gap:10px;">
       <span class="ca-updated" id="caUpdated"></span>
+      <span id="caSourceBadge" style="display:none; font-size:10.5px; font-weight:800; padding:3px 9px; border-radius:20px;"></span>
       <button type="button" class="ca-refresh-btn" id="caRefreshBtn" title="Refresh now" onclick="loadNews(true)"><i class="fa-solid fa-rotate-right"></i></button>
     </div>
   </div>
@@ -183,6 +184,13 @@ function renderUpdatedLabel() {
   const el = document.getElementById('caUpdated');
   if (!newsData.fetchedAt) { el.textContent = ''; return; }
   el.innerHTML = `<i class="fa-solid fa-circle-check" style="color:#22c55e;"></i> Updated ${escapeHtml(timeAgo(newsData.fetchedAt))}`;
+
+  const badge = document.getElementById('caSourceBadge');
+  if (newsData.source === 'ai') {
+    badge.textContent = 'AI-curated'; badge.style.background = 'var(--student-bg)'; badge.style.color = 'var(--current-accent)'; badge.style.display = 'inline';
+  } else {
+    badge.textContent = 'Live RSS'; badge.style.background = '#f0f4f8'; badge.style.color = '#64748b'; badge.style.display = 'inline';
+  }
 }
 
 async function loadNews(forceRefresh) {

@@ -62,7 +62,7 @@ export default {
     // depend on it. Keep it first so news works independently of the
     // AI key's status.
     if (task === 'news') {
-      return handleNews(body);
+      return handleNews(body, env);
     }
 
     if (!env.GEMINI_API_KEY) {
@@ -545,18 +545,22 @@ const NEWS_CACHE_SECONDS = 600; // 10 minutes — keeps loads snappy without ham
 const NEWS_ITEMS_PER_CATEGORY = 14;
 const RECENT_WINDOW_MS = 48 * 60 * 60 * 1000; // prefer stories from the last ~2 days
 const MIN_RECENT_ITEMS = 3; // if fewer than this many recent stories exist, widen the window instead of showing an empty tab
+const NEWS_CATEGORIES_FOR_AI = ['nepal', 'international', 'trade', 'sports', 'other'];
+const AI_NEWS_TIMEOUT_MS = 20000;
 
-async function handleNews(body) {
+async function handleNews(body, env) {
   const cache = typeof caches !== 'undefined' && caches.default ? caches.default : null;
-  const cacheKey = new Request('https://divedu-news-cache.internal/v3');
+  const cacheKey = new Request('https://divedu-news-cache.internal/v4');
 
   if (cache && !body.forceRefresh) {
     const cached = await cache.match(cacheKey);
     if (cached) return cached;
   }
 
+  // Fetch every feed (news categories + the evergreen trending ones) —
+  // this part never touches Gemini, it's just reading public RSS.
   const categoryEntries = Object.entries(ALL_NEWS_FEEDS);
-  const results = await Promise.all(categoryEntries.map(async ([key, urls]) => {
+  const fetched = await Promise.all(categoryEntries.map(async ([key, urls]) => {
     const items = [];
     for (const url of urls) {
       try {
@@ -577,21 +581,32 @@ async function handleNews(body) {
       return true;
     });
     deduped.sort((a, b) => (b.pubDateMs || 0) - (a.pubDateMs || 0));
-
-    // Prefer stories from the last ~2 days. Only fall back to older
-    // stories if the recent window didn't turn up enough to fill a
-    // tab — better than showing nothing, and still freshest-first.
-    const now = Date.now();
-    const recent = deduped.filter(it => it.pubDateMs && (now - it.pubDateMs) <= RECENT_WINDOW_MS);
-    const pool = recent.length >= MIN_RECENT_ITEMS ? recent : deduped;
-
-    const trimmed = pool.slice(0, NEWS_ITEMS_PER_CATEGORY)
-      .map(it => ({ title: it.title, link: it.link, source: it.source, pubDate: it.pubDate }));
-    return [key, trimmed];
+    return [key, deduped.slice(0, 20)]; // cap per feed-category before any AI pass, keeps the prompt small
   }));
 
-  const categories = Object.fromEntries(results);
-  const payload = { ok: true, task: 'news', result: { categories, fetchedAt: new Date().toISOString() } };
+  const rawByCategory = fetched.filter(([key]) => key !== 'trending');
+  const trendingRaw = fetched.find(([key]) => key === 'trending');
+
+  // The primary source of truth — plain recency-sorted RSS/BBC, no AI
+  // involved. This is always computed, and is exactly what gets used
+  // if the AI pass below is unavailable or fails for any reason.
+  const rawCategories = buildRawNewsCategories(rawByCategory);
+  let categories = rawCategories;
+  let source = 'rss';
+
+  if (env && env.GEMINI_API_KEY) {
+    try {
+      const aiCategories = await curateNewsWithAI(rawByCategory, env);
+      if (aiCategories) { categories = aiCategories; source = 'ai'; }
+    } catch (e) {
+      console.error('AI news curation unavailable, using primary RSS/BBC source:', e && e.message);
+      // categories stays as rawCategories — the primary source.
+    }
+  }
+
+  categories.trending = buildRawNewsCategories(trendingRaw ? [trendingRaw] : []).trending || [];
+
+  const payload = { ok: true, task: 'news', result: { categories, fetchedAt: new Date().toISOString(), source } };
   const resp = json(payload);
   resp.headers.set('Cache-Control', 'public, max-age=' + NEWS_CACHE_SECONDS);
 
@@ -599,6 +614,128 @@ async function handleNews(body) {
     try { await cache.put(cacheKey, resp.clone()); } catch (e) { /* edge cache best-effort, not fatal */ }
   }
   return resp;
+}
+
+/** THE PRIMARY SOURCE. Turns raw per-category RSS/BBC items into the
+ *  final trimmed shape the frontend expects, using only recency —
+ *  no AI involved. This is what every category uses when the AI
+ *  pass below is skipped (no key configured) or fails for any
+ *  reason, so news never depends on Gemini being up. */
+function buildRawNewsCategories(rawByCategory) {
+  const now = Date.now();
+  const categories = {};
+  for (const [key, items] of rawByCategory) {
+    // Prefer stories from the last ~2 days. Only fall back to older
+    // stories if the recent window didn't turn up enough to fill a
+    // tab — better than showing nothing, and still freshest-first.
+    const recent = items.filter(it => it.pubDateMs && (now - it.pubDateMs) <= RECENT_WINDOW_MS);
+    const pool = recent.length >= MIN_RECENT_ITEMS ? recent : items;
+    categories[key] = pool.slice(0, NEWS_ITEMS_PER_CATEGORY)
+      .map(it => ({ title: it.title, link: it.link, source: it.source, pubDate: it.pubDate }));
+  }
+  return categories;
+}
+
+/** OPTIONAL AI ENHANCEMENT LAYER. Takes the real headlines already
+ *  fetched from RSS/BBC (rawByCategory) and asks Gemini to clean the
+ *  digest up: drop near-duplicate stories that multiple outlets
+ *  reported, fix any headline that landed in the wrong category, and
+ *  pick the freshest/most relevant ones per category.
+ *
+ *  Gemini NEVER writes headline text, sources, or links itself — it
+ *  only ever returns which of the already-fetched items (referenced
+ *  by a numeric idx) belong in which category. The response is
+ *  mapped back onto the real fetched items afterward, so there is no
+ *  way for the model to invent a story, a source, or a URL; it can
+ *  only reorganize what was actually fetched. If the call fails, times
+ *  out, or returns something unusable, the caller (handleNews) simply
+ *  keeps using the plain RSS/BBC result computed by
+ *  buildRawNewsCategories — the AI layer is additive, never required. */
+async function curateNewsWithAI(rawByCategory, env) {
+  const now = Date.now();
+  const pool = [];
+  const seenGlobal = new Set();
+  for (const [key, items] of rawByCategory) {
+    for (const it of items) {
+      const k = it.title.toLowerCase();
+      if (!k || seenGlobal.has(k)) continue; // de-dupe the exact same headline across feeds before even asking the AI
+      seenGlobal.add(k);
+      pool.push({
+        idx: pool.length,
+        title: it.title,
+        link: it.link,
+        source: it.source,
+        pubDate: it.pubDate,
+        hoursAgo: it.pubDateMs ? Math.round((now - it.pubDateMs) / 3600000) : null,
+        category: key
+      });
+    }
+  }
+  if (pool.length === 0) return null;
+
+  const compact = pool.slice(0, 100).map(it => ({ idx: it.idx, title: it.title, source: it.source || '', hoursAgo: it.hoursAgo, category: it.category }));
+
+  const prompt =
+    `You are curating a live news digest for a Nepal-based classroom platform (ज्ञानSetु / DiveEdu) from real ` +
+    `headlines already fetched server-side from Google News and BBC RSS feeds — nothing below was written by you. ` +
+    `Each object has: "idx" (a stable reference number), "title", "source" (outlet name), "hoursAgo" (age in hours, ` +
+    `or null if unknown), and "category" (which feed it was originally fetched under: nepal, international, trade, ` +
+    `sports, or other — this is sometimes wrong and needs correcting).\n\n` +
+    `Your job:\n` +
+    `1. Drop near-duplicate stories — the same real-world event reported by more than one outlet — keeping only ` +
+    `the single best/freshest version.\n` +
+    `2. Move any clearly miscategorized headline into its correct category (e.g. a cricket result filed under ` +
+    `"other" belongs in "sports").\n` +
+    `3. Prefer lower hoursAgo (fresher) stories when deciding what to keep or which duplicate to drop.\n` +
+    `4. For each of the 5 categories, return up to ${NEWS_ITEMS_PER_CATEGORY} idx values, freshest/most relevant first.\n\n` +
+    `CRITICAL: you may ONLY reference idx numbers that appear in the input list below. Never invent a headline, a ` +
+    `source, a link, or an idx that isn't listed — you are selecting and organizing existing items, not writing ` +
+    `new ones. Respond ONLY with valid JSON (no markdown fences, no commentary) in exactly this shape:\n` +
+    `{"nepal": [idx, idx], "international": [idx, idx], "trade": [idx, idx], "sports": [idx, idx], "other": [idx, idx]}\n\n` +
+    `Headlines:\n${JSON.stringify(compact)}`;
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), AI_NEWS_TIMEOUT_MS);
+  try {
+    const resp = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${env.GEMINI_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.2, responseMimeType: 'application/json' }
+        }),
+        signal: controller.signal
+      }
+    );
+    if (!resp.ok) throw new Error('Gemini news curation responded ' + resp.status);
+
+    const data = await resp.json();
+    const raw = data && data.candidates && data.candidates[0] &&
+      data.candidates[0].content && data.candidates[0].content.parts &&
+      data.candidates[0].content.parts[0] ? data.candidates[0].content.parts[0].text : '';
+    const cleaned = raw.trim().replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```\s*$/, '');
+    const parsed = JSON.parse(cleaned);
+
+    const byIdx = new Map(pool.map(it => [it.idx, it]));
+    const categories = {};
+    let totalItems = 0;
+    for (const cat of NEWS_CATEGORIES_FOR_AI) {
+      const idxList = Array.isArray(parsed[cat]) ? parsed[cat] : [];
+      const items = idxList
+        .map(i => byIdx.get(i))
+        .filter(Boolean) // defensively ignore any out-of-range/invented idx instead of trusting it
+        .slice(0, NEWS_ITEMS_PER_CATEGORY)
+        .map(it => ({ title: it.title, link: it.link, source: it.source, pubDate: it.pubDate }));
+      categories[cat] = items;
+      totalItems += items.length;
+    }
+    if (totalItems === 0) throw new Error('AI curation returned no usable items');
+    return categories;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /** Minimal, dependency-free RSS <item> extractor. Cloudflare Workers
