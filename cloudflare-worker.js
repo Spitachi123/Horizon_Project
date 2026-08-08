@@ -361,7 +361,7 @@ const MAX_PRESENTATION_ATTACHMENTS = 4;
 async function handlePresentation(body, env) {
   const topic = (body.topic || '').toString().slice(0, 500);
   const notes = (body.notes || '').toString().slice(0, MAX_INPUT_CHARS);
-  const slideCount = Math.min(Math.max(parseInt(body.slideCount, 10) || 8, 3), 20);
+  const slideCount = Math.min(Math.max(parseInt(body.slideCount, 10) || 8, 3), 24);
   const attachments = Array.isArray(body.attachments) ? body.attachments.slice(0, MAX_PRESENTATION_ATTACHMENTS) : [];
 
   if (!topic && !notes && attachments.length === 0) {
@@ -373,13 +373,15 @@ async function handlePresentation(body, env) {
     `fences, no commentary) in exactly this shape:\n` +
     `{"title": "deck title", "subtitle": "short subtitle or empty string", ` +
     `"theme": "one of: blue, green, purple, warm, dark, teal, rose, slate, amber, crimson, mono, sunrise — pick whichever best fits the subject's mood", ` +
-    `"slides": [{"layout": "one of: title, bullets, twoColumn, quote, sectionHeader, imageFocus, gallery, closing", ` +
+    `"slides": [{"layout": "one of: title, bullets, twoColumn, quote, sectionHeader, imageFocus, gallery, table, closing", ` +
     `"title": "slide title", "subtitle": "optional short line, or empty string", ` +
     `"bullets": ["point", "..."], "leftTitle": "only for twoColumn layout", "leftBullets": ["...", "only for twoColumn"], ` +
     `"rightTitle": "only for twoColumn layout", "rightBullets": ["...", "only for twoColumn"], ` +
     `"quote": "only for quote layout", "attribution": "only for quote layout", ` +
     `"images": "ONLY for gallery layout — an array of 2 to 4 objects {\\"caption\\": \\"short label under the image\\", \\"imagePrompt\\": \\"short image description\\"}", ` +
-    `"imagePrompt": "a short (under 20 words) description of an illustration for this slide, or empty string if this slide doesn't need one — never used on gallery slides, they use images[] instead", ` +
+    `"tableHeaders": "ONLY for table layout — an array of 2 to 5 short column header strings", ` +
+    `"tableRows": "ONLY for table layout — an array of 3 to 8 rows, each an array of strings matching tableHeaders in length", ` +
+    `"imagePrompt": "a short (under 20 words) description of an illustration for this slide, or empty string if this slide doesn't need one — never used on gallery or table slides", ` +
     `"notes": "one or two sentences of speaker notes for this slide"}]}\n\n` +
     `Rules: the FIRST slide must use layout "title" (deck title + subtitle, no bullets). The LAST slide ` +
     `must use layout "closing" (a short wrap-up/thank-you, 0-3 bullets max). Use "sectionHeader" sparingly ` +
@@ -389,7 +391,9 @@ async function handlePresentation(body, env) {
     `(before/after, pros/cons, X vs Y) and "quote" only if there's a real quote/statistic worth isolating. ` +
     `Use "gallery" (with 2-4 "images") when the content is naturally a set of examples/categories/specimens ` +
     `side by side — e.g. "types of X", "examples across categories", "X vs Y vs Z at a glance" — at most 1-2 ` +
-    `gallery slides per deck, only when it's a genuinely better fit than plain bullets. ` +
+    `gallery slides per deck, only when it's a genuinely better fit than plain bullets. Use "table" whenever ` +
+    `the content is genuinely tabular — numbers, dates, comparisons across several rows/columns, schedules, ` +
+    `specs — instead of forcing that data into bullet points; at most 1-2 table slides per deck. ` +
     `For "imagePrompt": write one for the title slide, every sectionHeader slide, the closing slide, and ` +
     `roughly half of the bullets/imageFocus slides (whichever would genuinely benefit from a supporting ` +
     `illustration) — leave it as an empty string for the rest, and ALWAYS leave it empty for "quote", ` +

@@ -216,28 +216,68 @@ const PresentationEngine = (() => {
   const THEME_LIST = Object.keys(THEMES).map(key => Object.assign({ key }, THEMES[key]));
 
   /* ---------------- gradient background (preview/export parity) ----------------
-     The web preview paints its background with a CSS
-     radial-gradient(120% 140% at 15% 15%, bg2 0%, bg 62%). PptxGenJS
-     can't do CSS gradients, so we rasterize the exact same gradient
-     to a PNG once per theme and use it as the actual slide
-     background image in the exported .pptx — that's what makes the
-     download look like the preview instead of a flat-color fallback. */
+     Both the web preview AND the .pptx export now paint the SAME
+     rasterized PNG as their background (renderDeck sets it as a CSS
+     background-image via --pe-bg-image; exportPptx uses it directly
+     as the slide background) — true pixel parity instead of two
+     independently-tuned gradients drifting apart over time.
+
+     The raster itself is a layered "field guide" look: a radial
+     accent wash in the top-left, a soft accent glow bottom-right for
+     depth, a fine dot-grid texture for a premium non-flat feel, and a
+     gentle vignette to ground the edges. */
   const gradientCache = {};
+  function hexToRgba(hex, alpha) {
+    const h = String(hex || '').replace('#', '');
+    const r = parseInt(h.substring(0, 2), 16) || 0;
+    const g = parseInt(h.substring(2, 4), 16) || 0;
+    const b = parseInt(h.substring(4, 6), 16) || 0;
+    return `rgba(${r},${g},${b},${alpha})`;
+  }
   function buildGradientDataUrl(theme) {
-    const key = theme.bg + '_' + theme.bg2;
+    const key = theme.bg + '_' + theme.bg2 + '_' + theme.accent;
     if (gradientCache[key]) return gradientCache[key];
     const W = 1280, H = 720;
     const canvas = document.createElement('canvas');
     canvas.width = W; canvas.height = H;
     const ctx = canvas.getContext('2d');
-    const cx = W * 0.15, cy = H * 0.15;
-    const r = Math.max(W, H) * 1.15;
-    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
-    g.addColorStop(0, '#' + theme.bg2);
-    g.addColorStop(0.62, '#' + theme.bg);
-    g.addColorStop(1, '#' + theme.bg);
-    ctx.fillStyle = g;
+
+    // 1. Base radial wash — brighter accent-tinted corner fading to the deep base tone.
+    const cx = W * 0.16, cy = H * 0.14;
+    const r = Math.max(W, H) * 1.2;
+    const base = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+    base.addColorStop(0, '#' + theme.bg2);
+    base.addColorStop(0.58, '#' + theme.bg);
+    base.addColorStop(1, '#' + theme.bg);
+    ctx.fillStyle = base;
     ctx.fillRect(0, 0, W, H);
+
+    // 2. Soft accent glow, opposite corner, for a sense of depth rather than a flat wash.
+    const gx = W * 0.94, gy = H * 0.98;
+    const glow = ctx.createRadialGradient(gx, gy, 0, gx, gy, W * 0.55);
+    glow.addColorStop(0, hexToRgba(theme.accent, 0.14));
+    glow.addColorStop(1, hexToRgba(theme.accent, 0));
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, W, H);
+
+    // 3. Fine dot-grid texture — keeps large flat areas from looking cheap/empty.
+    ctx.fillStyle = hexToRgba(theme.text, 0.035);
+    const step = 30;
+    for (let y = step / 2; y < H; y += step) {
+      for (let x = step / 2; x < W; x += step) {
+        ctx.beginPath();
+        ctx.arc(x, y, 1.1, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // 4. Gentle vignette to ground the edges/corners.
+    const vig = ctx.createRadialGradient(W / 2, H / 2, H * 0.32, W / 2, H / 2, H * 0.95);
+    vig.addColorStop(0, 'rgba(0,0,0,0)');
+    vig.addColorStop(1, 'rgba(0,0,0,0.20)');
+    ctx.fillStyle = vig;
+    ctx.fillRect(0, 0, W, H);
+
     const url = canvas.toDataURL('image/png');
     gradientCache[key] = url;
     return url;
@@ -313,6 +353,15 @@ const PresentationEngine = (() => {
           <div class="pe-media-slot pe-gallery-slot" data-slide-index="${index}" data-gallery-index="${gi}">${galleryTileMarkup(im)}</div>
           ${im && im.caption ? `<div class="pe-gallery-cap">${escapeHtml(im.caption)}</div>` : ''}
         </div>`).join('')}</div>`;
+    } else if (layout === 'table') {
+      const headers = Array.isArray(slide.tableHeaders) ? slide.tableHeaders : [];
+      const rows = Array.isArray(slide.tableRows) ? slide.tableRows : [];
+      inner = `<h2><span class="pe-title-bar"></span>${escapeHtml(slide.title)}</h2>
+      ${slide.subtitle ? `<p class="pe-subtitle">${escapeHtml(slide.subtitle)}</p>` : ''}
+      <div class="pe-table-wrap"><table class="pe-table">
+        ${headers.length ? `<thead><tr>${headers.map(h => `<th>${escapeHtml(h)}</th>`).join('')}</tr></thead>` : ''}
+        <tbody>${rows.map(r => `<tr>${(Array.isArray(r) ? r : []).map(c => `<td>${escapeHtml(c)}</td>`).join('')}</tr>`).join('')}</tbody>
+      </table></div>`;
     } else if (layout === 'closing') {
       inner = `<div class="pe-slide-title-layout">
         <h1>${escapeHtml(slide.title)}</h1>
@@ -328,9 +377,10 @@ const PresentationEngine = (() => {
 
     const isHero = layout === 'title' || layout === 'sectionHeader' || layout === 'closing';
     const isGallery = layout === 'gallery';
+    const noSplitMedia = isGallery || layout === 'table'; // these layouts never take a side image panel
     const layoutClass = isHero
       ? 'pe-layout-hero' + (hasMedia ? ' pe-has-hero-media' : '')
-      : 'pe-layout-content' + (hasMedia && !isGallery ? ' pe-has-split-media' : '');
+      : 'pe-layout-content' + (hasMedia && !noSplitMedia ? ' pe-has-split-media' : '');
 
     if (isHero) {
       return `<div class="pe-slide pe-layout-${layout} ${layoutClass}" data-index="${index}">
@@ -343,9 +393,9 @@ const PresentationEngine = (() => {
 
     return `<div class="pe-slide pe-layout-${layout} ${layoutClass}" data-index="${index}">
       <div class="pe-decor-blob pe-decor-blob-sm"></div>
-      <div class="pe-slide-inner ${hasMedia && !isGallery ? 'pe-split' : ''}">
+      <div class="pe-slide-inner ${hasMedia && !noSplitMedia ? 'pe-split' : ''}">
         <div class="pe-split-text">${inner}</div>
-        ${hasMedia && !isGallery ? `<div class="pe-split-media">${mediaSlot}</div>` : ''}
+        ${hasMedia && !noSplitMedia ? `<div class="pe-split-media">${mediaSlot}</div>` : ''}
       </div>
       <div class="pe-slide-footer"><span>${index + 1} / ${total}</span></div>
     </div>`;
@@ -363,13 +413,17 @@ const PresentationEngine = (() => {
     container.style.setProperty('--pe-accent', '#' + theme.accent);
     container.style.setProperty('--pe-accent-light', '#' + theme.accentLight);
     container.style.setProperty('--pe-text', '#' + theme.text);
+    // Same rasterized background used in the .pptx export — see buildGradientDataUrl.
+    container.style.setProperty('--pe-bg-image', `url(${buildGradientDataUrl(theme)})`);
 
     const total = deck.slides.length;
     container.innerHTML = `
       <div class="pe-viewer">
+        <div class="pe-progress-track"><div class="pe-progress-bar"></div></div>
         <div class="pe-stage">${deck.slides.map((s, i) => slideHtml(s, theme, i, total)).join('')}</div>
         <div class="pe-controls">
           <button type="button" class="pe-nav-btn" data-act="prev" aria-label="Previous slide"><i class="fa-solid fa-chevron-left"></i></button>
+          <button type="button" class="pe-nav-btn" data-act="play" aria-label="Play slideshow"><i class="fa-solid fa-play"></i></button>
           <div class="pe-dots"></div>
           <button type="button" class="pe-nav-btn" data-act="next" aria-label="Next slide"><i class="fa-solid fa-chevron-right"></i></button>
           <button type="button" class="pe-nav-btn pe-fullscreen-btn" data-act="fullscreen" aria-label="Present fullscreen"><i class="fa-solid fa-expand"></i></button>
@@ -390,29 +444,91 @@ const PresentationEngine = (() => {
     const dots = Array.from(dotsWrap.querySelectorAll('.pe-dot'));
 
     let current = 0;
+    let autoplayTimer = null;
+    let autoplaySeconds = 5;
+    const progressBar = container.querySelector('.pe-progress-bar');
+
+    // Re-triggers the slide-in animation on the active slide every time
+    // it becomes current (removing then re-adding the class forces the
+    // CSS animation to replay instead of only firing once on render).
+    function replayEntrance(i) {
+      const el = slides[i];
+      if (!el) return;
+      el.classList.remove('pe-active');
+      void el.offsetWidth; // force reflow so the animation restarts
+      el.classList.add('pe-active');
+    }
+
     function show(i) {
       current = Math.max(0, Math.min(total - 1, i));
       stage.style.transform = `translateX(-${current * 100}%)`;
       dots.forEach((d, idx) => d.classList.toggle('active', idx === current));
+      replayEntrance(current);
+      restartProgress();
     }
     function goTo(i) { show(i); }
-    function next() { show(current + 1); }
-    function prev() { show(current - 1); }
+    function next() { show(current >= total - 1 ? 0 : current + 1); }
+    function prev() { show(current <= 0 ? total - 1 : current - 1); }
 
-    container.querySelector('[data-act="prev"]').addEventListener('click', prev);
-    container.querySelector('[data-act="next"]').addEventListener('click', next);
+    function stopAutoplay() {
+      if (autoplayTimer) { clearInterval(autoplayTimer); autoplayTimer = null; }
+      container.classList.remove('pe-autoplaying');
+      if (progressBar) progressBar.style.transition = 'none', progressBar.style.width = '0%';
+      const pb = container.querySelector('[data-act="play"]');
+      if (pb) pb.innerHTML = '<i class="fa-solid fa-play"></i>';
+    }
+    function restartProgress() {
+      if (!autoplayTimer || !progressBar) return;
+      progressBar.style.transition = 'none';
+      progressBar.style.width = '0%';
+      void progressBar.offsetWidth;
+      progressBar.style.transition = `width ${autoplaySeconds}s linear`;
+      progressBar.style.width = '100%';
+    }
+    function startAutoplay(seconds) {
+      autoplaySeconds = seconds || autoplaySeconds;
+      stopAutoplay();
+      container.classList.add('pe-autoplaying');
+      autoplayTimer = setInterval(next, autoplaySeconds * 1000);
+      restartProgress();
+    }
+    function toggleAutoplay(seconds) {
+      if (autoplayTimer) stopAutoplay(); else startAutoplay(seconds);
+      return !!autoplayTimer;
+    }
+
+    container.querySelector('[data-act="prev"]').addEventListener('click', () => { stopAutoplay(); prev(); });
+    container.querySelector('[data-act="next"]').addEventListener('click', () => { stopAutoplay(); next(); });
     container.querySelector('[data-act="fullscreen"]').addEventListener('click', () => {
       const viewer = container.querySelector('.pe-viewer');
       if (viewer.requestFullscreen) viewer.requestFullscreen();
     });
+    const playBtn = container.querySelector('[data-act="play"]');
+    playBtn.addEventListener('click', () => {
+      const playing = toggleAutoplay(5);
+      playBtn.innerHTML = playing ? '<i class="fa-solid fa-pause"></i>' : '<i class="fa-solid fa-play"></i>';
+    });
+    document.addEventListener('fullscreenchange', () => {
+      if (!document.fullscreenElement) stopAutoplay();
+    });
     container.tabIndex = 0;
     container.addEventListener('keydown', (e) => {
-      if (e.key === 'ArrowRight') next();
-      if (e.key === 'ArrowLeft') prev();
+      if (e.key === 'ArrowRight') { stopAutoplay(); next(); }
+      if (e.key === 'ArrowLeft') { stopAutoplay(); prev(); }
+      if (e.key === ' ') { e.preventDefault(); toggleAutoplay(); }
     });
 
     show(0);
-    return { next, prev, goTo, current: () => current, total };
+    return {
+      next, prev, goTo, current: () => current, total,
+      startAutoplay, stopAutoplay, toggleAutoplay,
+      isPlaying: () => !!autoplayTimer,
+      presentFullscreen: (seconds) => {
+        const viewer = container.querySelector('.pe-viewer');
+        if (viewer.requestFullscreen) viewer.requestFullscreen();
+        if (seconds) startAutoplay(seconds);
+      }
+    };
   }
 
   /** Patches a single slide's image in-place inside an already-
@@ -444,7 +560,8 @@ const PresentationEngine = (() => {
 
   const LAYOUT_LABELS = {
     title: 'Title slide', sectionHeader: 'Section header', bullets: 'Bullet points',
-    twoColumn: 'Two columns', quote: 'Quote / stat', gallery: 'Image gallery', closing: 'Closing slide'
+    twoColumn: 'Two columns', quote: 'Quote / stat', gallery: 'Image gallery',
+    table: 'Table / data', closing: 'Closing slide'
   };
 
   /** Creates a blank slide object of the given layout, pre-filled
@@ -459,6 +576,11 @@ const PresentationEngine = (() => {
     if (layout === 'quote') return Object.assign(base, { quote: '', attribution: '' });
     if (layout === 'twoColumn') return Object.assign(base, { title: 'Comparison', leftTitle: '', leftBullets: [''], rightTitle: '', rightBullets: [''] });
     if (layout === 'gallery') return Object.assign(base, { title: 'Gallery', images: [] });
+    if (layout === 'table') return Object.assign(base, {
+      title: 'Data table', subtitle: '',
+      tableHeaders: ['Column 1', 'Column 2', 'Column 3'],
+      tableRows: [['', '', ''], ['', '', '']]
+    });
     if (layout === 'closing') return Object.assign(base, { title: 'Thank you!', bullets: [] });
     return Object.assign(base, { title: 'New slide', bullets: [''] }); // bullets / imageFocus
   }
@@ -543,7 +665,7 @@ const PresentationEngine = (() => {
     const gradientUrl = buildGradientDataUrl(theme);
 
     function imageDataUrl(obj) {
-      return obj && obj.imageData ? `image/${(obj.imageMime || 'image/png').split('/')[1] || 'png'};base64,${obj.imageData}` : null;
+      return obj && obj.imageData ? `data:${obj.imageMime || 'image/png'};base64,${obj.imageData}` : null;
     }
 
     /** Decorative corner accent used on every slide that isn't a
@@ -625,6 +747,28 @@ const PresentationEngine = (() => {
             s.addText(im.caption, { x: box.x, y: box.y + box.h - captionH, w: box.w, h: captionH, fontSize: 11, bold: true, color: textColor, fontFace: 'Arial', align: 'left', valign: 'middle' });
           }
         });
+      } else if (layout === 'table') {
+        s.addShape(pres.ShapeType.rect, { x: 0.6, y: 0.5, w: 0.09, h: 0.75, fill: { color: accent }, line: { type: 'none' } });
+        s.addText(slide.title || '', { x: 0.85, y: 0.5, w: 11.85, h: 0.9, fontSize: 28, bold: true, color: textColor, fontFace: 'Arial' });
+        if (slide.subtitle) s.addText(slide.subtitle, { x: 0.6, y: 1.3, w: 12.1, h: 0.5, fontSize: 16, color: accent, fontFace: 'Arial' });
+        const headers = Array.isArray(slide.tableHeaders) ? slide.tableHeaders : [];
+        const rows = Array.isArray(slide.tableRows) ? slide.tableRows : [];
+        const tableRows = [];
+        if (headers.length) {
+          tableRows.push(headers.map(h => ({ text: String(h ?? ''), options: { bold: true, color: theme.bg, fill: { color: accent }, fontFace: 'Arial', fontSize: 13, align: 'left' } })));
+        }
+        rows.forEach((r, ri) => {
+          tableRows.push((Array.isArray(r) ? r : []).map(c => ({
+            text: String(c ?? ''),
+            options: { color: textColor, fontFace: 'Arial', fontSize: 12.5, align: 'left', fill: { color: 'FFFFFF', transparency: ri % 2 ? 96 : 100 } }
+          })));
+        });
+        if (tableRows.length) {
+          s.addTable(tableRows, {
+            x: 0.6, y: slide.subtitle ? 2.0 : 1.6, w: 12.1, h: Math.min(4.8, 0.55 * tableRows.length),
+            border: { type: 'solid', color: accent, pt: 0.5 }, autoPage: false, valign: 'middle'
+          });
+        }
       } else if (layout === 'closing') {
         s.addText(slide.title || '', { x: 0.8, y: 2.6, w: 11.7, h: 1.3, fontSize: 40, bold: true, color: textColor, fontFace: 'Arial' });
         if (slide.subtitle) s.addText(slide.subtitle, { x: 0.8, y: 3.9, w: 11.7, h: 0.7, fontSize: 18, color: accent, fontFace: 'Arial' });
@@ -656,11 +800,104 @@ const PresentationEngine = (() => {
     return (name || 'Presentation').replace(/[\\/:*?"<>|]/g, '').trim().slice(0, 80) || 'Presentation';
   }
 
+  /* ---------------- "Save to the site" — persisted decks so a user can
+     close the tab and re-open a presentation later without regenerating
+     it. Uses IndexedDB (not localStorage) because decks can carry many
+     embedded base64 images and easily exceed localStorage's ~5MB quota.
+     Records are scoped by `ownerKey` (pass the logged-in user's id from
+     the host page; falls back to a shared 'guest' bucket if omitted) so
+     one browser profile can't see another signed-in user's decks. ---- */
+  const IDB_NAME = 'divedu_presentations_v1';
+  const IDB_STORE = 'decks';
+  let idbPromise = null;
+  function openDb() {
+    if (idbPromise) return idbPromise;
+    idbPromise = new Promise((resolve, reject) => {
+      if (!window.indexedDB) { reject(new Error('This browser does not support saving presentations.')); return; }
+      const req = indexedDB.open(IDB_NAME, 1);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(IDB_STORE)) {
+          const store = db.createObjectStore(IDB_STORE, { keyPath: 'id' });
+          store.createIndex('byOwner', 'ownerKey', { unique: false });
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error || new Error('Could not open local storage.'));
+    });
+    return idbPromise;
+  }
+  function withStore(mode, fn) {
+    return openDb().then(db => new Promise((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE, mode);
+      const store = tx.objectStore(IDB_STORE);
+      const result = fn(store);
+      tx.oncomplete = () => resolve(result && result.__req ? result.__req.result : result);
+      tx.onerror = () => reject(tx.error);
+    }));
+  }
+  function genId() { return 'deck_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8); }
+
+  /** Saves (or updates, if deck.id already exists) a deck for the given
+   *  owner. Returns the saved record's id. A lightweight thumbnail (the
+   *  deck's theme + title + slide count) is stored alongside the full
+   *  deck JSON so the "My Presentations" list can render instantly
+   *  without decoding every embedded image. */
+  async function saveDeck(deck, ownerKey) {
+    if (!deck || !Array.isArray(deck.slides)) throw new Error('Nothing to save yet.');
+    const id = deck.id || genId();
+    const record = {
+      id,
+      ownerKey: ownerKey || 'guest',
+      title: deck.title || 'Untitled presentation',
+      subtitle: deck.subtitle || '',
+      theme: deck.theme || 'blue',
+      slideCount: deck.slides.length,
+      updatedAt: Date.now(),
+      deck: Object.assign({}, deck, { id })
+    };
+    await withStore('readwrite', store => { store.put(record); });
+    deck.id = id;
+    return id;
+  }
+
+  /** Lists saved decks for an owner, newest first, WITHOUT the heavy
+   *  per-slide image data (keeps the "My Presentations" list cheap to
+   *  render even with many saved decks). Call loadDeck(id) to get the
+   *  full deck back for editing/exporting. */
+  async function listSavedDecks(ownerKey) {
+    const key = ownerKey || 'guest';
+    const all = await withStore('readonly', store => new Promise((resolve, reject) => {
+      const idx = store.index('byOwner');
+      const req = idx.getAll(key);
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => reject(req.error);
+    }));
+    return all
+      .sort((a, b) => b.updatedAt - a.updatedAt)
+      .map(r => ({ id: r.id, title: r.title, subtitle: r.subtitle, theme: r.theme, slideCount: r.slideCount, updatedAt: r.updatedAt }));
+  }
+
+  async function loadDeck(id) {
+    const record = await withStore('readonly', store => new Promise((resolve, reject) => {
+      const req = store.get(id);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => reject(req.error);
+    }));
+    if (!record) throw new Error('That saved presentation could not be found.');
+    return record.deck;
+  }
+
+  async function deleteDeck(id) {
+    await withStore('readwrite', store => { store.delete(id); });
+  }
+
   return {
     isConfigured, generate, generateImages, countImageJobs,
     renderDeck, applySlideImage, applyGalleryImage,
     exportPptx, sanitizeFilename,
     THEMES, THEME_LIST, buildGradientDataUrl,
-    createEmptySlide, createEmptyDeck, readImageFile, LAYOUT_LABELS
+    createEmptySlide, createEmptyDeck, readImageFile, LAYOUT_LABELS,
+    saveDeck, listSavedDecks, loadDeck, deleteDeck
   };
 })();

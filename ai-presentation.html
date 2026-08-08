@@ -71,12 +71,25 @@
   #deckViewer { border-radius: var(--radius-lg); overflow:hidden; box-shadow: var(--shadow-sm); }
   .pe-viewer { position:relative; background: var(--pe-bg, #1e293b); }
   .pe-viewer:fullscreen { display:flex; align-items:center; justify-content:center; }
-  .pe-stage { display:flex; transition: transform .35s ease; }
+  .pe-viewer:fullscreen .pe-stage { width:100%; }
+  .pe-progress-track { position:absolute; top:0; left:0; right:0; height:3px; background:rgba(255,255,255,0.08); z-index:5; }
+  .pe-progress-bar { height:100%; width:0%; background: var(--pe-accent, #3b82f6); }
+  .pe-stage { display:flex; transition: transform .5s cubic-bezier(.65,0,.35,1); }
   .pe-slide { min-width:100%; box-sizing:border-box; aspect-ratio: 16 / 9; position:relative; overflow:hidden;
-    background: radial-gradient(120% 140% at 15% 15%, var(--pe-bg2, #334155) 0%, var(--pe-bg, #1e293b) 62%); color: var(--pe-text, #f8fafc); }
+    background: var(--pe-bg-image, radial-gradient(120% 140% at 15% 15%, var(--pe-bg2, #334155) 0%, var(--pe-bg, #1e293b) 62%)) center/cover no-repeat, var(--pe-bg, #1e293b);
+    color: var(--pe-text, #f8fafc); }
   .pe-slide-inner { position:relative; z-index:2; width:100%; height:100%; box-sizing:border-box; padding: 6% 8%; display:flex; flex-direction:column; justify-content:center; }
-  .pe-decor-blob { position:absolute; z-index:1; width:46%; aspect-ratio:1; border-radius:50%; background: radial-gradient(circle, var(--pe-accent, #3b82f6) 0%, transparent 70%); opacity:.16; top:-18%; right:-12%; pointer-events:none; }
-  .pe-decor-blob-sm { width:30%; top:auto; bottom:-18%; left:-10%; right:auto; opacity:.12; }
+  .pe-slide.pe-active .pe-slide-inner { animation: peContentIn .6s cubic-bezier(.22,1,.36,1); }
+  .pe-slide.pe-active .pe-hero-media { animation: peHeroIn 1s cubic-bezier(.22,1,.36,1); }
+  @keyframes peContentIn { from { opacity:0; transform: translateY(18px); } to { opacity:1; transform: translateY(0); } }
+  @keyframes peHeroIn { from { opacity:0; transform: scale(1.06); } to { opacity:1; transform: scale(1); } }
+  .pe-decor-blob { position:absolute; z-index:1; width:46%; aspect-ratio:1; border-radius:50%; background: radial-gradient(circle, var(--pe-accent, #3b82f6) 0%, transparent 70%); opacity:.16; top:-18%; right:-12%; pointer-events:none; filter: blur(2px); animation: peFloat 11s ease-in-out infinite; }
+  .pe-decor-blob-sm { width:30%; top:auto; bottom:-18%; left:-10%; right:auto; opacity:.12; animation-duration: 15s; animation-direction: reverse; }
+  @keyframes peFloat { 0%, 100% { transform: translate(0,0) scale(1); } 50% { transform: translate(-16px, 12px) scale(1.05); } }
+  @media (prefers-reduced-motion: reduce) {
+    .pe-decor-blob, .pe-slide.pe-active .pe-slide-inner, .pe-slide.pe-active .pe-hero-media { animation: none; }
+    .pe-stage { transition: none; }
+  }
   .pe-slide h1 { font-size: clamp(24px, 4.2vw, 46px); font-weight:800; line-height:1.15; }
   .pe-slide h2 { font-size: clamp(18px, 2.6vw, 28px); font-weight:800; margin-bottom:6px; color: var(--pe-accent, #3b82f6); display:flex; align-items:center; gap:12px; }
   .pe-title-bar { width:6px; height: clamp(18px,2.4vw,26px); background: var(--pe-accent, #3b82f6); border-radius:3px; flex-shrink:0; }
@@ -118,9 +131,18 @@
   .pe-has-hero-media .pe-decor-blob { display:none; }
 
   .pe-controls { display:flex; align-items:center; justify-content:center; gap:14px; padding: 14px; background: rgba(0,0,0,0.12); }
-  .pe-nav-btn { width:38px; height:38px; border-radius:50%; border:none; background: rgba(255,255,255,0.12); color:#fff; font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
-  .pe-nav-btn:hover { background: rgba(255,255,255,0.25); }
+  .pe-nav-btn { width:38px; height:38px; border-radius:50%; border:none; background: rgba(255,255,255,0.12); color:#fff; font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition: background .15s, transform .15s; }
+  .pe-nav-btn:hover { background: rgba(255,255,255,0.25); transform: translateY(-1px); }
   .pe-fullscreen-btn { margin-left: 8px; }
+  .pe-autoplaying [data-act="play"] { background: var(--pe-accent, #3b82f6); color:#0b1120; }
+
+  /* --- Table layout --- */
+  .pe-table-wrap { margin-top:14px; border-radius:14px; overflow:hidden; border:1px solid rgba(255,255,255,0.14); box-shadow: 0 10px 24px rgba(0,0,0,0.22); }
+  .pe-table { width:100%; border-collapse:collapse; font-size: clamp(11px,1.35vw,15px); }
+  .pe-table thead th { background: var(--pe-accent, #3b82f6); color:#0b1120; text-align:left; padding: 10px 14px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; font-size:.82em; }
+  .pe-table tbody td { padding: 9px 14px; border-top:1px solid rgba(255,255,255,0.08); color: var(--pe-text, #f8fafc); }
+  .pe-table tbody tr:nth-child(even) { background: rgba(255,255,255,0.035); }
+  .pe-table tbody tr:hover { background: rgba(255,255,255,0.07); }
   .pe-dots { display:flex; gap:6px; flex-wrap:wrap; max-width: 260px; justify-content:center; }
   .pe-dot { width:8px; height:8px; border-radius:50%; border:none; background: rgba(255,255,255,0.3); cursor:pointer; padding:0; }
   .pe-dot.active { background: #fff; width:20px; border-radius:5px; }
@@ -205,6 +227,29 @@
   .msc-gallery-item .rm { cursor:pointer; color:var(--text-muted); font-size:12px; }
   .msc-gallery-item .rm:hover { color:var(--danger); }
   @media (max-width:600px) { .msc-2col { grid-template-columns:1fr; } }
+
+  /* --- Manual mode: table-layout editor fields --- */
+  .msc-table-editor { border:1.5px dashed var(--panel-border); border-radius:12px; padding:12px; }
+  .msc-table-row { display:flex; gap:8px; align-items:center; margin-bottom:8px; }
+  .msc-table-row input[type="text"] { flex:1; padding:8px 10px; border:1.5px solid var(--panel-border); border-radius:9px; background:var(--surface-white); font-size:12.5px; font-family:inherit; color:var(--text-main); }
+  .msc-table-row.msc-table-head input[type="text"] { font-weight:800; background: var(--student-bg); }
+  .msc-table-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:6px; }
+
+  /* --- Saved presentations ("save to the site") --- */
+  .saved-pres-section { margin-bottom: 20px; }
+  .saved-pres-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+  .saved-pres-head h3 { font-size:14px; font-weight:800; display:flex; align-items:center; gap:8px; }
+  .saved-pres-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap:12px; }
+  .saved-pres-card { border:1.5px solid var(--panel-border); border-radius:14px; overflow:hidden; background:var(--surface-white); cursor:pointer; transition: all .15s; }
+  .saved-pres-card:hover { border-color: var(--current-accent); transform: translateY(-2px); box-shadow: var(--shadow-sm); }
+  .saved-pres-thumb { height:70px; position:relative; }
+  .saved-pres-thumb .sp-blob { position:absolute; width:70%; aspect-ratio:1; border-radius:50%; top:-30%; right:-20%; opacity:.35; }
+  .saved-pres-body { padding:10px 12px; }
+  .saved-pres-body .sp-title { font-size:12.5px; font-weight:800; margin-bottom:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .saved-pres-body .sp-meta { font-size:10.5px; color:var(--text-muted); display:flex; justify-content:space-between; align-items:center; }
+  .saved-pres-body .sp-del { color:var(--text-muted); cursor:pointer; padding:2px 4px; }
+  .saved-pres-body .sp-del:hover { color:var(--danger); }
+  .saved-pres-empty { font-size:12px; color:var(--text-muted); padding: 6px 2px; }
 </style>
 <link rel="stylesheet" href="theme-modes.css">
 </head>
@@ -216,6 +261,13 @@
       <h1><i class="fa-solid fa-display" style="color:var(--current-accent);"></i> AI Presentation Creator</h1>
       <p>Give it a topic, some notes, or a file — get a full slide deck with real AI illustrations, right here in the app.</p>
     </div>
+  </div>
+
+  <div class="pres-panel saved-pres-section" id="savedPresSection" style="display:none;">
+    <div class="saved-pres-head">
+      <h3><i class="fa-solid fa-clock-rotate-left" style="color:var(--current-accent);"></i> My Presentations</h3>
+    </div>
+    <div class="saved-pres-grid" id="savedPresGrid"></div>
   </div>
 
   <div class="mode-select">
@@ -272,6 +324,8 @@
           <option value="10">10</option>
           <option value="12">12</option>
           <option value="16">16</option>
+          <option value="20">20</option>
+          <option value="24">24</option>
         </select>
       </div>
       <div class="opt-field">
@@ -317,6 +371,7 @@
           <option value="twoColumn">Two columns</option>
           <option value="quote">Quote / stat</option>
           <option value="gallery">Image gallery</option>
+          <option value="table">Table / data</option>
           <option value="closing">Closing slide</option>
         </select>
         <button type="button" class="btn-primary" style="padding:9px 16px; font-size:12.5px;" onclick="addManualSlide()"><i class="fa-solid fa-plus"></i> Add slide</button>
@@ -341,6 +396,8 @@
       <div class="deck-actions">
         <button class="btn-secondary" style="padding:9px 16px; font-size:12.5px;" id="regenerateBtn"><i class="fa-solid fa-rotate-left"></i> Regenerate</button>
         <button class="btn-secondary" style="padding:9px 16px; font-size:12.5px;" id="addImagesBtn"><i class="fa-solid fa-wand-magic-sparkles"></i> AI-illustrate deck</button>
+        <button class="btn-secondary" style="padding:9px 16px; font-size:12.5px;" id="saveDeckBtn"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+        <button class="btn-secondary" style="padding:9px 16px; font-size:12.5px;" id="presentBtn"><i class="fa-solid fa-play"></i> Start Slideshow</button>
         <button class="btn-primary" style="padding:9px 18px; font-size:12.5px;" id="downloadPptxBtn"><i class="fa-solid fa-file-powerpoint"></i> Download .pptx</button>
       </div>
     </div>
@@ -375,6 +432,7 @@
 <script>
 let stagedFiles = [];   // raw File objects, staged for the next generation
 let currentDeck = null; // last generated deck JSON, kept for regenerate/edit/export
+let deckController = null; // return value of renderDeck — drives Start Slideshow / play / autoplay
 let lastRequest = null; // { topic, notes, files, slideCount } used by "Regenerate"
 let creatorMode = 'ai'; // 'ai' | 'manual'
 let aiChosenTheme = '';          // '' = let the AI pick
@@ -446,7 +504,7 @@ function selectTemplate(key) {
   } else {
     manualChosenTheme = key;
     applyTplButton('manual', key);
-    if (currentDeck && creatorMode === 'manual') { currentDeck.theme = key; PresentationEngine.renderDeck(currentDeck, deckViewer); }
+    if (currentDeck && creatorMode === 'manual') { currentDeck.theme = key; deckController = PresentationEngine.renderDeck(currentDeck, deckViewer); }
   }
   closeTemplateModal();
 }
@@ -500,6 +558,36 @@ function addGalleryImagePlaceholder(i) {
 }
 function removeGalleryImage(i, gi) { manualSlides[i].images.splice(gi, 1); renderManualSlideList(); }
 function updateGalleryCaption(i, gi, value) { manualSlides[i].images[gi].caption = value; }
+
+function updateTableHeader(i, ci, value) {
+  if (!Array.isArray(manualSlides[i].tableHeaders)) manualSlides[i].tableHeaders = [];
+  manualSlides[i].tableHeaders[ci] = value;
+}
+function updateTableCell(i, ri, ci, value) {
+  if (!Array.isArray(manualSlides[i].tableRows)) manualSlides[i].tableRows = [];
+  if (!Array.isArray(manualSlides[i].tableRows[ri])) manualSlides[i].tableRows[ri] = [];
+  manualSlides[i].tableRows[ri][ci] = value;
+}
+function addTableRow(i) {
+  const cols = (manualSlides[i].tableHeaders || []).length || 3;
+  if (!Array.isArray(manualSlides[i].tableRows)) manualSlides[i].tableRows = [];
+  manualSlides[i].tableRows.push(new Array(cols).fill(''));
+  renderManualSlideList();
+}
+function removeTableRow(i, ri) { manualSlides[i].tableRows.splice(ri, 1); renderManualSlideList(); }
+function addTableColumn(i) {
+  if (!Array.isArray(manualSlides[i].tableHeaders)) manualSlides[i].tableHeaders = [];
+  if (manualSlides[i].tableHeaders.length >= 5) { toast('Up to 5 columns per table.', 'error'); return; }
+  manualSlides[i].tableHeaders.push('Column ' + (manualSlides[i].tableHeaders.length + 1));
+  (manualSlides[i].tableRows || []).forEach(r => r.push(''));
+  renderManualSlideList();
+}
+function removeTableColumn(i) {
+  if (!manualSlides[i].tableHeaders || manualSlides[i].tableHeaders.length <= 1) return;
+  manualSlides[i].tableHeaders.pop();
+  (manualSlides[i].tableRows || []).forEach(r => r.pop());
+  renderManualSlideList();
+}
 async function setGalleryImageFile(i, gi, file) {
   if (!file) return;
   const dataUrl = await fileToDataUrl(file);
@@ -522,7 +610,7 @@ function manualSlideCardHtml(slide, i) {
 
   const titleField = layout !== 'quote' ? `
     <div class="msc-field"><label>Title</label><input type="text" value="${(slide.title || '').replace(/"/g, '&quot;')}" oninput="updateManualField(${i},'title',this.value)"></div>` : '';
-  const subtitleField = (layout === 'title' || layout === 'sectionHeader' || layout === 'bullets' || layout === 'imageFocus' || layout === 'closing' || layout === 'gallery') ? `
+  const subtitleField = (layout === 'title' || layout === 'sectionHeader' || layout === 'bullets' || layout === 'imageFocus' || layout === 'closing' || layout === 'gallery' || layout === 'table') ? `
     <div class="msc-field"><label>Subtitle (optional)</label><input type="text" value="${(slide.subtitle || '').replace(/"/g, '&quot;')}" oninput="updateManualField(${i},'subtitle',this.value)"></div>` : '';
 
   let body = '';
@@ -558,6 +646,26 @@ function manualSlideCardHtml(slide, i) {
           <span class="rm" onclick="removeGalleryImage(${i},${gi})"><i class="fa-solid fa-xmark"></i></span>
         </div>`).join('')}
       <button type="button" class="msc-img-btn" onclick="addGalleryImagePlaceholder(${i})"><i class="fa-solid fa-plus"></i> Add image to gallery</button>
+    </div>`;
+  } else if (layout === 'table') {
+    const headers = Array.isArray(slide.tableHeaders) ? slide.tableHeaders : [];
+    const rows = Array.isArray(slide.tableRows) ? slide.tableRows : [];
+    body = `<div class="msc-field"><label>Table</label>
+      <div class="msc-table-editor">
+        <div class="msc-table-row msc-table-head">
+          ${headers.map((h, ci) => `<input type="text" placeholder="Header ${ci + 1}" value="${(h || '').replace(/"/g, '&quot;')}" oninput="updateTableHeader(${i},${ci},this.value)">`).join('')}
+          <span class="rm" onclick="removeTableColumn(${i})" title="Remove last column"><i class="fa-solid fa-xmark"></i></span>
+        </div>
+        ${rows.map((r, ri) => `
+        <div class="msc-table-row">
+          ${headers.map((h, ci) => `<input type="text" placeholder="—" value="${((r[ci]) || '').toString().replace(/"/g, '&quot;')}" oninput="updateTableCell(${i},${ri},${ci},this.value)">`).join('')}
+          <span class="rm" onclick="removeTableRow(${i},${ri})" title="Remove row"><i class="fa-solid fa-xmark"></i></span>
+        </div>`).join('')}
+        <div class="msc-table-actions">
+          <button type="button" class="msc-img-btn" onclick="addTableRow(${i})"><i class="fa-solid fa-plus"></i> Add row</button>
+          <button type="button" class="msc-img-btn" onclick="addTableColumn(${i})"><i class="fa-solid fa-plus"></i> Add column</button>
+        </div>
+      </div>
     </div>`;
   }
 
@@ -715,7 +823,7 @@ function ensureImagePrompts(deck) {
       });
       return;
     }
-    if (layout === 'quote' || layout === 'twoColumn') return;
+    if (layout === 'quote' || layout === 'twoColumn' || layout === 'table') return;
     if (s.imageData || (s.imagePrompt && s.imagePrompt.trim())) return;
     const base = [s.title, s.subtitle].filter(Boolean).join(' — ');
     if (base) s.imagePrompt = base.slice(0, 150);
@@ -725,11 +833,102 @@ function ensureImagePrompts(deck) {
 function showDeck(deck) {
   document.getElementById('deckTitleText').textContent = deck.title || 'Untitled presentation';
   document.getElementById('deckSubtitleText').textContent = deck.subtitle || `${deck.slides.length} slides`;
-  PresentationEngine.renderDeck(deck, deckViewer);
+  deckController = PresentationEngine.renderDeck(deck, deckViewer);
   deckPanel.classList.add('show');
   emptyStatePres.style.display = 'none';
   deckPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
+
+/* ---------------- "Save to the site" — persisted presentations ---------------- */
+function getOwnerKey() {
+  // Scope saved decks to the signed-in user when Firebase auth is present
+  // on the page (as it is on the dashboards); fall back to a shared
+  // 'guest' bucket so the feature still works if opened standalone.
+  try {
+    if (window.firebase && firebase.auth && firebase.auth().currentUser) {
+      return firebase.auth().currentUser.uid;
+    }
+  } catch (e) { /* ignore */ }
+  return 'guest';
+}
+
+function savedThumbGradient(themeKey) {
+  const t = PresentationEngine.THEMES[themeKey] || PresentationEngine.THEMES.blue;
+  return `radial-gradient(120% 140% at 15% 15%, #${t.bg2} 0%, #${t.bg} 62%)`;
+}
+
+async function refreshSavedPresentations() {
+  const section = document.getElementById('savedPresSection');
+  const grid = document.getElementById('savedPresGrid');
+  try {
+    const decks = await PresentationEngine.listSavedDecks(getOwnerKey());
+    if (!decks.length) { section.style.display = 'none'; return; }
+    section.style.display = '';
+    grid.innerHTML = decks.map(d => {
+      const t = PresentationEngine.THEMES[d.theme] || PresentationEngine.THEMES.blue;
+      return `
+      <div class="saved-pres-card" onclick="openSavedDeck('${d.id}')">
+        <div class="saved-pres-thumb" style="background:${savedThumbGradient(d.theme)};">
+          <div class="sp-blob" style="background: radial-gradient(circle, #${t.accent} 0%, transparent 70%);"></div>
+        </div>
+        <div class="saved-pres-body">
+          <div class="sp-title">${(d.title || 'Untitled').replace(/</g, '&lt;')}</div>
+          <div class="sp-meta">
+            <span>${d.slideCount} slides</span>
+            <span class="sp-del" onclick="event.stopPropagation(); deleteSavedDeck('${d.id}')" title="Delete"><i class="fa-solid fa-trash"></i></span>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch (err) {
+    console.warn('Could not load saved presentations:', err);
+    section.style.display = 'none';
+  }
+}
+
+async function openSavedDeck(id) {
+  try {
+    const deck = await PresentationEngine.loadDeck(id);
+    currentDeck = deck;
+    lastRequest = null;
+    document.getElementById('regenerateBtn').style.display = 'none';
+    showDeck(deck);
+    toast('Presentation loaded.', 'success');
+  } catch (err) {
+    toast(err.message || 'Could not open that presentation.', 'error');
+  }
+}
+
+async function deleteSavedDeck(id) {
+  if (!confirm('Delete this saved presentation? This cannot be undone.')) return;
+  await PresentationEngine.deleteDeck(id);
+  refreshSavedPresentations();
+}
+
+document.getElementById('saveDeckBtn').addEventListener('click', async () => {
+  if (!currentDeck) return;
+  const btn = document.getElementById('saveDeckBtn');
+  const original = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-spinner" style="animation:peSpin 0.9s linear infinite;"></i> Saving…';
+  try {
+    await PresentationEngine.saveDeck(currentDeck, getOwnerKey());
+    toast('Saved — find it any time under "My Presentations".', 'success');
+    refreshSavedPresentations();
+  } catch (err) {
+    toast(err.message || 'Could not save this presentation.', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = original;
+  }
+});
+
+document.getElementById('presentBtn').addEventListener('click', () => {
+  if (!deckController) return;
+  deckController.presentFullscreen();
+});
+
+refreshSavedPresentations();
 
 generateBtn.addEventListener('click', runGeneration);
 
