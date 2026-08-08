@@ -63,30 +63,59 @@
   .deck-title-block h2 { font-size:17px; font-weight:800; }
   .deck-title-block p { font-size:12px; color:var(--text-muted); margin-top:2px; }
   .deck-actions { display:flex; gap:10px; flex-wrap:wrap; }
+  .img-gen-status { font-size:11.5px; color:var(--current-accent); font-weight:700; display:none; align-items:center; gap:6px; margin-top:6px; }
+  .img-gen-status.show { display:flex; }
+  .img-gen-status i { animation: peSpin 0.9s linear infinite; }
 
   /* Web slideshow viewer (rendered by PresentationEngine.renderDeck) */
   #deckViewer { border-radius: var(--radius-lg); overflow:hidden; box-shadow: var(--shadow-sm); }
   .pe-viewer { position:relative; background: var(--pe-bg, #1e293b); }
   .pe-viewer:fullscreen { display:flex; align-items:center; justify-content:center; }
   .pe-stage { display:flex; transition: transform .35s ease; }
-  .pe-slide { min-width:100%; box-sizing:border-box; aspect-ratio: 16 / 9; display:flex; flex-direction:column; justify-content:center; padding: 6% 8%; color: var(--pe-text, #f8fafc); position:relative; }
-  .pe-slide-inner { width:100%; }
+  .pe-slide { min-width:100%; box-sizing:border-box; aspect-ratio: 16 / 9; position:relative; overflow:hidden;
+    background: radial-gradient(120% 140% at 15% 15%, var(--pe-bg2, #334155) 0%, var(--pe-bg, #1e293b) 62%); color: var(--pe-text, #f8fafc); }
+  .pe-slide-inner { position:relative; z-index:2; width:100%; height:100%; box-sizing:border-box; padding: 6% 8%; display:flex; flex-direction:column; justify-content:center; }
+  .pe-decor-blob { position:absolute; z-index:1; width:46%; aspect-ratio:1; border-radius:50%; background: radial-gradient(circle, var(--pe-accent, #3b82f6) 0%, transparent 70%); opacity:.16; top:-18%; right:-12%; pointer-events:none; }
+  .pe-decor-blob-sm { width:30%; top:auto; bottom:-18%; left:-10%; right:auto; opacity:.12; }
   .pe-slide h1 { font-size: clamp(24px, 4.2vw, 46px); font-weight:800; line-height:1.15; }
-  .pe-slide h2 { font-size: clamp(18px, 2.6vw, 28px); font-weight:800; margin-bottom:6px; color: var(--pe-accent, #3b82f6); }
+  .pe-slide h2 { font-size: clamp(18px, 2.6vw, 28px); font-weight:800; margin-bottom:6px; color: var(--pe-accent, #3b82f6); display:flex; align-items:center; gap:12px; }
+  .pe-title-bar { width:6px; height: clamp(18px,2.4vw,26px); background: var(--pe-accent, #3b82f6); border-radius:3px; flex-shrink:0; }
+  .pe-kicker { font-size: clamp(10px,1.1vw,13px); font-weight:800; letter-spacing:.14em; text-transform:uppercase; color: var(--pe-accent, #3b82f6); margin-bottom:10px; }
   .pe-slide .pe-subtitle { font-size: clamp(12px, 1.5vw, 16px); opacity:.85; margin-top:6px; margin-bottom:14px; }
   .pe-slide ul { list-style:none; padding:0; margin-top: 10px; }
-  .pe-slide ul li { font-size: clamp(13px, 1.7vw, 18px); line-height:1.65; padding-left: 26px; position:relative; margin-bottom:8px; }
-  .pe-slide ul li::before { content:"▸"; position:absolute; left:0; color: var(--pe-accent, #3b82f6); font-weight:800; }
+  .pe-slide ul li { font-size: clamp(13px, 1.7vw, 18px); line-height:1.65; padding-left: 30px; position:relative; margin-bottom:10px; }
+  .pe-slide ul li::before { content:"\f138"; font-family:"Font Awesome 6 Free"; font-weight:900; position:absolute; left:0; top:0.15em; color: var(--pe-accent, #3b82f6); font-size:.85em; }
   .pe-slide-title-layout, .pe-slide-section-layout { text-align:left; }
-  .pe-section-num { font-size: clamp(14px, 2vw, 20px); font-weight:800; color: var(--pe-accent, #3b82f6); margin-bottom:10px; letter-spacing:.04em; }
+  .pe-section-num { font-size: clamp(13px, 1.8vw, 18px); font-weight:800; color: var(--pe-accent, #3b82f6); margin-bottom:14px; letter-spacing:.08em; display:flex; align-items:center; gap:12px; }
+  .pe-section-line { height:2px; width:60px; background: var(--pe-accent, #3b82f6); opacity:.5; display:inline-block; }
   .pe-slide-quote-layout { text-align:center; }
   .pe-quote-mark { font-size: 26px; color: var(--pe-accent, #3b82f6); opacity:.7; margin-bottom:12px; }
   .pe-quote-text { font-size: clamp(16px, 2.6vw, 26px); font-style:italic; line-height:1.5; }
   .pe-quote-attr { margin-top:14px; font-size: clamp(11px, 1.4vw, 15px); color: var(--pe-accent, #3b82f6); font-weight:700; }
   .pe-two-col { display:grid; grid-template-columns:1fr 1fr; gap: 5%; margin-top:8px; }
+  .pe-col { padding: 4% 5%; border-radius: 14px; background: rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); }
+  .pe-col-alt { background: rgba(255,255,255,0.02); }
   .pe-col h4 { font-size: clamp(12px, 1.6vw, 16px); color: var(--pe-accent, #3b82f6); margin-bottom:6px; font-weight:800; }
   .pe-closing-list { margin-top:14px; }
-  .pe-slide-footer { position:absolute; bottom:16px; right:24px; font-size:11px; opacity:.5; font-weight:700; }
+  .pe-slide-footer { position:absolute; z-index:3; bottom:16px; right:24px; font-size:11px; opacity:.5; font-weight:700; }
+
+  /* Split layout: text on one side, image panel on the other (bullets/imageFocus slides with an image) */
+  .pe-slide-inner.pe-split { flex-direction:row; align-items:center; gap: 6%; }
+  .pe-split-text { flex: 1.15; min-width:0; }
+  .pe-split-media { flex: 1; align-self:stretch; border-radius: 16px; overflow:hidden; background: rgba(255,255,255,0.05); display:flex; align-items:center; justify-content:center; box-shadow: 0 12px 28px rgba(0,0,0,0.28); }
+  .pe-media-slot { width:100%; height:100%; display:flex; align-items:center; justify-content:center; }
+  .pe-media-img { width:100%; height:100%; object-fit:cover; display:block; }
+  .pe-media-placeholder { width:100%; height:100%; min-height:140px; display:flex; align-items:center; justify-content:center; color: var(--pe-accent, #3b82f6); font-size:22px; opacity:.5;
+    background: linear-gradient(110deg, rgba(255,255,255,0.03) 8%, rgba(255,255,255,0.09) 18%, rgba(255,255,255,0.03) 33%); background-size: 200% 100%; animation: peShimmer 1.6s linear infinite; }
+  @keyframes peShimmer { to { background-position-x: -200%; } }
+
+  /* Hero layout: full-bleed image behind title/section/closing text */
+  .pe-hero-media { position:absolute; inset:0; z-index:1; }
+  .pe-hero-media .pe-media-slot { width:100%; height:100%; }
+  .pe-hero-media .pe-media-img { width:100%; height:100%; object-fit:cover; }
+  .pe-hero-media .pe-media-placeholder { min-height:100%; opacity:.3; }
+  .pe-hero-overlay { position:absolute; inset:0; background: linear-gradient(100deg, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.45) 55%, rgba(0,0,0,0.2) 100%); }
+  .pe-has-hero-media .pe-decor-blob { display:none; }
 
   .pe-controls { display:flex; align-items:center; justify-content:center; gap:14px; padding: 14px; background: rgba(0,0,0,0.12); }
   .pe-nav-btn { width:38px; height:38px; border-radius:50%; border:none; background: rgba(255,255,255,0.12); color:#fff; font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
@@ -95,6 +124,11 @@
   .pe-dots { display:flex; gap:6px; flex-wrap:wrap; max-width: 260px; justify-content:center; }
   .pe-dot { width:8px; height:8px; border-radius:50%; border:none; background: rgba(255,255,255,0.3); cursor:pointer; padding:0; }
   .pe-dot.active { background: #fff; width:20px; border-radius:5px; }
+
+  @media (max-width: 720px) {
+    .pe-slide-inner.pe-split { flex-direction:column; }
+    .pe-split-media { min-height: 120px; }
+  }
 
   .empty-state-pres { text-align:center; padding: 50px 20px; color: var(--text-muted); }
   .empty-state-pres i { font-size: 32px; color: var(--current-accent); opacity:.6; margin-bottom:12px; }
@@ -107,7 +141,7 @@
   <div class="pres-head">
     <div>
       <h1><i class="fa-solid fa-display" style="color:var(--current-accent);"></i> AI Presentation Creator</h1>
-      <p>Give it a topic, some notes, or a file — get a full slide deck, right here in the app.</p>
+      <p>Give it a topic, some notes, or a file — get a full slide deck with real AI illustrations, right here in the app.</p>
     </div>
   </div>
 
@@ -162,6 +196,10 @@
           <option value="dark">Dark</option>
         </select>
       </div>
+      <label class="opt-field" style="cursor:pointer;">
+        <input type="checkbox" id="imagesToggle" checked style="accent-color:var(--current-accent); width:15px; height:15px;">
+        <span><i class="fa-solid fa-wand-magic-sparkles"></i> AI illustrations</span>
+      </label>
     </div>
 
     <button class="generate-btn" id="generateBtn">
@@ -183,6 +221,7 @@
         <button class="btn-primary" style="padding:9px 18px; font-size:12.5px;" id="downloadPptxBtn"><i class="fa-solid fa-file-powerpoint"></i> Download .pptx</button>
       </div>
     </div>
+    <div class="img-gen-status" id="imgGenStatus"><i class="fa-solid fa-spinner"></i> <span id="imgGenStatusText">Generating illustrations…</span></div>
     <div id="deckViewer"></div>
   </div>
 
@@ -210,6 +249,8 @@ const genProgress = document.getElementById('genProgress');
 const deckPanel = document.getElementById('deckPanel');
 const emptyStatePres = document.getElementById('emptyStatePres');
 const deckViewer = document.getElementById('deckViewer');
+const imgGenStatus = document.getElementById('imgGenStatus');
+const imgGenStatusText = document.getElementById('imgGenStatusText');
 
 function toast(msg, type) {
   const t = document.getElementById('toast');
@@ -285,6 +326,7 @@ async function runGeneration() {
   generateBtnLabel.textContent = 'Designing your deck…';
   genProgress.classList.add('show');
   genProgress.textContent = stagedFiles.length ? 'Reading attached files…' : 'Talking to the AI…';
+  imgGenStatus.classList.remove('show');
 
   try {
     const deck = await PresentationEngine.generate({
@@ -295,6 +337,23 @@ async function runGeneration() {
     currentDeck = deck;
     showDeck(deck);
     toast('Presentation ready!', 'success');
+
+    const wantsImages = document.getElementById('imagesToggle').checked;
+    const hasImagePrompts = deck.slides.some(s => s.imagePrompt && s.imagePrompt.trim());
+    if (wantsImages && hasImagePrompts) {
+      const total = deck.slides.filter(s => s.imagePrompt && s.imagePrompt.trim()).length;
+      let done = 0;
+      imgGenStatus.classList.add('show');
+      imgGenStatusText.textContent = `Generating illustrations… (0/${total})`;
+      PresentationEngine.generateImages(deck, {
+        concurrency: 2,
+        onSlideDone: (index, slide) => {
+          done++;
+          imgGenStatusText.textContent = `Generating illustrations… (${done}/${total})`;
+          if (currentDeck === deck) PresentationEngine.applySlideImage(deckViewer, index, slide);
+        }
+      }).finally(() => { imgGenStatus.classList.remove('show'); });
+    }
   } catch (err) {
     console.error(err);
     toast(err.message || 'Could not generate the presentation.', 'error');

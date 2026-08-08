@@ -33,8 +33,73 @@
    ============================================================ */
 
 const GEMINI_MODEL = 'gemini-3.6-flash'; // latest GA Gemini Flash model (faster + cheaper than 3.5/2.5 Flash)
+const GEMINI_IMAGE_MODEL = 'gemini-3.1-flash-image'; // "Nano Banana" — native image generation via generateContent
 const MAX_INPUT_CHARS = 30000;
 const MAX_ATTACHMENTS = 4;
+
+/* ----------------------------------------------------------------
+   QUOTA RESILIENCE
+   ----------------------------------------------------------------
+   Google's free Gemini tier has a real, fixed rate limit — that's
+   not something this worker can switch off, only work around. Two
+   things actually help:
+
+   1. MULTIPLE API KEYS. If GEMINI_API_KEY hits its limit (HTTP 429),
+      a second/third key from a DIFFERENT Google account has its own
+      separate quota bucket, so trying the next key often just
+      works. Add extra Worker secrets named GEMINI_API_KEY_2,
+      GEMINI_API_KEY_3, GEMINI_API_KEY_4 (Settings -> Variables and
+      Secrets -> Add) with keys from other free Google accounts —
+      this worker will automatically round-robin/retry across every
+      one it finds. You can also put several keys in GEMINI_API_KEY
+      itself, comma-separated. None of this is required — with just
+      one key the worker still works exactly as before.
+   2. RETRY WITH BACKOFF. A 429 is often a short burst limit (e.g.
+      "N requests per minute"), not the hard daily cap — so after
+      trying every available key once, this worker waits briefly and
+      tries the whole list again before finally giving up.
+
+   For real, permanent extra quota beyond what free keys give you,
+   the only actual fix is enabling billing on a Google Cloud project
+   tied to your API key (Gemini's paid tier) — this worker can't
+   generate quota that Google hasn't granted the key.
+   ---------------------------------------------------------------- */
+
+function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+
+function getApiKeys(env) {
+  const keys = [];
+  for (const name of ['GEMINI_API_KEY', 'GEMINI_API_KEY_2', 'GEMINI_API_KEY_3', 'GEMINI_API_KEY_4']) {
+    if (env[name]) keys.push(...String(env[name]).split(',').map(k => k.trim()).filter(Boolean));
+  }
+  return keys;
+}
+
+/** Drop-in replacement for a plain `fetch(...generateContent...)` call:
+ *  same return shape (a Response — callers keep doing `.ok` / `.json()`
+ *  / `.text()` exactly as before), but tries every configured API key
+ *  before giving up on a 429, and gives the whole set of keys one more
+ *  pass after a short wait in case it was a short-lived burst limit
+ *  rather than the hard daily cap. Non-429 errors (bad request, model
+ *  error, etc.) return immediately on the first attempt — retrying
+ *  those wouldn't help and would only slow down a real failure. */
+async function fetchGeminiWithRetry(modelId, requestBody, env) {
+  const keys = getApiKeys(env);
+  const ROUNDS = 2;
+  let lastResp = null;
+  for (let round = 0; round < ROUNDS; round++) {
+    for (const key of keys) {
+      const resp = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${key}`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requestBody) }
+      );
+      if (resp.status !== 429) return resp;
+      lastResp = resp;
+    }
+    if (round < ROUNDS - 1) await sleep(1500 * (round + 1));
+  }
+  return lastResp;
+}
 
 export default {
   async fetch(request, env) {
@@ -83,6 +148,14 @@ export default {
       return handlePresentation(body, env);
     }
 
+    // Per-slide illustration generation for the presentation creator —
+    // a separate, smaller task so the frontend can fetch images one at
+    // a time (in the background, after the text deck already rendered)
+    // instead of one giant slow request.
+    if (task === 'presentationImage') {
+      return handlePresentationImage(body, env);
+    }
+
     const text = (body.text || '').toString();
     // Attachments (images/PDFs/DOCX-or-other-as-text) can now stand in
     // for, or supplement, pasted text on these tasks too — e.g. the
@@ -107,20 +180,13 @@ export default {
     const parts = [{ text: promptText }, ...attachmentsToParts(attachments)];
 
     try {
-      const geminiResp = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${env.GEMINI_API_KEY}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts }],
-            generationConfig: {
-              temperature: 0.4,
-              responseMimeType: 'application/json'
-            }
-          })
+      const geminiResp = await fetchGeminiWithRetry(GEMINI_MODEL, {
+        contents: [{ parts }],
+        generationConfig: {
+          temperature: 0.4,
+          responseMimeType: 'application/json'
         }
-      );
+      }, env);
 
       if (!geminiResp.ok) {
         const errText = await geminiResp.text();
@@ -240,18 +306,11 @@ async function handleChat(body, env) {
   const systemText = CHAT_SYSTEM_PROMPT + (nepali ? ' The user has requested Nepali replies — respond in Nepali (Devanagari script) regardless of what script they type in.' : '');
 
   try {
-    const geminiResp = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${env.GEMINI_API_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents,
-          systemInstruction: { parts: [{ text: systemText }] },
-          generationConfig: { temperature: 0.6 }
-        })
-      }
-    );
+    const geminiResp = await fetchGeminiWithRetry(GEMINI_MODEL, {
+      contents,
+      systemInstruction: { parts: [{ text: systemText }] },
+      generationConfig: { temperature: 0.6 }
+    }, env);
 
     if (!geminiResp.ok) {
       const errText = await geminiResp.text();
@@ -319,6 +378,7 @@ async function handlePresentation(body, env) {
     `"bullets": ["point", "..."], "leftTitle": "only for twoColumn layout", "leftBullets": ["...", "only for twoColumn"], ` +
     `"rightTitle": "only for twoColumn layout", "rightBullets": ["...", "only for twoColumn"], ` +
     `"quote": "only for quote layout", "attribution": "only for quote layout", ` +
+    `"imagePrompt": "a short (under 20 words) description of an illustration for this slide, or empty string if this slide doesn't need one", ` +
     `"notes": "one or two sentences of speaker notes for this slide"}]}\n\n` +
     `Rules: the FIRST slide must use layout "title" (deck title + subtitle, no bullets). The LAST slide ` +
     `must use layout "closing" (a short wrap-up/thank-you, 0-3 bullets max). Use "sectionHeader" sparingly ` +
@@ -326,6 +386,13 @@ async function handlePresentation(body, env) {
     `3-5 short punchy points (max ~12 words each) — this is a presentation slide, not a document; move ` +
     `detail into "notes" instead of cramming it into bullets. Use "twoColumn" for genuine comparisons ` +
     `(before/after, pros/cons, X vs Y) and "quote" only if there's a real quote/statistic worth isolating. ` +
+    `For "imagePrompt": write one for the title slide, every sectionHeader slide, the closing slide, and ` +
+    `roughly half of the bullets/imageFocus slides (whichever would genuinely benefit from a supporting ` +
+    `illustration) — leave it as an empty string for the rest, and ALWAYS leave it empty for "quote" and ` +
+    `"twoColumn" layouts. Each imagePrompt must describe a clean, simple, flat-vector-style educational ` +
+    `illustration or icon-like graphic related to the slide's specific content — concrete and specific ` +
+    `(e.g. "a cross-section of a plant leaf showing chloroplasts"), NOT generic ("an educational picture"). ` +
+    `Never ask for any text, letters, numbers, or labels to appear inside the image itself. ` +
     `Write in the same language as the source material/topic (reply in Nepali/Devanagari if the input is Nepali).`;
 
   const systemText =
@@ -350,18 +417,11 @@ async function handlePresentation(body, env) {
   if (parts.length === 0) parts.push({ text: '(No usable source content was provided.)' });
 
   try {
-    const geminiResp = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${env.GEMINI_API_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ role: 'user', parts }],
-          systemInstruction: { parts: [{ text: systemText }] },
-          generationConfig: { temperature: 0.5, responseMimeType: 'application/json' }
-        })
-      }
-    );
+    const geminiResp = await fetchGeminiWithRetry(GEMINI_MODEL, {
+      contents: [{ role: 'user', parts }],
+      systemInstruction: { parts: [{ text: systemText }] },
+      generationConfig: { temperature: 0.5, responseMimeType: 'application/json' }
+    }, env);
 
     if (!geminiResp.ok) {
       const errText = await geminiResp.text();
@@ -396,6 +456,68 @@ async function handlePresentation(body, env) {
   } catch (err) {
     console.error('Worker presentation error:', err);
     return json({ error: 'Something went wrong contacting the AI service.', debug: String(err && err.message || err) }, 500);
+  }
+}
+
+const IMAGE_STYLE_BY_THEME = {
+  blue: 'a clean flat-vector illustration, cool blue and white color palette, soft shadows, minimal educational style',
+  green: 'a clean flat-vector illustration, fresh green and cream color palette, soft shadows, minimal educational style',
+  purple: 'a clean flat-vector illustration, violet and soft pink color palette, soft shadows, minimal educational style',
+  warm: 'a clean flat-vector illustration, warm orange and cream color palette, soft shadows, minimal educational style',
+  dark: 'a clean flat-vector illustration on a dark background, cyan accent color, soft glow, minimal educational style'
+};
+
+/** Handles the "presentationImage" task: generates one illustration
+ *  for one slide via Gemini's native image output ("Nano Banana"),
+ *  called once per slide (in parallel, a few at a time) by the
+ *  frontend after the text deck already rendered — so the deck feels
+ *  fast and images fill in progressively rather than blocking
+ *  everything. Always requests a flat-vector/illustration style
+ *  matching the deck's color theme (never a literal screenshot-style
+ *  photo) so a whole deck's images feel like one consistent set, and
+ *  explicitly forbids embedded text since image models render text
+ *  unreliably and slide text is already handled by real PowerPoint
+ *  text boxes. Uses the same multi-key retry as the text tasks. */
+async function handlePresentationImage(body, env) {
+  const prompt = (body.prompt || '').toString().slice(0, 300);
+  const theme = IMAGE_STYLE_BY_THEME[body.theme] ? body.theme : 'blue';
+  if (!prompt) return json({ error: 'Missing image prompt.' }, 400);
+
+  const fullPrompt =
+    `${prompt}. Style: ${IMAGE_STYLE_BY_THEME[theme]}, 16:9 wide composition, generous empty margin ` +
+    `around the subject so it can sit alongside text on a slide, no text/letters/numbers/labels/watermarks ` +
+    `anywhere in the image, no borders or frames.`;
+
+  try {
+    const geminiResp = await fetchGeminiWithRetry(GEMINI_IMAGE_MODEL, {
+      contents: [{ role: 'user', parts: [{ text: fullPrompt }] }],
+      generationConfig: { responseModalities: ['IMAGE'] }
+    }, env);
+
+    if (!geminiResp.ok) {
+      const errText = await geminiResp.text();
+      console.error('Gemini image error:', geminiResp.status, errText);
+      const status = geminiResp.status === 429 ? 429 : 502;
+      return json({
+        error: status === 429 ? 'Image generation quota hit on every configured key — try again shortly.' : 'Image generation is temporarily unavailable.',
+        debug: `Gemini responded ${geminiResp.status}: ${errText.slice(0, 500)}`
+      }, status);
+    }
+
+    const data = await geminiResp.json();
+    const parts = data && data.candidates && data.candidates[0] &&
+      data.candidates[0].content && data.candidates[0].content.parts;
+    const imgPart = Array.isArray(parts) ? parts.find(p => p.inlineData || p.inline_data) : null;
+    const inline = imgPart && (imgPart.inlineData || imgPart.inline_data);
+
+    if (!inline || !inline.data) {
+      return json({ error: 'The AI did not return an image — please try again.' }, 502);
+    }
+
+    return json({ ok: true, task: 'presentationImage', result: { mimeType: inline.mimeType || inline.mime_type || 'image/png', data: inline.data } });
+  } catch (err) {
+    console.error('Worker presentationImage error:', err);
+    return json({ error: 'Something went wrong contacting the AI image service.', debug: String(err && err.message || err) }, 500);
   }
 }
 

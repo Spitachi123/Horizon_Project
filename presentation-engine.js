@@ -94,6 +94,48 @@ const PresentationEngine = (() => {
     return { kind: att.kind, mimeType: att.mimeType, data: att.data, text: att.text, name: att.name };
   }
 
+  /** Generates one slide's illustration via the worker's
+   *  "presentationImage" task. Returns { mimeType, data(base64) } or
+   *  null if the slide has no imagePrompt / generation fails (image
+   *  failures are non-fatal — the slide just renders without one). */
+  async function generateSlideImage(prompt, theme) {
+    try {
+      return await callWorker({ task: 'presentationImage', prompt, theme: theme || 'blue' });
+    } catch (err) {
+      console.warn('Slide image failed:', err.message);
+      return null;
+    }
+  }
+
+  /** Generates illustrations for every slide in `deck` that has a
+   *  non-empty imagePrompt, a few at a time (default concurrency 2,
+   *  since Gemini image generation is the slowest part of the whole
+   *  pipeline). Mutates each slide in place (adds imageData/imageMime)
+   *  as results come in and calls onSlideDone(index, slide) after
+   *  each one — that's what lets the deck's images fill in
+   *  progressively in the UI instead of the user waiting for all of
+   *  them before seeing anything. Safe to call multiple times /
+   *  abandon early: it just stops mutating a deck nobody looks at. */
+  async function generateImages(deck, { concurrency = 2, maxImages = 8, onSlideDone } = {}) {
+    const targets = deck.slides
+      .map((s, i) => ({ s, i }))
+      .filter(({ s }) => s.imagePrompt && s.imagePrompt.trim())
+      .slice(0, maxImages);
+
+    let cursor = 0;
+    async function worker() {
+      while (cursor < targets.length) {
+        const { s, i } = targets[cursor++];
+        const img = await generateSlideImage(s.imagePrompt, deck.theme);
+        if (img) { s.imageData = img.data; s.imageMime = img.mimeType || 'image/png'; }
+        if (onSlideDone) onSlideDone(i, s);
+      }
+    }
+    const workers = Array.from({ length: Math.min(concurrency, targets.length) }, worker);
+    await Promise.all(workers);
+    return deck;
+  }
+
   /** Generates a slide deck from a topic and/or notes and/or files.
    *  `files` are raw <input type="file"> File objects — reused via
    *  ChatEngine.prepareAttachment() (images/PDFs as base64, DOCX/TXT
@@ -122,11 +164,11 @@ const PresentationEngine = (() => {
   /* ---------------- theme palettes (shared by web + pptx) ---------------- */
 
   const THEMES = {
-    blue:   { bg: '1E293B', accent: '3B82F6', accentLight: 'DBEAFE', text: 'F8FAFC', dark: false },
-    green:  { bg: '14532D', accent: '22C55E', accentLight: 'DCFCE7', text: 'F0FDF4', dark: false },
-    purple: { bg: '2E1065', accent: 'A855F7', accentLight: 'F3E8FF', text: 'FAF5FF', dark: false },
-    warm:   { bg: '7C2D12', accent: 'F97316', accentLight: 'FFEDD5', text: 'FFF7ED', dark: false },
-    dark:   { bg: '0F172A', accent: '38BDF8', accentLight: '1E293B', text: 'F1F5F9', dark: true }
+    blue:   { bg: '0F2A4A', bg2: '1E3A8A', accent: '60A5FA', accentLight: 'DBEAFE', text: 'F8FAFC' },
+    green:  { bg: '052E1E', bg2: '14532D', accent: '4ADE80', accentLight: 'DCFCE7', text: 'F0FDF4' },
+    purple: { bg: '2E1065', bg2: '4C1D95', accent: 'C084FC', accentLight: 'F3E8FF', text: 'FAF5FF' },
+    warm:   { bg: '431407', bg2: '7C2D12', accent: 'FB923C', accentLight: 'FFEDD5', text: 'FFF7ED' },
+    dark:   { bg: '020617', bg2: '0F172A', accent: '38BDF8', accentLight: '1E293B', text: 'F1F5F9' }
   };
   function themeOf(deck) { return THEMES[deck && deck.theme] || THEMES.blue; }
 
@@ -138,19 +180,32 @@ const PresentationEngine = (() => {
     return div.innerHTML;
   }
 
+  function mediaMarkup(slide, index) {
+    if (slide.imageData) {
+      return `<img class="pe-media-img" src="data:${slide.imageMime || 'image/png'};base64,${slide.imageData}" alt="">`;
+    }
+    if (slide.imagePrompt && slide.imagePrompt.trim()) {
+      return `<div class="pe-media-placeholder"><i class="fa-solid fa-image"></i></div>`;
+    }
+    return '';
+  }
+
   function slideHtml(slide, theme, index, total) {
     const layout = slide.layout || 'bullets';
     const bullets = Array.isArray(slide.bullets) ? slide.bullets : [];
+    const hasMedia = !!(slide.imageData || (slide.imagePrompt && slide.imagePrompt.trim()));
+    const mediaSlot = `<div class="pe-media-slot" data-slide-index="${index}">${mediaMarkup(slide, index)}</div>`;
     let inner = '';
 
     if (layout === 'title') {
       inner = `<div class="pe-slide-title-layout">
+        <div class="pe-kicker">Presentation</div>
         <h1>${escapeHtml(slide.title)}</h1>
         ${slide.subtitle ? `<p class="pe-subtitle">${escapeHtml(slide.subtitle)}</p>` : ''}
       </div>`;
     } else if (layout === 'sectionHeader') {
       inner = `<div class="pe-slide-section-layout">
-        <div class="pe-section-num">${String(index + 1).padStart(2, '0')}</div>
+        <div class="pe-section-num">${String(index + 1).padStart(2, '0')} <span class="pe-section-line"></span></div>
         <h2>${escapeHtml(slide.title)}</h2>
         ${slide.subtitle ? `<p class="pe-subtitle">${escapeHtml(slide.subtitle)}</p>` : ''}
       </div>`;
@@ -161,13 +216,13 @@ const PresentationEngine = (() => {
         ${slide.attribution ? `<p class="pe-quote-attr">— ${escapeHtml(slide.attribution)}</p>` : ''}
       </div>`;
     } else if (layout === 'twoColumn') {
-      inner = `<h2>${escapeHtml(slide.title)}</h2>
+      inner = `<h2><span class="pe-title-bar"></span>${escapeHtml(slide.title)}</h2>
       <div class="pe-two-col">
         <div class="pe-col">
           ${slide.leftTitle ? `<h4>${escapeHtml(slide.leftTitle)}</h4>` : ''}
           <ul>${(slide.leftBullets || []).map(b => `<li>${escapeHtml(b)}</li>`).join('')}</ul>
         </div>
-        <div class="pe-col">
+        <div class="pe-col pe-col-alt">
           ${slide.rightTitle ? `<h4>${escapeHtml(slide.rightTitle)}</h4>` : ''}
           <ul>${(slide.rightBullets || []).map(b => `<li>${escapeHtml(b)}</li>`).join('')}</ul>
         </div>
@@ -179,14 +234,32 @@ const PresentationEngine = (() => {
         ${bullets.length ? `<ul class="pe-closing-list">${bullets.map(b => `<li>${escapeHtml(b)}</li>`).join('')}</ul>` : ''}
       </div>`;
     } else {
-      // 'bullets' / 'imageFocus' (imageFocus degrades gracefully to a bullets layout — no image generation here)
-      inner = `<h2>${escapeHtml(slide.title)}</h2>
+      // 'bullets' / 'imageFocus'
+      inner = `<h2><span class="pe-title-bar"></span>${escapeHtml(slide.title)}</h2>
       ${slide.subtitle ? `<p class="pe-subtitle">${escapeHtml(slide.subtitle)}</p>` : ''}
       <ul>${bullets.map(b => `<li>${escapeHtml(b)}</li>`).join('')}</ul>`;
     }
 
-    return `<div class="pe-slide pe-layout-${layout}" data-index="${index}">
-      <div class="pe-slide-inner">${inner}</div>
+    const isHero = layout === 'title' || layout === 'sectionHeader' || layout === 'closing';
+    const layoutClass = isHero
+      ? 'pe-layout-hero' + (hasMedia ? ' pe-has-hero-media' : '')
+      : 'pe-layout-content' + (hasMedia ? ' pe-has-split-media' : '');
+
+    if (isHero) {
+      return `<div class="pe-slide pe-layout-${layout} ${layoutClass}" data-index="${index}">
+        ${hasMedia ? `<div class="pe-hero-media">${mediaSlot}<div class="pe-hero-overlay"></div></div>` : ''}
+        <div class="pe-decor-blob"></div>
+        <div class="pe-slide-inner">${inner}</div>
+        <div class="pe-slide-footer"><span>${index + 1} / ${total}</span></div>
+      </div>`;
+    }
+
+    return `<div class="pe-slide pe-layout-${layout} ${layoutClass}" data-index="${index}">
+      <div class="pe-decor-blob pe-decor-blob-sm"></div>
+      <div class="pe-slide-inner ${hasMedia ? 'pe-split' : ''}">
+        <div class="pe-split-text">${inner}</div>
+        ${hasMedia ? `<div class="pe-split-media">${mediaSlot}</div>` : ''}
+      </div>
       <div class="pe-slide-footer"><span>${index + 1} / ${total}</span></div>
     </div>`;
   }
@@ -198,6 +271,7 @@ const PresentationEngine = (() => {
   function renderDeck(deck, container) {
     const theme = themeOf(deck);
     container.style.setProperty('--pe-bg', '#' + theme.bg);
+    container.style.setProperty('--pe-bg2', '#' + theme.bg2);
     container.style.setProperty('--pe-accent', '#' + theme.accent);
     container.style.setProperty('--pe-accent-light', '#' + theme.accentLight);
     container.style.setProperty('--pe-text', '#' + theme.text);
@@ -253,6 +327,22 @@ const PresentationEngine = (() => {
     return { next, prev, goTo, current: () => current, total };
   }
 
+  /** Patches a single slide's image in-place inside an already-
+   *  rendered deck (from renderDeck), without rebuilding the stage or
+   *  disturbing which slide the user is currently looking at. Used to
+   *  stream in images progressively as generateImages() finishes each
+   *  one — a rebuild-the-whole-deck approach would reset scroll/
+   *  position and cause a visible flash every time an image lands. */
+  function applySlideImage(container, index, slide) {
+    const slot = container.querySelector(`.pe-media-slot[data-slide-index="${index}"]`);
+    if (!slot) return;
+    slot.innerHTML = mediaMarkup(slide, index);
+    const slideEl = container.querySelector(`.pe-slide[data-index="${index}"]`);
+    if (slideEl && slide.imageData) {
+      slideEl.classList.add('pe-has-hero-media', 'pe-has-split-media');
+    }
+  }
+
   /* ---------------- .pptx export (PptxGenJS, entirely client-side) ---------------- */
 
   let pptxLoading = null;
@@ -281,7 +371,13 @@ const PresentationEngine = (() => {
    *  download — no server round-trip, the whole file is assembled
    *  in-memory by PptxGenJS and handed to the browser's normal save
    *  dialog. `deck.slides[i].notes` (if present) is written into the
-   *  slide's speaker notes field. */
+   *  slide's speaker notes field, and `imageData` (if present, from
+   *  generateImages()) is embedded as a real image — full-bleed with
+   *  a dark overlay behind text on title/section/closing slides,
+   *  side-by-side with bullets on content slides. PptxGenJS has no
+   *  native gradient-fill support, so depth on flat-color slides comes
+   *  from layered accent shapes (a corner block + a thin rule under
+   *  the title) instead. */
   async function exportPptx(deck, filename) {
     const PptxGenJSCtor = await loadPptxGen();
     const pres = new PptxGenJSCtor();
@@ -291,15 +387,38 @@ const PresentationEngine = (() => {
     const theme = themeOf(deck);
     const bg = theme.bg, accent = theme.accent, textColor = theme.text;
 
+    function imageDataUrl(slide) {
+      return slide.imageData ? `image/${(slide.imageMime || 'image/png').split('/')[1] || 'png'};base64,${slide.imageData}` : null;
+    }
+
+    /** Decorative corner accent used on every flat-color slide so it
+     *  doesn't read as a plain fill — a large soft-edged accent block
+     *  bleeding off one corner, echoing the blob/glow motif already
+     *  used elsewhere in the app's own design. */
+    function addCornerAccent(s, opts) {
+      s.addShape(pres.ShapeType.ellipse, Object.assign({ fill: { color: accent, transparency: 82 }, line: { type: 'none' } }, opts));
+    }
+
     deck.slides.forEach((slide) => {
       const s = pres.addSlide();
       s.background = { color: bg };
       const layout = slide.layout || 'bullets';
+      const imgUrl = imageDataUrl(slide);
+      const isHero = layout === 'title' || layout === 'sectionHeader' || layout === 'closing';
+
+      if (isHero && imgUrl) {
+        // Full-bleed image with a dark scrim behind the text so it stays readable.
+        s.background = { data: imgUrl };
+        s.addShape(pres.ShapeType.rect, { x: 0, y: 0, w: 13.33, h: 7.5, fill: { color: '000000', transparency: 42 }, line: { type: 'none' } });
+      } else {
+        addCornerAccent(s, { x: 10.5, y: -2.2, w: 6.5, h: 6.5 });
+        addCornerAccent(s, { x: -2.5, y: 5.2, w: 4, h: 4 });
+      }
 
       if (layout === 'title') {
-        s.addText(slide.title || '', { x: 0.8, y: 2.6, w: 11.7, h: 1.6, fontSize: 44, bold: true, color: textColor, fontFace: 'Arial', align: 'left' });
+        s.addShape(pres.ShapeType.rect, { x: 0.8, y: 2.35, w: 1.6, h: 0.07, fill: { color: accent }, line: { type: 'none' } });
+        s.addText(slide.title || '', { x: 0.8, y: 2.55, w: 11.7, h: 1.6, fontSize: 44, bold: true, color: textColor, fontFace: 'Arial', align: 'left' });
         if (slide.subtitle) s.addText(slide.subtitle, { x: 0.8, y: 4.1, w: 11.7, h: 0.8, fontSize: 20, color: accent, fontFace: 'Arial', align: 'left' });
-        s.addShape(pres.ShapeType.rect, { x: 0.8, y: 2.35, w: 1.6, h: 0.06, fill: { color: accent } });
       } else if (layout === 'sectionHeader') {
         s.addText(slide.title || '', { x: 0.8, y: 3.0, w: 11.7, h: 1.4, fontSize: 36, bold: true, color: textColor, fontFace: 'Arial' });
         if (slide.subtitle) s.addText(slide.subtitle, { x: 0.8, y: 4.3, w: 11.7, h: 0.7, fontSize: 18, color: accent, fontFace: 'Arial' });
@@ -307,7 +426,8 @@ const PresentationEngine = (() => {
         s.addText('"' + (slide.quote || slide.title || '') + '"', { x: 1.2, y: 2.2, w: 10.9, h: 2.2, fontSize: 28, italic: true, color: textColor, fontFace: 'Georgia', align: 'center', valign: 'middle' });
         if (slide.attribution) s.addText('— ' + slide.attribution, { x: 1.2, y: 4.5, w: 10.9, h: 0.6, fontSize: 16, color: accent, fontFace: 'Arial', align: 'center' });
       } else if (layout === 'twoColumn') {
-        s.addText(slide.title || '', { x: 0.6, y: 0.5, w: 12.1, h: 0.9, fontSize: 28, bold: true, color: textColor, fontFace: 'Arial' });
+        s.addShape(pres.ShapeType.rect, { x: 0.6, y: 0.5, w: 0.09, h: 0.75, fill: { color: accent }, line: { type: 'none' } });
+        s.addText(slide.title || '', { x: 0.85, y: 0.5, w: 11.85, h: 0.9, fontSize: 28, bold: true, color: textColor, fontFace: 'Arial' });
         if (slide.leftTitle) s.addText(slide.leftTitle, { x: 0.6, y: 1.6, w: 5.9, h: 0.5, fontSize: 18, bold: true, color: accent, fontFace: 'Arial' });
         addBulletsBox(s, slide.leftBullets, { x: 0.6, y: 2.15, w: 5.9, h: 4.5, textColor });
         if (slide.rightTitle) s.addText(slide.rightTitle, { x: 6.85, y: 1.6, w: 5.9, h: 0.5, fontSize: 18, bold: true, color: accent, fontFace: 'Arial' });
@@ -316,8 +436,16 @@ const PresentationEngine = (() => {
         s.addText(slide.title || '', { x: 0.8, y: 2.6, w: 11.7, h: 1.3, fontSize: 40, bold: true, color: textColor, fontFace: 'Arial' });
         if (slide.subtitle) s.addText(slide.subtitle, { x: 0.8, y: 3.9, w: 11.7, h: 0.7, fontSize: 18, color: accent, fontFace: 'Arial' });
         addBulletsBox(s, slide.bullets, { x: 0.8, y: 4.7, w: 11.7, h: 2, textColor });
+      } else if (imgUrl) {
+        // bullets / imageFocus WITH an image — text on the left, image panel on the right.
+        s.addShape(pres.ShapeType.rect, { x: 0.6, y: 0.5, w: 0.09, h: 0.75, fill: { color: accent }, line: { type: 'none' } });
+        s.addText(slide.title || '', { x: 0.85, y: 0.5, w: 6.6, h: 0.9, fontSize: 26, bold: true, color: textColor, fontFace: 'Arial' });
+        if (slide.subtitle) s.addText(slide.subtitle, { x: 0.6, y: 1.3, w: 6.85, h: 0.5, fontSize: 14, color: accent, fontFace: 'Arial' });
+        addBulletsBox(s, slide.bullets, { x: 0.6, y: slide.subtitle ? 1.95 : 1.6, w: 6.85, h: 4.8, textColor });
+        s.addImage({ data: imgUrl, x: 7.75, y: 0.9, w: 5.0, h: 5.6, sizing: { type: 'cover', w: 5.0, h: 5.6 } });
       } else {
-        s.addText(slide.title || '', { x: 0.6, y: 0.5, w: 12.1, h: 0.9, fontSize: 28, bold: true, color: textColor, fontFace: 'Arial' });
+        s.addShape(pres.ShapeType.rect, { x: 0.6, y: 0.5, w: 0.09, h: 0.75, fill: { color: accent }, line: { type: 'none' } });
+        s.addText(slide.title || '', { x: 0.85, y: 0.5, w: 11.85, h: 0.9, fontSize: 28, bold: true, color: textColor, fontFace: 'Arial' });
         if (slide.subtitle) s.addText(slide.subtitle, { x: 0.6, y: 1.3, w: 12.1, h: 0.5, fontSize: 16, color: accent, fontFace: 'Arial' });
         addBulletsBox(s, slide.bullets, { x: 0.6, y: slide.subtitle ? 2.0 : 1.6, w: 12.1, h: 5, textColor });
       }
@@ -332,5 +460,5 @@ const PresentationEngine = (() => {
     return (name || 'Presentation').replace(/[\\/:*?"<>|]/g, '').trim().slice(0, 80) || 'Presentation';
   }
 
-  return { isConfigured, generate, renderDeck, exportPptx, sanitizeFilename };
+  return { isConfigured, generate, generateImages, renderDeck, applySlideImage, exportPptx, sanitizeFilename };
 })();
