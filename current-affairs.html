@@ -49,6 +49,33 @@
   .np-gs-card-meta { font-size:10.5px; color:#92603A; margin-top:4px; }
   .np-gs-empty { font-size:12px; color: var(--text-muted); padding: 10px 4px; }
 
+  .np-rate-strip { display:flex; gap:10px; flex-wrap:wrap; }
+  .np-rate-card { flex:1; min-width:180px; background: linear-gradient(135deg, #FFFBEB, #FEF3E2); border:1px solid #FDE0B0; border-radius: var(--radius-sm); padding: 12px 14px; }
+  .np-rate-card.silver { background: linear-gradient(135deg, #F8FAFC, #F1F5F9); border-color:#E2E8F0; }
+  .np-rate-head { display:flex; align-items:center; gap:7px; font-size:11.5px; font-weight:800; color:#92603A; text-transform:uppercase; letter-spacing:.3px; }
+  .np-rate-card.silver .np-rate-head { color:#475569; }
+  .np-rate-head i { color:#D97706; }
+  .np-rate-card.silver .np-rate-head i { color:#64748B; }
+  .np-rate-price { font-size:19px; font-weight:800; color: var(--text-main); margin-top:6px; }
+  .np-rate-price span { font-size:11px; font-weight:700; color: var(--text-muted); }
+  .np-rate-change { font-size:11.5px; font-weight:700; margin-top:4px; }
+  .np-rate-change.up { color:#059669; }
+  .np-rate-change.down { color:#DC2626; }
+  .np-rate-foot { display:flex; justify-content:space-between; align-items:center; font-size:10.5px; color: var(--text-muted); margin-top:10px; }
+  .np-rate-foot a { color: var(--current-accent); font-weight:700; text-decoration:none; }
+
+  .np-conflict { background: var(--bg-main); border:1px solid var(--panel-border); border-radius: var(--radius-sm); padding: 14px 16px; margin: 10px 10px 4px; }
+  .np-conflict-head { display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:800; color: var(--text-main); margin-bottom:10px; }
+  .np-conflict-head .pulse-dot { width:8px; height:8px; border-radius:50%; background:#DC2626; box-shadow:0 0 0 rgba(220,38,38,0.5); animation: np-pulse 1.8s infinite; }
+  @keyframes np-pulse { 0% { box-shadow:0 0 0 0 rgba(220,38,38,0.45); } 70% { box-shadow:0 0 0 6px rgba(220,38,38,0); } 100% { box-shadow:0 0 0 0 rgba(220,38,38,0); } }
+  .np-conflict-list { display:flex; flex-direction:column; gap:10px; }
+  .np-conflict-row { display:block; text-decoration:none; color:inherit; padding:8px 0; }
+  .np-conflict-row + .np-conflict-row { border-top:1px solid var(--panel-border); }
+  .np-conflict-label { font-size:12px; font-weight:800; color:#B91C1C; }
+  .np-conflict-title { font-size:12.5px; color: var(--text-main); margin-top:3px; line-height:1.4; }
+  .np-conflict-meta { font-size:10.5px; color: var(--text-muted); margin-top:3px; }
+  .np-conflict-empty { font-size:12px; color: var(--text-muted); }
+
   .np-cal { background: var(--bg-main); border:1px solid var(--panel-border); border-radius: var(--radius-sm); padding: 14px 16px; }
   .np-cal-head { display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:800; color: var(--text-main); margin-bottom:10px; }
   .np-cal-head i { color: var(--current-accent); }
@@ -90,6 +117,7 @@
 
   <div class="ca-panel">
     <div class="np-widgets" id="npWidgets" style="display:none;"></div>
+    <div class="np-conflict" id="conflictWatch" style="display:none;"></div>
     <div class="ca-list" id="caList">
       <div class="empty-hint"><i class="fa-solid fa-spinner fa-spin" style="opacity:.5; font-size:18px;"></i><br><br>Loading the latest headlines…</div>
     </div>
@@ -223,27 +251,56 @@ function selectCategory(key) {
   activeCategory = key;
   renderTabs();
   renderNepalWidgets();
+  renderConflictWatch();
   renderList();
 }
 
-/* Gold/silver strip + "This month in Nepal" calendar — only shown
-   above the headline list while the Nepal News tab is active, since
-   that's the tab this content is most relevant to. */
+/* Today's actual gold/silver rate (numeric, scraped server-side from
+   Hamro Patro) + "This month in Nepal" calendar — only shown above
+   the headline list while the Nepal News tab is active. */
 function renderNepalWidgets() {
   const wrap = document.getElementById('npWidgets');
   if (activeCategory !== 'nepal') { wrap.style.display = 'none'; wrap.innerHTML = ''; return; }
 
-  const gsItems = (newsData.categories.goldsilver || []).slice(0, 2);
-  const gsHtml = gsItems.length
-    ? `<div class="np-gs-strip">${gsItems.map(item => `
-        <a class="np-gs-card" href="${escapeHtml(item.link || '#')}" target="_blank" rel="noopener noreferrer">
-          <i class="fa-solid fa-coins"></i>
-          <div>
-            <div class="np-gs-card-title">${escapeHtml(item.title)}</div>
-            <div class="np-gs-card-meta">${item.source ? escapeHtml(item.source) + ' · ' : ''}${escapeHtml(timeAgo(item.pubDate)) || 'recent'}</div>
-          </div>
-        </a>`).join('')}</div>`
-    : `<div class="np-gs-strip"><div class="np-gs-empty"><i class="fa-solid fa-coins"></i> Today's gold &amp; silver rate headlines aren't in yet — try refreshing in a bit.</div></div>`;
+  const rate = newsData.goldRate;
+  const rateCard = (label, iconClass, cssClass, metal) => {
+    if (!metal) return '';
+    const dirIcon = metal.direction === 'increase' ? 'fa-arrow-up' : 'fa-arrow-down';
+    const dirClass = metal.direction === 'increase' ? 'up' : 'down';
+    return `<div class="np-rate-card ${cssClass}">
+        <div class="np-rate-head"><i class="fa-solid ${iconClass}"></i> ${label} · per tola</div>
+        <div class="np-rate-price">${escapeHtml(metal.pricePerTola)}</div>
+        <div class="np-rate-change ${dirClass}"><i class="fa-solid ${dirIcon}"></i> ${escapeHtml(metal.changeAmount)} (${escapeHtml(metal.changePercent)})</div>
+      </div>`;
+  };
+
+  let gsHtml;
+  if (rate && (rate.gold || rate.silver)) {
+    gsHtml = `<div>
+      <div class="np-rate-strip">
+        ${rateCard('Gold (Hallmark)', 'fa-coins', 'gold', rate.gold)}
+        ${rateCard('Silver', 'fa-circle-dot', 'silver', rate.silver)}
+      </div>
+      <div class="np-rate-foot">
+        <span>${rate.updated ? 'Updated ' + escapeHtml(rate.updated) : 'Live rate'}</span>
+        <a href="${escapeHtml(rate.sourceUrl || 'https://www.hamropatro.com/en/gold')}" target="_blank" rel="noopener noreferrer">Source: Hamro Patro <i class="fa-solid fa-arrow-up-right-from-square"></i></a>
+      </div>
+    </div>`;
+  } else {
+    // Scrape didn't come through this load — fall back to headline
+    // links about gold/silver rates rather than showing nothing.
+    const gsItems = (newsData.categories.goldsilver || []).slice(0, 2);
+    gsHtml = gsItems.length
+      ? `<div class="np-gs-strip">${gsItems.map(item => `
+          <a class="np-gs-card" href="${escapeHtml(item.link || '#')}" target="_blank" rel="noopener noreferrer">
+            <i class="fa-solid fa-coins"></i>
+            <div>
+              <div class="np-gs-card-title">${escapeHtml(item.title)}</div>
+              <div class="np-gs-card-meta">${item.source ? escapeHtml(item.source) + ' · ' : ''}${escapeHtml(timeAgo(item.pubDate)) || 'recent'}</div>
+            </div>
+          </a>`).join('')}</div>`
+      : `<div class="np-gs-strip"><div class="np-gs-empty"><i class="fa-solid fa-coins"></i> Today's gold &amp; silver rate isn't in yet — try refreshing, or see <a href="https://www.hamropatro.com/en/gold" target="_blank" rel="noopener noreferrer">hamropatro.com</a>.</div></div>`;
+  }
 
   const now = new Date();
   const monthKey = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
@@ -262,6 +319,29 @@ function renderNepalWidgets() {
 
   wrap.innerHTML = gsHtml + calHtml;
   wrap.style.display = 'flex';
+}
+
+/* Conflict Watch — one freshest real headline per tracked war/
+   conflict, so it's obvious at a glance whether something is still
+   ongoing, paused, or wrapped up. Only shown on the International
+   tab. The list of which conflicts are tracked is hand-maintained
+   server-side (CONFLICT_WATCH in the worker) — this just renders
+   whatever the worker sends back. */
+function renderConflictWatch() {
+  const wrap = document.getElementById('conflictWatch');
+  if (activeCategory !== 'international') { wrap.style.display = 'none'; wrap.innerHTML = ''; return; }
+
+  const items = newsData.conflicts || [];
+  wrap.innerHTML = `<div class="np-conflict-head"><span class="pulse-dot"></span> Conflict Watch — latest on ongoing wars</div>
+    <div class="np-conflict-list">
+      ${items.length ? items.map(c => `
+        <a class="np-conflict-row" href="${escapeHtml(c.link || '#')}" target="_blank" rel="noopener noreferrer">
+          <div class="np-conflict-label">${escapeHtml(c.label)}</div>
+          <div class="np-conflict-title">${escapeHtml(c.title)}</div>
+          <div class="np-conflict-meta">${c.source ? escapeHtml(c.source) + ' · ' : ''}${escapeHtml(timeAgo(c.pubDate)) || 'recent'}</div>
+        </a>`).join('') : `<div class="np-conflict-empty">Conflict updates aren't in yet — try refreshing in a bit.</div>`}
+    </div>`;
+  wrap.style.display = 'block';
 }
 
 function renderList() {
@@ -323,6 +403,7 @@ async function loadNews(forceRefresh) {
     newsData = data.result || { categories: {}, fetchedAt: new Date().toISOString() };
     renderTabs();
     renderNepalWidgets();
+    renderConflictWatch();
     renderList();
     renderUpdatedLabel();
     if (forceRefresh) toast('Headlines refreshed.', 'success');

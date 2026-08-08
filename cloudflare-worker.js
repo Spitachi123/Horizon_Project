@@ -491,8 +491,13 @@ function json(obj, status) {
                            search
      - Sports:              Google News' Nepal-sports search + BBC Sport
      - Other:              Google News' Technology topic feed + BBC Tech
-     - Gold/Silver:        a dedicated Nepal gold & silver rate search,
-                           surfaced as a strip on the Nepal tab
+     - Gold/Silver:        a live numeric rate scraped from Hamro
+                           Patro's gold page (see fetchGoldSilverRate)
+                           plus a headline search, surfaced on the
+                           Nepal tab
+     - Conflict Watch:     one freshest headline per tracked war/
+                           conflict (see CONFLICT_WATCH), surfaced on
+                           the International tab
      - Trending & More:    hiking/trekking/travel reads for Nepal
    Results are cached at Cloudflare's edge for NEWS_CACHE_SECONDS so
    repeated dashboard loads don't re-fetch every feed every time.
@@ -528,6 +533,7 @@ const NEWS_FEEDS = {
     'https://thehimalayantimes.com/feed/',
     'https://english.onlinekhabar.com/feed/',
     'https://www.nepalitimes.com/feed/',
+    'https://www.ronbpost.com/feed/', // Nepali-language outlet (Routine of Nepal Banda) — headlines come through in Devanagari, which is fine, this is the Nepal tab
     'https://news.google.com/rss/search?q=Nepal&hl=en-US&gl=US&ceid=US:en',
     'https://news.google.com/rss/search?q=Nepal%20politics%20government&hl=en-US&gl=US&ceid=US:en'
   ],
@@ -583,6 +589,102 @@ const TRENDING_FEEDS = {
 
 const ALL_NEWS_FEEDS = Object.assign({}, NEWS_FEEDS, TRENDING_FEEDS, GOLDSILVER_FEEDS);
 const NEWS_CACHE_SECONDS = 600; // 10 minutes — keeps loads snappy without hammering the feeds constantly
+
+/* ------------------------------------------------------------
+   CONFLICT WATCH — a small "is this war still going on" panel
+   shown on the International tab. For each tracked conflict, we
+   pull the single freshest real headline (so the person can see
+   at a glance whether it's still active, paused, or resolved) and
+   link straight to the article. This list of tracked conflicts is
+   hand-maintained, not detected automatically — wars start and end,
+   so it needs an occasional look to add/remove entries as the
+   world changes. Nothing here is written by AI; every headline,
+   source, and link is exactly what Google News returned.
+   ------------------------------------------------------------ */
+const CONFLICT_WATCH = [
+  { id: 'ukraine', label: 'Russia–Ukraine War', query: 'Ukraine Russia war' },
+  { id: 'gaza', label: 'Israel–Gaza Conflict', query: 'Israel Gaza Hamas conflict' },
+  { id: 'sudan', label: 'Sudan Civil War', query: 'Sudan war RSF civil war' },
+  { id: 'myanmar', label: 'Myanmar Civil War', query: 'Myanmar civil war junta' }
+];
+
+async function fetchConflictWatch() {
+  const results = await Promise.all(CONFLICT_WATCH.map(async (c) => {
+    try {
+      const url = 'https://news.google.com/rss/search?q=' + encodeURIComponent(c.query) + '&hl=en-US&gl=US&ceid=US:en';
+      const resp = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; DiveEduNewsBot/1.0; +https://divedu.app)' } });
+      if (!resp.ok) return null;
+      const xml = await resp.text();
+      const items = parseRssItems(xml);
+      items.sort((a, b) => (b.pubDateMs || 0) - (a.pubDateMs || 0));
+      const top = items[0];
+      if (!top) return null;
+      return { id: c.id, label: c.label, title: top.title, link: top.link, source: top.source, pubDate: top.pubDate };
+    } catch (e) {
+      console.error('Conflict watch feed error (' + c.id + '):', e && e.message);
+      return null;
+    }
+  }));
+  return results.filter(Boolean);
+}
+
+/* ------------------------------------------------------------
+   GOLD/SILVER RATE SCRAPE — pulls the actual current Nepal gold &
+   silver price (per tola) straight from Hamro Patro's rate page,
+   the way the user requested, rather than just linking to a news
+   article about the price. Hamro Patro's page is server-rendered
+   (the numbers are present in the plain HTML response, no JS
+   execution needed), so this strips tags down to plain text and
+   pulls the figures out with a couple of regexes.
+   This is a best-effort scrape of someone else's page markup, so
+   it's wrapped in try/catch and returns null on any mismatch — if
+   Hamro Patro redesigns the page and the regex stops matching, the
+   frontend just falls back to a "check hamropatro.com" link instead
+   of showing a wrong number. Never invents a price. */
+async function fetchGoldSilverRate() {
+  try {
+    const resp = await fetch('https://www.hamropatro.com/en/gold', {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; DiveEduNewsBot/1.0; +https://divedu.app)' }
+    });
+    if (!resp.ok) return null;
+    const html = await resp.text();
+    const text = decodeXmlEntities(
+      html
+        .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+        .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\s+/g, ' ')
+    ).trim();
+
+    const parseMetal = (label) => {
+      const re = new RegExp(label + '[^%]{0,40}?([+-]?\\d+(?:\\.\\d+)?%)[^R]{0,20}?Rs\\s*([\\d,]+)[^\\n]{0,30}?(Increase|Decrease)\\s*Rs\\s*([\\d,]+)', 'i');
+      const m = text.match(re);
+      if (!m) return null;
+      return {
+        pricePerTola: 'Rs ' + m[2],
+        changePercent: m[1],
+        direction: m[3].toLowerCase(),
+        changeAmount: 'Rs ' + m[4]
+      };
+    };
+
+    const gold = parseMetal('Gold\\s*\\(Hallmark\\)');
+    const silver = parseMetal('Silver');
+    const updatedMatch = text.match(/Last updated:\s*([^]*?)(?:\s*-|\s*Gold|\s*$)/i);
+
+    if (!gold && !silver) return null;
+    return {
+      gold,
+      silver,
+      updated: updatedMatch ? updatedMatch[1].trim().slice(0, 40) : null,
+      sourceUrl: 'https://www.hamropatro.com/en/gold'
+    };
+  } catch (e) {
+    console.error('Gold/silver rate scrape failed:', e && e.message);
+    return null;
+  }
+}
+
 const NEWS_ITEMS_PER_CATEGORY = 14;
 const RECENT_WINDOW_MS = 48 * 60 * 60 * 1000; // prefer stories from the last ~2 days
 const MIN_RECENT_ITEMS = 3; // if fewer than this many recent stories exist, widen the window instead of showing an empty tab
@@ -591,43 +693,49 @@ const AI_NEWS_TIMEOUT_MS = 20000;
 
 async function handleNews(body, env) {
   const cache = typeof caches !== 'undefined' && caches.default ? caches.default : null;
-  // Bumped v4 -> v5: the shape of ALL_NEWS_FEEDS/categories changed
-  // (new goldsilver category, fixed Nepal feeds) — a v4 key would
-  // keep serving the old, broken, edge-cached Nepal-News-is-empty
-  // response for up to NEWS_CACHE_SECONDS after deploy.
-  const cacheKey = new Request('https://divedu-news-cache.internal/v5');
+  // Bumped v5 -> v6: added conflicts[] and goldRate to the payload
+  // shape (more Nepal sources, conflict watch, live gold/silver
+  // scrape) — an old cache key would keep serving the previous
+  // response, without these fields, for up to NEWS_CACHE_SECONDS.
+  const cacheKey = new Request('https://divedu-news-cache.internal/v6');
 
   if (cache && !body.forceRefresh) {
     const cached = await cache.match(cacheKey);
     if (cached) return cached;
   }
 
-  // Fetch every feed (news categories + the evergreen trending ones) —
-  // this part never touches Gemini, it's just reading public RSS.
+  // Fetch every feed (news categories + the evergreen trending ones),
+  // the conflict watch, and the gold/silver rate scrape all in
+  // parallel — none of this touches Gemini, it's just reading public
+  // pages/RSS server-side.
   const categoryEntries = Object.entries(ALL_NEWS_FEEDS);
-  const fetched = await Promise.all(categoryEntries.map(async ([key, urls]) => {
-    const items = [];
-    for (const url of urls) {
-      try {
-        const resp = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; DiveEduNewsBot/1.0; +https://divedu.app)' } });
-        if (!resp.ok) continue;
-        const xml = await resp.text();
-        items.push(...parseRssItems(xml));
-      } catch (e) {
-        console.error('News feed error (' + key + '):', url, e && e.message);
-        // Skip a feed that's down rather than failing the whole category.
+  const [fetched, conflicts, goldRate] = await Promise.all([
+    Promise.all(categoryEntries.map(async ([key, urls]) => {
+      const items = [];
+      for (const url of urls) {
+        try {
+          const resp = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; DiveEduNewsBot/1.0; +https://divedu.app)' } });
+          if (!resp.ok) continue;
+          const xml = await resp.text();
+          items.push(...parseRssItems(xml));
+        } catch (e) {
+          console.error('News feed error (' + key + '):', url, e && e.message);
+          // Skip a feed that's down rather than failing the whole category.
+        }
       }
-    }
-    const seen = new Set();
-    const deduped = items.filter(it => {
-      const k = it.title.toLowerCase();
-      if (!k || seen.has(k)) return false;
-      seen.add(k);
-      return true;
-    });
-    deduped.sort((a, b) => (b.pubDateMs || 0) - (a.pubDateMs || 0));
-    return [key, deduped.slice(0, 20)]; // cap per feed-category before any AI pass, keeps the prompt small
-  }));
+      const seen = new Set();
+      const deduped = items.filter(it => {
+        const k = it.title.toLowerCase();
+        if (!k || seen.has(k)) return false;
+        seen.add(k);
+        return true;
+      });
+      deduped.sort((a, b) => (b.pubDateMs || 0) - (a.pubDateMs || 0));
+      return [key, deduped.slice(0, 20)]; // cap per feed-category before any AI pass, keeps the prompt small
+    })),
+    fetchConflictWatch(),
+    fetchGoldSilverRate()
+  ]);
 
   const rawByCategory = fetched.filter(([key]) => key !== 'trending' && key !== 'goldsilver');
   const trendingRaw = fetched.find(([key]) => key === 'trending');
@@ -653,7 +761,7 @@ async function handleNews(body, env) {
   categories.trending = buildRawNewsCategories(trendingRaw ? [trendingRaw] : []).trending || [];
   categories.goldsilver = buildRawNewsCategories(goldsilverRaw ? [goldsilverRaw] : []).goldsilver || [];
 
-  const payload = { ok: true, task: 'news', result: { categories, fetchedAt: new Date().toISOString(), source } };
+  const payload = { ok: true, task: 'news', result: { categories, conflicts: conflicts || [], goldRate: goldRate || null, fetchedAt: new Date().toISOString(), source } };
   const resp = json(payload);
   resp.headers.set('Cache-Control', 'public, max-age=' + NEWS_CACHE_SECONDS);
 
