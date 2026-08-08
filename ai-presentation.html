@@ -132,6 +132,79 @@
 
   .empty-state-pres { text-align:center; padding: 50px 20px; color: var(--text-muted); }
   .empty-state-pres i { font-size: 32px; color: var(--current-accent); opacity:.6; margin-bottom:12px; }
+
+  /* --- Gallery layout (multi-image slides) --- */
+  .pe-gallery-grid { display:grid; grid-template-columns: repeat(2, 1fr); gap: 3%; margin-top: 14px; }
+  .pe-gallery-count-1 { grid-template-columns: 1fr; max-width: 60%; margin-left:auto; margin-right:auto; }
+  .pe-gallery-count-3 { grid-template-columns: repeat(3, 1fr); }
+  .pe-gallery-item { border-radius: 14px; overflow:hidden; background: rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); display:flex; flex-direction:column; }
+  .pe-gallery-item .pe-media-slot { aspect-ratio: 4/3; }
+  .pe-gallery-item .pe-media-img { width:100%; height:100%; object-fit:cover; display:block; }
+  .pe-gallery-item .pe-media-placeholder { min-height: 100%; }
+  .pe-gallery-cap { padding: 8px 10px; font-size: clamp(10px,1.2vw,12.5px); font-weight:700; opacity:.9; }
+
+  /* --- Mode selector: AI Generate vs Manual Build --- */
+  .mode-select { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:20px; }
+  .mode-card { position:relative; border:2px solid var(--panel-border); background:var(--surface-white); border-radius: var(--radius-lg); padding:18px 20px; cursor:pointer; transition: all .15s; }
+  .mode-card:hover { border-color: var(--current-accent); }
+  .mode-card.active { border-color: var(--current-accent); box-shadow: 0 8px 22px var(--current-glow); }
+  .mode-card .mc-icon { width:38px; height:38px; border-radius:11px; background: var(--student-bg); color:var(--current-accent); display:flex; align-items:center; justify-content:center; font-size:16px; margin-bottom:10px; }
+  .mode-card h3 { font-size:14.5px; font-weight:800; margin-bottom:4px; }
+  .mode-card p { font-size:12px; color:var(--text-muted); line-height:1.5; }
+  .mode-card .mc-check { position:absolute; top:16px; right:16px; width:20px; height:20px; border-radius:50%; border:1.5px solid var(--panel-border); display:flex; align-items:center; justify-content:center; font-size:10px; color:transparent; }
+  .mode-card.active .mc-check { background:var(--current-accent); border-color:var(--current-accent); color:#fff; }
+  @media (max-width:600px) { .mode-select { grid-template-columns:1fr; } }
+
+  #aiModePanel, #manualModePanel { display:none; }
+  #aiModePanel.active, #manualModePanel.active { display:block; }
+
+  /* --- Template picker (button + modal grid of theme swatches) --- */
+  .tpl-picker-btn { display:flex; align-items:center; gap:10px; border:1.5px solid var(--panel-border); background:var(--bg-main); border-radius:12px; padding:8px 12px; cursor:pointer; font-size:12.5px; font-weight:700; color:var(--text-main); }
+  .tpl-picker-btn .tpl-swatch { width:26px; height:26px; border-radius:7px; flex-shrink:0; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.15); }
+  .tpl-modal-backdrop { display:none; position:fixed; inset:0; background:rgba(10,12,18,0.6); backdrop-filter: blur(4px); z-index:500; align-items:flex-start; justify-content:center; padding: 6vh 16px 40px; overflow-y:auto; }
+  .tpl-modal-backdrop.show { display:flex; }
+  .tpl-modal { background: var(--surface-white); border-radius: var(--radius-lg); max-width: 780px; width:100%; padding: 24px 26px; box-shadow: var(--shadow-sm); }
+  .tpl-modal-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+  .tpl-modal-head h3 { font-size:16px; font-weight:800; }
+  .tpl-modal-close { border:none; background:var(--bg-main); width:30px; height:30px; border-radius:50%; cursor:pointer; color:var(--text-muted); }
+  .tpl-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
+  .tpl-card { border-radius:14px; overflow:hidden; border:2px solid var(--panel-border); cursor:pointer; transition: all .15s; background:var(--bg-main); }
+  .tpl-card:hover { transform: translateY(-2px); }
+  .tpl-card.selected { border-color: var(--current-accent); box-shadow: 0 6px 18px var(--current-glow); }
+  .tpl-card .tpl-preview { height:78px; position:relative; overflow:hidden; }
+  .tpl-card .tpl-preview .tpl-blob { position:absolute; width:70%; aspect-ratio:1; border-radius:50%; top:-30%; right:-20%; opacity:.35; }
+  .tpl-card .tpl-preview .tpl-bar { position:absolute; left:12px; bottom:12px; width:16px; height:4px; border-radius:2px; }
+  .tpl-card .tpl-name { padding:8px 10px; font-size:11.5px; font-weight:800; }
+
+  /* --- Manual mode: deck settings + slide list editor --- */
+  .manual-deck-row { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
+  .manual-deck-row input[type="text"] { flex:1; min-width:200px; padding:10px 13px; border:1.5px solid var(--panel-border); border-radius:12px; background:var(--bg-main); font-size:13.5px; font-family:inherit; color:var(--text-main); }
+  .add-slide-row { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:18px; }
+  .add-slide-row select { flex:1; min-width:160px; border:1.5px solid var(--panel-border); background:var(--bg-main); color:var(--text-main); font-size:12.5px; font-weight:700; padding:9px 12px; border-radius:10px; font-family:inherit; }
+  .add-slide-row button { white-space:nowrap; }
+
+  .manual-slide-card { border:1.5px solid var(--panel-border); border-radius:14px; padding:16px 18px; margin-bottom:14px; background:var(--bg-main); }
+  .msc-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; gap:10px; }
+  .msc-head .msc-tag { font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:var(--current-accent); background:var(--student-bg); padding:4px 10px; border-radius:20px; }
+  .msc-head .msc-controls { display:flex; gap:6px; }
+  .msc-head .msc-controls button { border:1.5px solid var(--panel-border); background:var(--surface-white); width:28px; height:28px; border-radius:8px; cursor:pointer; color:var(--text-muted); font-size:11px; }
+  .msc-head .msc-controls button:hover { color:var(--current-accent); border-color:var(--current-accent); }
+  .msc-head .msc-controls button.msc-del:hover { color:var(--danger); border-color:var(--danger); }
+  .msc-field { margin-bottom:10px; }
+  .msc-field label { display:block; font-size:11px; font-weight:800; color:var(--text-muted); margin-bottom:5px; text-transform:uppercase; letter-spacing:.04em; }
+  .msc-field input[type="text"], .msc-field textarea { width:100%; padding:9px 11px; border:1.5px solid var(--panel-border); border-radius:10px; background:var(--surface-white); font-size:13px; font-family:inherit; color:var(--text-main); box-sizing:border-box; }
+  .msc-field textarea { min-height:70px; resize:vertical; line-height:1.5; }
+  .msc-2col { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .msc-hint { font-size:11px; color:var(--text-muted); margin-top:4px; }
+  .msc-img-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .msc-img-thumb { width:56px; height:56px; border-radius:10px; object-fit:cover; border:1.5px solid var(--panel-border); }
+  .msc-img-btn { border:1.5px dashed var(--panel-border); background:var(--surface-white); border-radius:10px; padding:8px 14px; font-size:12px; font-weight:700; cursor:pointer; color:var(--text-muted); }
+  .msc-img-btn:hover { border-color:var(--current-accent); color:var(--current-accent); }
+  .msc-gallery-item { display:flex; gap:10px; align-items:center; border:1px dashed var(--panel-border); border-radius:10px; padding:8px; margin-bottom:8px; }
+  .msc-gallery-item input[type="text"] { flex:1; padding:7px 9px; border:1.5px solid var(--panel-border); border-radius:8px; font-size:12px; font-family:inherit; background:var(--surface-white); color:var(--text-main); }
+  .msc-gallery-item .rm { cursor:pointer; color:var(--text-muted); font-size:12px; }
+  .msc-gallery-item .rm:hover { color:var(--danger); }
+  @media (max-width:600px) { .msc-2col { grid-template-columns:1fr; } }
 </style>
 <link rel="stylesheet" href="theme-modes.css">
 </head>
@@ -145,6 +218,22 @@
     </div>
   </div>
 
+  <div class="mode-select">
+    <div class="mode-card active" id="modeCardAi" onclick="setCreatorMode('ai')">
+      <div class="mc-check"><i class="fa-solid fa-check"></i></div>
+      <div class="mc-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+      <h3>AI Generate</h3>
+      <p>Give a topic, notes, or files — the AI researches, structures, and illustrates the whole deck.</p>
+    </div>
+    <div class="mode-card" id="modeCardManual" onclick="setCreatorMode('manual')">
+      <div class="mc-check"><i class="fa-solid fa-check"></i></div>
+      <div class="mc-icon"><i class="fa-solid fa-pen-ruler"></i></div>
+      <h3>Manual Build</h3>
+      <p>Add slides one at a time, pick a template, and drop in your own images — full control, no AI needed.</p>
+    </div>
+  </div>
+
+  <div id="aiModePanel" class="active">
   <div class="pres-panel">
     <div class="src-tabs">
       <button type="button" class="src-tab active" data-src="topic"><i class="fa-solid fa-lightbulb"></i> Topic</button>
@@ -186,15 +275,12 @@
         </select>
       </div>
       <div class="opt-field">
-        <span>Style:</span>
-        <select id="themeSel">
-          <option value="">AI picks</option>
-          <option value="blue">Blue</option>
-          <option value="green">Green</option>
-          <option value="purple">Purple</option>
-          <option value="warm">Warm</option>
-          <option value="dark">Dark</option>
-        </select>
+        <span>Template:</span>
+        <button type="button" class="tpl-picker-btn" id="aiTplPickerBtn" onclick="openTemplateModal('ai')">
+          <span class="tpl-swatch" id="aiTplSwatch" style="background:linear-gradient(135deg,#94a3b8,#64748b);"></span>
+          <span id="aiTplLabel">AI picks</span>
+          <i class="fa-solid fa-chevron-down" style="font-size:9px;"></i>
+        </button>
       </div>
       <label class="opt-field" style="cursor:pointer;">
         <input type="checkbox" id="imagesToggle" checked style="accent-color:var(--current-accent); width:15px; height:15px;">
@@ -209,6 +295,42 @@
     </button>
     <div class="gen-progress" id="genProgress"></div>
   </div>
+  </div>
+
+  <div id="manualModePanel">
+    <div class="pres-panel">
+      <div class="manual-deck-row">
+        <input type="text" id="manualDeckTitle" placeholder="Presentation title">
+        <input type="text" id="manualDeckSubtitle" placeholder="Subtitle (optional)">
+        <button type="button" class="tpl-picker-btn" id="manualTplPickerBtn" onclick="openTemplateModal('manual')">
+          <span class="tpl-swatch" id="manualTplSwatch" style="background:linear-gradient(135deg,#60A5FA,#1E3A8A);"></span>
+          <span id="manualTplLabel">Classic Blue</span>
+          <i class="fa-solid fa-chevron-down" style="font-size:9px;"></i>
+        </button>
+      </div>
+
+      <div class="add-slide-row">
+        <select id="manualLayoutSel">
+          <option value="bullets">Bullet points</option>
+          <option value="title">Title slide</option>
+          <option value="sectionHeader">Section header</option>
+          <option value="twoColumn">Two columns</option>
+          <option value="quote">Quote / stat</option>
+          <option value="gallery">Image gallery</option>
+          <option value="closing">Closing slide</option>
+        </select>
+        <button type="button" class="btn-primary" style="padding:9px 16px; font-size:12.5px;" onclick="addManualSlide()"><i class="fa-solid fa-plus"></i> Add slide</button>
+      </div>
+
+      <div id="manualSlideList"></div>
+
+      <button class="generate-btn" id="manualBuildBtn" onclick="buildManualDeck()">
+        <i class="fa-solid fa-display"></i>
+        <span>Build presentation</span>
+      </button>
+      <div class="src-hint" style="text-align:center; margin-top:8px;">You can add AI illustrations to any slide afterwards from the deck toolbar below.</div>
+    </div>
+  </div>
 
   <div class="pres-panel" id="deckPanel">
     <div class="deck-toolbar">
@@ -218,11 +340,23 @@
       </div>
       <div class="deck-actions">
         <button class="btn-secondary" style="padding:9px 16px; font-size:12.5px;" id="regenerateBtn"><i class="fa-solid fa-rotate-left"></i> Regenerate</button>
+        <button class="btn-secondary" style="padding:9px 16px; font-size:12.5px;" id="addImagesBtn"><i class="fa-solid fa-wand-magic-sparkles"></i> AI-illustrate deck</button>
         <button class="btn-primary" style="padding:9px 18px; font-size:12.5px;" id="downloadPptxBtn"><i class="fa-solid fa-file-powerpoint"></i> Download .pptx</button>
       </div>
     </div>
     <div class="img-gen-status" id="imgGenStatus"><i class="fa-solid fa-spinner"></i> <span id="imgGenStatusText">Generating illustrations…</span></div>
     <div id="deckViewer"></div>
+  </div>
+
+  <!-- Template gallery modal — shared by both AI mode (as an override) and Manual mode -->
+  <div class="tpl-modal-backdrop" id="tplModalBackdrop" onclick="if(event.target===this) closeTemplateModal();">
+    <div class="tpl-modal">
+      <div class="tpl-modal-head">
+        <h3><i class="fa-solid fa-palette" style="color:var(--current-accent);"></i> Choose a template</h3>
+        <button class="tpl-modal-close" onclick="closeTemplateModal()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="tpl-grid" id="tplGrid"></div>
+    </div>
   </div>
 
   <div class="pres-panel empty-state-pres" id="emptyStatePres">
@@ -242,6 +376,11 @@
 let stagedFiles = [];   // raw File objects, staged for the next generation
 let currentDeck = null; // last generated deck JSON, kept for regenerate/edit/export
 let lastRequest = null; // { topic, notes, files, slideCount } used by "Regenerate"
+let creatorMode = 'ai'; // 'ai' | 'manual'
+let aiChosenTheme = '';          // '' = let the AI pick
+let manualChosenTheme = 'blue';  // manual mode always has a concrete theme
+let tplModalTarget = 'ai';       // which picker opened the modal, 'ai' | 'manual'
+let manualSlides = [PresentationEngine.createEmptySlide('title'), PresentationEngine.createEmptySlide('bullets'), PresentationEngine.createEmptySlide('closing')];
 
 const generateBtn = document.getElementById('generateBtn');
 const generateBtnLabel = document.getElementById('generateBtnLabel');
@@ -257,6 +396,189 @@ function toast(msg, type) {
   t.textContent = msg;
   t.className = 'd-toast show' + (type ? ' ' + type : '');
   setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+/* ---------------- mode switch: AI Generate vs Manual Build ---------------- */
+function setCreatorMode(mode) {
+  creatorMode = mode;
+  document.getElementById('modeCardAi').classList.toggle('active', mode === 'ai');
+  document.getElementById('modeCardManual').classList.toggle('active', mode === 'manual');
+  document.getElementById('aiModePanel').classList.toggle('active', mode === 'ai');
+  document.getElementById('manualModePanel').classList.toggle('active', mode === 'manual');
+  if (mode === 'manual' && !document.getElementById('manualSlideList').childElementCount) renderManualSlideList();
+}
+
+/* ---------------- template gallery modal (shared by AI + Manual panels) ---------------- */
+function tplGradientCss(t) { return `linear-gradient(135deg, #${t.accent}, #${t.bg})`; }
+function renderTemplateGrid(selectedKey) {
+  const grid = document.getElementById('tplGrid');
+  grid.innerHTML = PresentationEngine.THEME_LIST.map(t => `
+    <div class="tpl-card ${t.key === selectedKey ? 'selected' : ''}" data-tpl="${t.key}">
+      <div class="tpl-preview" style="background: radial-gradient(120% 140% at 15% 15%, #${t.bg2} 0%, #${t.bg} 62%);">
+        <div class="tpl-blob" style="background: radial-gradient(circle, #${t.accent} 0%, transparent 70%);"></div>
+        <div class="tpl-bar" style="background:#${t.accent};"></div>
+      </div>
+      <div class="tpl-name">${t.name}</div>
+    </div>`).join('');
+  grid.querySelectorAll('[data-tpl]').forEach(card => {
+    card.addEventListener('click', () => selectTemplate(card.dataset.tpl));
+  });
+}
+function openTemplateModal(target) {
+  tplModalTarget = target;
+  const current = target === 'ai' ? aiChosenTheme : manualChosenTheme;
+  renderTemplateGrid(current);
+  document.getElementById('tplModalBackdrop').classList.add('show');
+}
+function closeTemplateModal() { document.getElementById('tplModalBackdrop').classList.remove('show'); }
+function applyTplButton(prefix, key) {
+  const swatch = document.getElementById(prefix + 'TplSwatch');
+  const label = document.getElementById(prefix + 'TplLabel');
+  if (!key) { swatch.style.background = 'linear-gradient(135deg,#94a3b8,#64748b)'; label.textContent = 'AI picks'; return; }
+  const t = PresentationEngine.THEMES[key];
+  swatch.style.background = tplGradientCss(Object.assign({ key }, t));
+  label.textContent = t.name;
+}
+function selectTemplate(key) {
+  if (tplModalTarget === 'ai') {
+    aiChosenTheme = key;
+    applyTplButton('ai', key);
+  } else {
+    manualChosenTheme = key;
+    applyTplButton('manual', key);
+    if (currentDeck && creatorMode === 'manual') { currentDeck.theme = key; PresentationEngine.renderDeck(currentDeck, deckViewer); }
+  }
+  closeTemplateModal();
+}
+applyTplButton('manual', manualChosenTheme); // initial swatch on load
+
+/* ---------------- Manual Build: add/edit/reorder slides by hand ---------------- */
+const manualSlideList = document.getElementById('manualSlideList');
+
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result));
+    r.onerror = () => reject(new Error('Could not read image.'));
+    r.readAsDataURL(file);
+  });
+}
+
+function addManualSlide() {
+  const layout = document.getElementById('manualLayoutSel').value;
+  manualSlides.push(PresentationEngine.createEmptySlide(layout));
+  renderManualSlideList();
+  manualSlideList.lastElementChild && manualSlideList.lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+function removeManualSlide(i) { manualSlides.splice(i, 1); renderManualSlideList(); }
+function moveManualSlide(i, dir) {
+  const j = i + dir;
+  if (j < 0 || j >= manualSlides.length) return;
+  [manualSlides[i], manualSlides[j]] = [manualSlides[j], manualSlides[i]];
+  renderManualSlideList();
+}
+function bulletsToText(arr) { return (Array.isArray(arr) ? arr : []).join('\n'); }
+function textToBullets(str) { return str.split('\n').map(s => s.trim()).filter(Boolean); }
+
+function updateManualField(i, field, value) { manualSlides[i][field] = value; }
+function updateManualBullets(i, field, value) { manualSlides[i][field] = textToBullets(value); }
+
+async function setManualSlideImage(i, file) {
+  if (!file) return;
+  const dataUrl = await fileToDataUrl(file);
+  const comma = dataUrl.indexOf(',');
+  manualSlides[i].imageData = dataUrl.slice(comma + 1);
+  manualSlides[i].imageMime = file.type || 'image/png';
+  delete manualSlides[i].imagePrompt;
+  renderManualSlideList();
+}
+function addGalleryImagePlaceholder(i) {
+  if (!Array.isArray(manualSlides[i].images)) manualSlides[i].images = [];
+  if (manualSlides[i].images.length >= 6) { toast('Up to 6 images per gallery slide.', 'error'); return; }
+  manualSlides[i].images.push({ caption: '' });
+  renderManualSlideList();
+}
+function removeGalleryImage(i, gi) { manualSlides[i].images.splice(gi, 1); renderManualSlideList(); }
+function updateGalleryCaption(i, gi, value) { manualSlides[i].images[gi].caption = value; }
+async function setGalleryImageFile(i, gi, file) {
+  if (!file) return;
+  const dataUrl = await fileToDataUrl(file);
+  const comma = dataUrl.indexOf(',');
+  manualSlides[i].images[gi].imageData = dataUrl.slice(comma + 1);
+  manualSlides[i].images[gi].imageMime = file.type || 'image/png';
+  renderManualSlideList();
+}
+
+function manualSlideCardHtml(slide, i) {
+  const layout = slide.layout || 'bullets';
+  const tag = PresentationEngine.LAYOUT_LABELS[layout] || layout;
+  const controls = `
+    <div class="msc-controls">
+      <button type="button" onclick="moveManualSlide(${i},-1)" title="Move up"><i class="fa-solid fa-arrow-up"></i></button>
+      <button type="button" onclick="moveManualSlide(${i},1)" title="Move down"><i class="fa-solid fa-arrow-down"></i></button>
+      <button type="button" class="msc-del" onclick="removeManualSlide(${i})" title="Delete slide"><i class="fa-solid fa-trash"></i></button>
+    </div>`;
+  const head = `<div class="msc-head"><span class="msc-tag">${i + 1}. ${tag}</span>${controls}</div>`;
+
+  const titleField = layout !== 'quote' ? `
+    <div class="msc-field"><label>Title</label><input type="text" value="${(slide.title || '').replace(/"/g, '&quot;')}" oninput="updateManualField(${i},'title',this.value)"></div>` : '';
+  const subtitleField = (layout === 'title' || layout === 'sectionHeader' || layout === 'bullets' || layout === 'imageFocus' || layout === 'closing' || layout === 'gallery') ? `
+    <div class="msc-field"><label>Subtitle (optional)</label><input type="text" value="${(slide.subtitle || '').replace(/"/g, '&quot;')}" oninput="updateManualField(${i},'subtitle',this.value)"></div>` : '';
+
+  let body = '';
+  if (layout === 'bullets' || layout === 'imageFocus' || layout === 'closing') {
+    body = `<div class="msc-field"><label>Bullet points (one per line)</label><textarea oninput="updateManualBullets(${i},'bullets',this.value)">${bulletsToText(slide.bullets)}</textarea></div>
+      <div class="msc-field"><label>Image (optional)</label>
+        <div class="msc-img-row">
+          ${slide.imageData ? `<img class="msc-img-thumb" src="data:${slide.imageMime || 'image/png'};base64,${slide.imageData}">` : ''}
+          <label class="msc-img-btn"><i class="fa-solid fa-upload"></i> Upload image<input type="file" accept="image/*" class="hidden" onchange="setManualSlideImage(${i}, this.files[0])"></label>
+        </div>
+      </div>`;
+  } else if (layout === 'quote') {
+    body = `<div class="msc-field"><label>Quote</label><textarea oninput="updateManualField(${i},'quote',this.value)">${slide.quote || ''}</textarea></div>
+      <div class="msc-field"><label>Attribution (optional)</label><input type="text" value="${(slide.attribution || '').replace(/"/g, '&quot;')}" oninput="updateManualField(${i},'attribution',this.value)"></div>`;
+  } else if (layout === 'twoColumn') {
+    body = `<div class="msc-2col">
+      <div>
+        <div class="msc-field"><label>Left heading</label><input type="text" value="${(slide.leftTitle || '').replace(/"/g, '&quot;')}" oninput="updateManualField(${i},'leftTitle',this.value)"></div>
+        <div class="msc-field"><label>Left points (one per line)</label><textarea oninput="updateManualBullets(${i},'leftBullets',this.value)">${bulletsToText(slide.leftBullets)}</textarea></div>
+      </div>
+      <div>
+        <div class="msc-field"><label>Right heading</label><input type="text" value="${(slide.rightTitle || '').replace(/"/g, '&quot;')}" oninput="updateManualField(${i},'rightTitle',this.value)"></div>
+        <div class="msc-field"><label>Right points (one per line)</label><textarea oninput="updateManualBullets(${i},'rightBullets',this.value)">${bulletsToText(slide.rightBullets)}</textarea></div>
+      </div>
+    </div>`;
+  } else if (layout === 'gallery') {
+    const imgs = Array.isArray(slide.images) ? slide.images : [];
+    body = `<div class="msc-field"><label>Images (up to 6) — this creates an image-grid section on the slide</label>
+      ${imgs.map((im, gi) => `
+        <div class="msc-gallery-item">
+          ${im.imageData ? `<img class="msc-img-thumb" style="width:44px;height:44px;" src="data:${im.imageMime || 'image/png'};base64,${im.imageData}">` : `<label class="msc-img-btn" style="padding:6px 10px;"><i class="fa-solid fa-upload"></i><input type="file" accept="image/*" class="hidden" onchange="setGalleryImageFile(${i},${gi}, this.files[0])"></label>`}
+          <input type="text" placeholder="Caption" value="${(im.caption || '').replace(/"/g, '&quot;')}" oninput="updateGalleryCaption(${i},${gi},this.value)">
+          <span class="rm" onclick="removeGalleryImage(${i},${gi})"><i class="fa-solid fa-xmark"></i></span>
+        </div>`).join('')}
+      <button type="button" class="msc-img-btn" onclick="addGalleryImagePlaceholder(${i})"><i class="fa-solid fa-plus"></i> Add image to gallery</button>
+    </div>`;
+  }
+
+  return `<div class="manual-slide-card">${head}${titleField}${subtitleField}${body}</div>`;
+}
+
+function renderManualSlideList() {
+  manualSlideList.innerHTML = manualSlides.map((s, i) => manualSlideCardHtml(s, i)).join('');
+}
+renderManualSlideList();
+
+function buildManualDeck() {
+  if (!manualSlides.length) { toast('Add at least one slide first.', 'error'); return; }
+  const title = document.getElementById('manualDeckTitle').value.trim() || 'Untitled presentation';
+  const subtitle = document.getElementById('manualDeckSubtitle').value.trim();
+  const deck = { title, subtitle, theme: manualChosenTheme, slides: JSON.parse(JSON.stringify(manualSlides)) };
+  currentDeck = deck;
+  lastRequest = null; // manual decks have no "regenerate" source
+  document.getElementById('regenerateBtn').style.display = 'none';
+  showDeck(deck);
+  toast('Presentation built!', 'success');
 }
 
 /* ---------------- source tabs (topic / notes / files can all be filled at once) ---------------- */
@@ -313,7 +635,7 @@ async function runGeneration() {
   const topic = document.getElementById('topicInput').value.trim();
   const notes = document.getElementById('notesInput').value.trim();
   const slideCount = parseInt(document.getElementById('slideCountSel').value, 10);
-  const chosenTheme = document.getElementById('themeSel').value;
+  const chosenTheme = aiChosenTheme;
 
   if (!topic && !notes && stagedFiles.length === 0) {
     toast('Add a topic, some notes, or a file first.', 'error');
@@ -335,24 +657,13 @@ async function runGeneration() {
     });
     if (chosenTheme) deck.theme = chosenTheme; // user override wins over the AI's pick
     currentDeck = deck;
+    document.getElementById('regenerateBtn').style.display = '';
     showDeck(deck);
     toast('Presentation ready!', 'success');
 
     const wantsImages = document.getElementById('imagesToggle').checked;
-    const hasImagePrompts = deck.slides.some(s => s.imagePrompt && s.imagePrompt.trim());
-    if (wantsImages && hasImagePrompts) {
-      const total = deck.slides.filter(s => s.imagePrompt && s.imagePrompt.trim()).length;
-      let done = 0;
-      imgGenStatus.classList.add('show');
-      imgGenStatusText.textContent = `Generating illustrations… (0/${total})`;
-      PresentationEngine.generateImages(deck, {
-        concurrency: 2,
-        onSlideDone: (index, slide) => {
-          done++;
-          imgGenStatusText.textContent = `Generating illustrations… (${done}/${total})`;
-          if (currentDeck === deck) PresentationEngine.applySlideImage(deckViewer, index, slide);
-        }
-      }).finally(() => { imgGenStatus.classList.remove('show'); });
+    if (wantsImages && PresentationEngine.countImageJobs(deck) > 0) {
+      runImageGeneration(deck);
     }
   } catch (err) {
     console.error(err);
@@ -363,6 +674,52 @@ async function runGeneration() {
     generateBtnLabel.textContent = 'Generate presentation';
     genProgress.classList.remove('show');
   }
+}
+
+/** Runs illustration generation for every eligible slide/gallery-tile
+ *  in `deck` (used right after AI generation, and again from the
+ *  "AI-illustrate deck" button for decks — AI or manual — that don't
+ *  have images yet). Progress + in-place patching works the same
+ *  way in both cases. */
+function runImageGeneration(deck) {
+  const total = PresentationEngine.countImageJobs(deck);
+  if (!total) { toast('Nothing to illustrate — add some titles or bullets first.', 'error'); return; }
+  let done = 0;
+  imgGenStatus.classList.add('show');
+  imgGenStatusText.textContent = `Generating illustrations… (0/${total})`;
+  return PresentationEngine.generateImages(deck, {
+    concurrency: 2,
+    onSlideDone: (index, slide) => {
+      done++;
+      imgGenStatusText.textContent = `Generating illustrations… (${done}/${total})`;
+      if (currentDeck === deck) PresentationEngine.applySlideImage(deckViewer, index, slide);
+    },
+    onGalleryImageDone: (index, galleryIndex, slide) => {
+      done++;
+      imgGenStatusText.textContent = `Generating illustrations… (${done}/${total})`;
+      if (currentDeck === deck) PresentationEngine.applyGalleryImage(deckViewer, index, galleryIndex, slide);
+    }
+  }).finally(() => { imgGenStatus.classList.remove('show'); });
+}
+
+/** For manual decks (or AI decks where the person skipped images),
+ *  synthesizes a reasonable imagePrompt from each slide's own text
+ *  so "AI-illustrate deck" has something to work with, without
+ *  overwriting any prompt/image that's already there. */
+function ensureImagePrompts(deck) {
+  deck.slides.forEach(s => {
+    const layout = s.layout || 'bullets';
+    if (layout === 'gallery') {
+      (s.images || []).forEach(im => {
+        if (!im.imageData && !im.imagePrompt) im.imagePrompt = (im.caption || s.title || 'illustration').slice(0, 120);
+      });
+      return;
+    }
+    if (layout === 'quote' || layout === 'twoColumn') return;
+    if (s.imageData || (s.imagePrompt && s.imagePrompt.trim())) return;
+    const base = [s.title, s.subtitle].filter(Boolean).join(' — ');
+    if (base) s.imagePrompt = base.slice(0, 150);
+  });
 }
 
 function showDeck(deck) {
@@ -380,6 +737,13 @@ document.getElementById('regenerateBtn').addEventListener('click', async () => {
   if (!lastRequest) { runGeneration(); return; }
   generateBtn.disabled = true;
   await runGeneration();
+});
+
+document.getElementById('addImagesBtn').addEventListener('click', async () => {
+  if (!currentDeck) return;
+  ensureImagePrompts(currentDeck);
+  await runImageGeneration(currentDeck);
+  toast('Illustrations added!', 'success');
 });
 
 document.getElementById('downloadPptxBtn').addEventListener('click', async () => {

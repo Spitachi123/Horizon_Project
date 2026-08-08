@@ -372,13 +372,14 @@ async function handlePresentation(body, env) {
     `Design a ${slideCount}-slide presentation deck. Respond ONLY with valid JSON (no markdown ` +
     `fences, no commentary) in exactly this shape:\n` +
     `{"title": "deck title", "subtitle": "short subtitle or empty string", ` +
-    `"theme": "one of: blue, green, purple, warm, dark — pick whichever best fits the subject's mood", ` +
-    `"slides": [{"layout": "one of: title, bullets, twoColumn, quote, sectionHeader, imageFocus, closing", ` +
+    `"theme": "one of: blue, green, purple, warm, dark, teal, rose, slate, amber, crimson, mono, sunrise — pick whichever best fits the subject's mood", ` +
+    `"slides": [{"layout": "one of: title, bullets, twoColumn, quote, sectionHeader, imageFocus, gallery, closing", ` +
     `"title": "slide title", "subtitle": "optional short line, or empty string", ` +
     `"bullets": ["point", "..."], "leftTitle": "only for twoColumn layout", "leftBullets": ["...", "only for twoColumn"], ` +
     `"rightTitle": "only for twoColumn layout", "rightBullets": ["...", "only for twoColumn"], ` +
     `"quote": "only for quote layout", "attribution": "only for quote layout", ` +
-    `"imagePrompt": "a short (under 20 words) description of an illustration for this slide, or empty string if this slide doesn't need one", ` +
+    `"images": "ONLY for gallery layout — an array of 2 to 4 objects {\\"caption\\": \\"short label under the image\\", \\"imagePrompt\\": \\"short image description\\"}", ` +
+    `"imagePrompt": "a short (under 20 words) description of an illustration for this slide, or empty string if this slide doesn't need one — never used on gallery slides, they use images[] instead", ` +
     `"notes": "one or two sentences of speaker notes for this slide"}]}\n\n` +
     `Rules: the FIRST slide must use layout "title" (deck title + subtitle, no bullets). The LAST slide ` +
     `must use layout "closing" (a short wrap-up/thank-you, 0-3 bullets max). Use "sectionHeader" sparingly ` +
@@ -386,12 +387,16 @@ async function handlePresentation(body, env) {
     `3-5 short punchy points (max ~12 words each) — this is a presentation slide, not a document; move ` +
     `detail into "notes" instead of cramming it into bullets. Use "twoColumn" for genuine comparisons ` +
     `(before/after, pros/cons, X vs Y) and "quote" only if there's a real quote/statistic worth isolating. ` +
+    `Use "gallery" (with 2-4 "images") when the content is naturally a set of examples/categories/specimens ` +
+    `side by side — e.g. "types of X", "examples across categories", "X vs Y vs Z at a glance" — at most 1-2 ` +
+    `gallery slides per deck, only when it's a genuinely better fit than plain bullets. ` +
     `For "imagePrompt": write one for the title slide, every sectionHeader slide, the closing slide, and ` +
     `roughly half of the bullets/imageFocus slides (whichever would genuinely benefit from a supporting ` +
-    `illustration) — leave it as an empty string for the rest, and ALWAYS leave it empty for "quote" and ` +
-    `"twoColumn" layouts. Each imagePrompt must describe a clean, simple, flat-vector-style educational ` +
-    `illustration or icon-like graphic related to the slide's specific content — concrete and specific ` +
-    `(e.g. "a cross-section of a plant leaf showing chloroplasts"), NOT generic ("an educational picture"). ` +
+    `illustration) — leave it as an empty string for the rest, and ALWAYS leave it empty for "quote", ` +
+    `"twoColumn", and "gallery" layouts (gallery slides use "images" instead). Each imagePrompt/caption-image ` +
+    `must describe a clean, simple, flat-vector-style educational illustration or icon-like graphic related to ` +
+    `the slide's specific content — concrete and specific (e.g. "a cross-section of a plant leaf showing ` +
+    `chloroplasts"), NOT generic ("an educational picture"). ` +
     `Never ask for any text, letters, numbers, or labels to appear inside the image itself. ` +
     `Write in the same language as the source material/topic (reply in Nepali/Devanagari if the input is Nepali).`;
 
@@ -464,7 +469,14 @@ const IMAGE_STYLE_BY_THEME = {
   green: 'a clean flat-vector illustration, fresh green and cream color palette, soft shadows, minimal educational style',
   purple: 'a clean flat-vector illustration, violet and soft pink color palette, soft shadows, minimal educational style',
   warm: 'a clean flat-vector illustration, warm orange and cream color palette, soft shadows, minimal educational style',
-  dark: 'a clean flat-vector illustration on a dark background, cyan accent color, soft glow, minimal educational style'
+  dark: 'a clean flat-vector illustration on a dark background, cyan accent color, soft glow, minimal educational style',
+  teal: 'a clean flat-vector illustration on a dark teal background, aqua/turquoise accent color, soft glow, minimal educational style',
+  rose: 'a clean flat-vector illustration on a deep rose background, pink accent color, soft glow, minimal educational style',
+  slate: 'a clean flat-vector illustration on a dark slate-gray background, cool silver accent color, soft glow, minimal educational style',
+  amber: 'a clean flat-vector illustration on a dark brown background, golden amber accent color, soft glow, minimal educational style',
+  crimson: 'a clean flat-vector illustration on a deep red background, coral-red accent color, soft glow, minimal educational style',
+  mono: 'a clean flat-vector illustration in grayscale/black-and-white, high contrast, minimal editorial style',
+  sunrise: 'a clean flat-vector illustration on a deep plum background, coral-orange accent color, soft glow, minimal educational style'
 };
 
 /** Handles the "presentationImage" task: generates one illustration
