@@ -255,9 +255,10 @@ function selectCategory(key) {
   renderList();
 }
 
-/* Today's actual gold/silver rate (numeric, scraped server-side from
-   Hamro Patro) + "This month in Nepal" calendar — only shown above
-   the headline list while the Nepal News tab is active. */
+/* Today's actual gold/silver rate (numeric, scraped server-side —
+   tries Hamro Patro, then Ashesh's Blog, then Nepali Patro) +
+   "This month in Nepal" calendar — only shown above the headline
+   list while the Nepal News tab is active. */
 function renderNepalWidgets() {
   const wrap = document.getElementById('npWidgets');
   if (activeCategory !== 'nepal') { wrap.style.display = 'none'; wrap.innerHTML = ''; return; }
@@ -265,12 +266,15 @@ function renderNepalWidgets() {
   const rate = newsData.goldRate;
   const rateCard = (label, iconClass, cssClass, metal) => {
     if (!metal) return '';
-    const dirIcon = metal.direction === 'increase' ? 'fa-arrow-up' : 'fa-arrow-down';
-    const dirClass = metal.direction === 'increase' ? 'up' : 'down';
+    // Not every source reports a %-change (e.g. Ashesh's Blog just
+    // gives the flat price) — only render the change row if present.
+    const changeHtml = metal.changeAmount
+      ? `<div class="np-rate-change ${metal.direction === 'increase' ? 'up' : 'down'}"><i class="fa-solid ${metal.direction === 'increase' ? 'fa-arrow-up' : 'fa-arrow-down'}"></i> ${escapeHtml(metal.changeAmount)}${metal.changePercent ? ' (' + escapeHtml(metal.changePercent) + ')' : ''}</div>`
+      : '';
     return `<div class="np-rate-card ${cssClass}">
         <div class="np-rate-head"><i class="fa-solid ${iconClass}"></i> ${label} · per tola</div>
         <div class="np-rate-price">${escapeHtml(metal.pricePerTola)}</div>
-        <div class="np-rate-change ${dirClass}"><i class="fa-solid ${dirIcon}"></i> ${escapeHtml(metal.changeAmount)} (${escapeHtml(metal.changePercent)})</div>
+        ${changeHtml}
       </div>`;
   };
 
@@ -283,7 +287,7 @@ function renderNepalWidgets() {
       </div>
       <div class="np-rate-foot">
         <span>${rate.updated ? 'Updated ' + escapeHtml(rate.updated) : 'Live rate'}</span>
-        <a href="${escapeHtml(rate.sourceUrl || 'https://www.hamropatro.com/en/gold')}" target="_blank" rel="noopener noreferrer">Source: Hamro Patro <i class="fa-solid fa-arrow-up-right-from-square"></i></a>
+        <a href="${escapeHtml(rate.sourceUrl || 'https://www.hamropatro.com/en/gold')}" target="_blank" rel="noopener noreferrer">Source: ${escapeHtml(rate.sourceName || 'Hamro Patro')} <i class="fa-solid fa-arrow-up-right-from-square"></i></a>
       </div>
     </div>`;
   } else {

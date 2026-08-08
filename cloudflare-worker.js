@@ -630,59 +630,116 @@ async function fetchConflictWatch() {
 
 /* ------------------------------------------------------------
    GOLD/SILVER RATE SCRAPE — pulls the actual current Nepal gold &
-   silver price (per tola) straight from Hamro Patro's rate page,
-   the way the user requested, rather than just linking to a news
-   article about the price. Hamro Patro's page is server-rendered
-   (the numbers are present in the plain HTML response, no JS
-   execution needed), so this strips tags down to plain text and
-   pulls the figures out with a couple of regexes.
-   This is a best-effort scrape of someone else's page markup, so
-   it's wrapped in try/catch and returns null on any mismatch — if
-   Hamro Patro redesigns the page and the regex stops matching, the
-   frontend just falls back to a "check hamropatro.com" link instead
-   of showing a wrong number. Never invents a price. */
+   silver price (per tola) straight from a real rate page, rather
+   than just linking to a news article about the price. Tries a
+   short list of sources in order and uses the first one that
+   parses successfully:
+     1. Hamro Patro  — has %-change data, server-rendered.
+     2. Ashesh's Blog — server-rendered, no %-change but a clean
+        daily-updated price, good fallback.
+     3. Nepali Patro — added on request, but its price page loads
+        the numbers via client-side JS rather than plain HTML, so a
+        server-side fetch (no JS execution) usually won't see them.
+        Left in as a best-effort third attempt in case that ever
+        changes — harmless if it keeps returning null.
+   Each of these is scraping someone else's page markup, so every
+   attempt is wrapped in try/catch and returns null on any mismatch
+   rather than guessing — if a site redesigns and a regex stops
+   matching, the chain just moves to the next source, and if all
+   three fail the frontend falls back to a plain link instead of
+   showing a wrong number. Never invents a price. */
 async function fetchGoldSilverRate() {
-  try {
-    const resp = await fetch('https://www.hamropatro.com/en/gold', {
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; DiveEduNewsBot/1.0; +https://divedu.app)' }
-    });
-    if (!resp.ok) return null;
-    const html = await resp.text();
-    const text = decodeXmlEntities(
-      html
-        .replace(/<script[\s\S]*?<\/script>/gi, ' ')
-        .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-        .replace(/<[^>]+>/g, ' ')
-        .replace(/\s+/g, ' ')
-    ).trim();
-
-    const parseMetal = (label) => {
-      const re = new RegExp(label + '[^%]{0,40}?([+-]?\\d+(?:\\.\\d+)?%)[^R]{0,20}?Rs\\s*([\\d,]+)[^\\n]{0,30}?(Increase|Decrease)\\s*Rs\\s*([\\d,]+)', 'i');
-      const m = text.match(re);
-      if (!m) return null;
-      return {
-        pricePerTola: 'Rs ' + m[2],
-        changePercent: m[1],
-        direction: m[3].toLowerCase(),
-        changeAmount: 'Rs ' + m[4]
-      };
-    };
-
-    const gold = parseMetal('Gold\\s*\\(Hallmark\\)');
-    const silver = parseMetal('Silver');
-    const updatedMatch = text.match(/Last updated:\s*([^]*?)(?:\s*-|\s*Gold|\s*$)/i);
-
-    if (!gold && !silver) return null;
-    return {
-      gold,
-      silver,
-      updated: updatedMatch ? updatedMatch[1].trim().slice(0, 40) : null,
-      sourceUrl: 'https://www.hamropatro.com/en/gold'
-    };
-  } catch (e) {
-    console.error('Gold/silver rate scrape failed:', e && e.message);
-    return null;
+  const sources = [fetchGoldRateFromHamroPatro, fetchGoldRateFromAshesh, fetchGoldRateFromNepaliPatro];
+  for (const fn of sources) {
+    try {
+      const result = await fn();
+      if (result) return result;
+    } catch (e) {
+      console.error('Gold/silver rate source failed (' + fn.name + '):', e && e.message);
+    }
   }
+  return null;
+}
+
+function stripToText(html) {
+  return decodeXmlEntities(
+    html
+      .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+      .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+  ).trim();
+}
+
+async function fetchGoldRateFromHamroPatro() {
+  const resp = await fetch('https://www.hamropatro.com/en/gold', {
+    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; DiveEduNewsBot/1.0; +https://divedu.app)' }
+  });
+  if (!resp.ok) return null;
+  const text = stripToText(await resp.text());
+
+  const parseMetal = (label) => {
+    const re = new RegExp(label + '[^%]{0,40}?([+-]?\\d+(?:\\.\\d+)?%)[^R]{0,20}?Rs\\s*([\\d,]+)[^\\n]{0,30}?(Increase|Decrease)\\s*Rs\\s*([\\d,]+)', 'i');
+    const m = text.match(re);
+    if (!m) return null;
+    return { pricePerTola: 'Rs ' + m[2], changePercent: m[1], direction: m[3].toLowerCase(), changeAmount: 'Rs ' + m[4] };
+  };
+
+  const gold = parseMetal('Gold\\s*\\(Hallmark\\)');
+  const silver = parseMetal('Silver');
+  const updatedMatch = text.match(/Last updated:\s*([^]*?)(?:\s*-|\s*Gold|\s*$)/i);
+
+  if (!gold && !silver) return null;
+  return {
+    gold, silver,
+    updated: updatedMatch ? updatedMatch[1].trim().slice(0, 40) : null,
+    sourceName: 'Hamro Patro',
+    sourceUrl: 'https://www.hamropatro.com/en/gold'
+  };
+}
+
+async function fetchGoldRateFromAshesh() {
+  const resp = await fetch('https://www.ashesh.com.np/gold/', {
+    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; DiveEduNewsBot/1.0; +https://divedu.app)' }
+  });
+  if (!resp.ok) return null;
+  const text = stripToText(await resp.text());
+
+  // No %-change figure on this page, just the per-tola price.
+  const goldMatch = text.match(/Gold Hallmark[^R]{0,40}?Rs\s*([\d,.]+)\s*Tola/i);
+  const silverMatch = text.match(/Silver[^R]{0,20}?Rs\s*([\d,.]+)\s*Tola/i);
+  const updatedMatch = text.match(/Gold\s*&\s*silver rate updated on\s*([^.]+)/i);
+
+  if (!goldMatch && !silverMatch) return null;
+  return {
+    gold: goldMatch ? { pricePerTola: 'Rs ' + goldMatch[1], changePercent: null, direction: null, changeAmount: null } : null,
+    silver: silverMatch ? { pricePerTola: 'Rs ' + silverMatch[1], changePercent: null, direction: null, changeAmount: null } : null,
+    updated: updatedMatch ? updatedMatch[1].trim().slice(0, 40) : null,
+    sourceName: "Ashesh's Blog",
+    sourceUrl: 'https://www.ashesh.com.np/gold/'
+  };
+}
+
+async function fetchGoldRateFromNepaliPatro() {
+  const resp = await fetch('https://nepalipatro.com.np/en/gold-price-nepal', {
+    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; DiveEduNewsBot/1.0; +https://divedu.app)' }
+  });
+  if (!resp.ok) return null;
+  const text = stripToText(await resp.text());
+
+  // Best-effort generic pattern — this page is client-rendered, so
+  // this will very likely find nothing and fall through to null,
+  // which is fine: fetchGoldSilverRate() just tries the next source.
+  const goldMatch = text.match(/Gold[^R]{0,60}?Rs\.?\s*([\d,.]+)\s*(?:\/|per)?\s*tola/i);
+  const silverMatch = text.match(/Silver[^R]{0,60}?Rs\.?\s*([\d,.]+)\s*(?:\/|per)?\s*tola/i);
+  if (!goldMatch && !silverMatch) return null;
+  return {
+    gold: goldMatch ? { pricePerTola: 'Rs ' + goldMatch[1], changePercent: null, direction: null, changeAmount: null } : null,
+    silver: silverMatch ? { pricePerTola: 'Rs ' + silverMatch[1], changePercent: null, direction: null, changeAmount: null } : null,
+    updated: null,
+    sourceName: 'Nepali Patro',
+    sourceUrl: 'https://nepalipatro.com.np/en/gold-price-nepal'
+  };
 }
 
 const NEWS_ITEMS_PER_CATEGORY = 14;
@@ -693,11 +750,11 @@ const AI_NEWS_TIMEOUT_MS = 20000;
 
 async function handleNews(body, env) {
   const cache = typeof caches !== 'undefined' && caches.default ? caches.default : null;
-  // Bumped v5 -> v6: added conflicts[] and goldRate to the payload
-  // shape (more Nepal sources, conflict watch, live gold/silver
-  // scrape) — an old cache key would keep serving the previous
-  // response, without these fields, for up to NEWS_CACHE_SECONDS.
-  const cacheKey = new Request('https://divedu-news-cache.internal/v6');
+  // Bumped v6 -> v7: gold/silver rate now tries three chained
+  // sources (Hamro Patro -> Ashesh -> Nepali Patro) and includes a
+  // sourceName field — a v6 key would keep serving the previous
+  // shape without it.
+  const cacheKey = new Request('https://divedu-news-cache.internal/v7');
 
   if (cache && !body.forceRefresh) {
     const cached = await cache.match(cacheKey);
